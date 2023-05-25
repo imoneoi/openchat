@@ -1,0 +1,11 @@
+beautifulsoup4
+markdownify
+ray
+sentencepiece
+openai
+tenacity
+tiktoken
+tqdm
+plotly
+scikit-learn
+umap
