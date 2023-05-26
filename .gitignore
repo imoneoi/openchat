@@ -1,6 +1,9 @@
 # VSCode
 .vscode/
 
+# Old
+old/
+
 # All datasets
 dataset/
 dataset_processed/

@@ -23,6 +23,7 @@
 </body>
 
 <script type="text/javascript">
+    const BEGIN_OF_SENTENCE = "<s>";
     const END_OF_TURN = "<|end_of_turn|>";
     const ROLE_NAMES = { "human": "Human: ", "gpt": "Assistant: " };
 
@@ -42,6 +43,11 @@
 
             const user_avatar = `<img src="https://avatar.vercel.sh/${convId}.svg?text=${convId}" width="28" height="28" decoding="async" data-nimg="1" class="mr-2 rounded-sm h-[28px]" style="color: transparent;">`;
 
+            // remove BOS token
+            if (convText.startsWith(BEGIN_OF_SENTENCE)) {
+                convText = convText.substring(BEGIN_OF_SENTENCE.length);
+            }
+            // convert conversation
             convText.split(END_OF_TURN).forEach(turn => {
                 let role, content;
 

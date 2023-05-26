@@ -20,6 +20,7 @@ from tqdm import tqdm
 
 # Text preprocessing
 
+TEXT_BOS = "<s>"
 TEXT_PROMPT = "A chat between a curious human and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the human's questions.\n\n"
 TEXT_REPLACE_TABLE = {"<|end_of_turn|>": "\n\n"}
 
@@ -42,7 +43,10 @@ def embedding_with_backoff(**kwargs):
 
 
 def preprocess_text(text: str):
-    # Preprocess text, add prompt and replace
+    # Preprocess text, remove bos, add prompt and replace
+    if text.startswith(TEXT_BOS):
+        text = text[len(TEXT_BOS):]
+
     for src, dst in TEXT_REPLACE_TABLE.items():
         text = text.replace(src, dst)
 
@@ -87,8 +91,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--in-file", type=str, default="ochat_text.json")
-    parser.add_argument("--out-file", type=str, default="ochat_text_embeddings.json")
+    parser.add_argument("--in-file", type=str, default="ochat.train.text.json")
+    parser.add_argument("--out-file", type=str, default="ochat.train.embeddings.json")
     args = parser.parse_args()
 
     main(vars(args))
