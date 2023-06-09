@@ -13,7 +13,6 @@ import random
 
 import numpy as np
 import transformers
-from transformers.trainer_pt_utils import LabelSmoother
 
 
 @dataclass
@@ -30,8 +29,6 @@ class ModelDataConfig:
 
     # Tokenize
     max_tokens: int
-    pad_token: int
-    ignore_id: int
 
 
 CONFIG = ModelDataConfig(
@@ -49,9 +46,7 @@ CONFIG = ModelDataConfig(
     bos_token="<s>",
 
     # Tokenize
-    max_tokens=8192,
-    pad_token="<unk>",
-    ignore_id=LabelSmoother.ignore_index
+    max_tokens=4096
 )
 
 
@@ -80,12 +75,19 @@ def convert_single_conversation(c):
 
     # Messages
     for message in c["items"]:
-        # Message
-        message_text = CONFIG.role_prefix[message["from"]] + message["value"]
+        # Prefix
+        t = _tokenize(CONFIG.role_prefix[message["from"]])
+        tokens.extend(t)
+        masks.extend([False] * len(t))
 
-        t = _tokenize(message_text) + [TOKENIZER.convert_tokens_to_ids(CONFIG.eot_token)]
+        # Message
+        t = _tokenize(message["value"]) + [TOKENIZER.convert_tokens_to_ids(CONFIG.eot_token)]
         tokens.extend(t)
         masks.extend([message["from"] == CONFIG.ai_role] * len(t))
+
+    # Truncate to specified tokens
+    tokens = tokens[:CONFIG.max_tokens]
+    masks  = masks[:CONFIG.max_tokens]
 
     return tokens, masks
 
@@ -94,43 +96,12 @@ def generate_split(conversations: list, split_name: str, out_dir: str):
     # FIXME: Tokenizer have GIL, build faster multiprocessing
     converted = list(map(convert_single_conversation, conversations))
 
-    # Pad and to numpy array
-    pad_id = TOKENIZER.convert_tokens_to_ids(CONFIG.pad_token)
-
-    all_input_ids = []
-    all_labels = []
-    all_attention_masks = []
-    all_plain_texts = []
-    for tokens, masks in converted:
-        # Cut to length
-        tokens = np.array(tokens[:CONFIG.max_tokens], np.int_)
-        masks  = np.array(masks[:CONFIG.max_tokens], np.bool_)
-
-        # Pad
-        input_ids       = np.full(CONFIG.max_tokens, pad_id,           np.int_)
-        labels          = np.full(CONFIG.max_tokens, CONFIG.ignore_id, np.int_)
-        attention_masks = np.full(CONFIG.max_tokens, False,            np.bool_)
-
-        length                   = len(tokens)
-
-        input_ids[:length]       = tokens
-        labels[:length]          = np.where(masks, tokens, CONFIG.ignore_id)
-        attention_masks[:length] = True
-
-        all_input_ids.append(input_ids)
-        all_labels.append(labels)
-        all_attention_masks.append(attention_masks)
-        all_plain_texts.append(tokens)
-
-    # Output training data
-    np.savez(os.path.join(out_dir, f"ochat.{split_name}.npz"),
-             # Arrays
-             input_ids=np.vstack(all_input_ids),
-             labels=np.vstack(all_labels),
-             attention_masks=np.vstack(all_attention_masks))
+    # Output dataset
+    with open(os.path.join(out_dir, f"ochat.{split_name}.json"), "w") as f:
+        json.dump(converted, f)
 
     # Output plain texts
-    all_plain_texts = TOKENIZER.batch_decode(all_plain_texts, spaces_between_special_tokens=False)
+    all_plain_texts = TOKENIZER.batch_decode([tokens for (tokens, masks) in converted], spaces_between_special_tokens=False)
 
     with open(os.path.join(out_dir, f"ochat.{split_name}.text.json"), "w") as f:
         json.dump(all_plain_texts, f, indent="\t")

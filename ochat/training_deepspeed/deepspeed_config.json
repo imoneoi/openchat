@@ -1,0 +1,19 @@
+{
+    "bf16": {
+        "enabled": true
+    },
+
+    "zero_optimization": {
+        "stage": 2
+    },
+
+    "train_batch_size": 128,
+
+    "gradient_clipping": 1.0,
+
+    "gradient_accumulation_steps": 1,
+
+    "steps_per_print": 100,
+
+    "wall_clock_breakdown": false
+}
