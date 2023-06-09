@@ -1,3 +1,4 @@
+# Data pipeline
 beautifulsoup4
 markdownify
 ray
@@ -9,3 +10,7 @@ tqdm
 plotly
 scikit-learn
 umap
+# Training
+transformers
+wandb
+flash-attn
