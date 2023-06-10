@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+import math
 
 import torch
 
@@ -33,10 +34,16 @@ def _rank0_print(*args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    # Distributed
+    parser.add_argument("--local_rank", type=int)
+    parser.add_argument("--num_gpus", type=int)
+
     # Model type and data
     parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--data_path",  type=str, required=True)
+    parser.add_argument("--save_path",  type=str, required=True)
 
+    # Hyperparameters
     parser.add_argument("--epochs",     type=int, default=10)
 
     parser.add_argument("--total_batch_size", type=int,   default=128)
@@ -74,7 +81,7 @@ def batch_to_tensor(batch, dtype=torch.int32):
 
 def create_distributed_dataloader(local_rank, world_size, total_batch_size, data_path, split_name):
     # Load data
-    with open(os.path.join(data_path, f"ochat.{split_name}.npz"), "r") as f:
+    with open(os.path.join(data_path, f"ochat.{split_name}.json"), "r") as f:
         data = json.load(f)
 
     # Get length
@@ -86,7 +93,8 @@ def create_distributed_dataloader(local_rank, world_size, total_batch_size, data
         num_replicas=world_size,
         rank=local_rank,
         lengths=lengths,
-        drop_last=False
+        drop_last=False,
+        seed=0
     )
 
     # Total steps
@@ -100,13 +108,18 @@ def create_distributed_dataloader(local_rank, world_size, total_batch_size, data
 
 
 def create_model(args, train_total_steps):
+    deepspeed.init_distributed()
+
+    # Create model + optimizer + lr scheduler
     model = transformers.AutoModelForCausalLM.from_pretrained(args.model_path)
+    # Cast model to bfloat16
+    model = model.to(torch.bfloat16)
 
     optimizer = deepspeed.ops.adam.FusedAdam(model.parameters(),
                                              lr=args.lr,
                                              weight_decay=args.weight_decay)
     lr_scheduler = get_cosine_schedule_with_warmup(optimizer,
-                                                   num_warmup_steps=round(train_total_steps * args.warmup_ratio),
+                                                   num_warmup_steps=math.ceil(train_total_steps * args.warmup_ratio),
                                                    num_training_steps=train_total_steps)
 
     model_engine, _, _, lr_scheduler = deepspeed.initialize(args=args,
@@ -127,8 +140,8 @@ def train():
 
     # Data
     _rank0_print("Loading data...")
-    train_loader, train_total_steps = create_distributed_dataloader(args.local_rank, args.world_size, args.total_batch_size, args.data_path, "train")
-    eval_loader,  eval_total_steps  = create_distributed_dataloader(args.local_rank, args.world_size, args.total_batch_size, args.data_path, "eval")
+    train_loader, train_total_steps = create_distributed_dataloader(args.local_rank, args.num_gpus, args.total_batch_size, args.data_path, "train")
+    eval_loader,  eval_total_steps  = create_distributed_dataloader(args.local_rank, args.num_gpus, args.total_batch_size, args.data_path, "eval")
 
     # Model
     _rank0_print("Loading model...")
@@ -142,13 +155,13 @@ def train():
         wandb.init(project=os.path.basename(args.model_path), config=args)
 
     # Training Loop
-    model_engine.train()
-
     step = 0
     for epoch in range(args.epochs):
         print(f"Epoch {epoch}")
 
-        # Epoch
+        ############ Train Epoch
+        model_engine.train()
+
         train_loader.sampler.set_epoch(epoch)
         for batch in train_loader:
             # To device
@@ -166,15 +179,44 @@ def train():
             reduce(loss_cpu, dst=0, op=ReduceOp.SUM)
 
             # Log
-            if progress_bar is not None:
+            if LOCAL_RANK == 0:
                 step += 1
                 progress_bar.update()
 
                 wandb.log({
-                    "loss": loss_cpu / args.world_size,
+                    "loss": loss_cpu / args.num_gpus,
                     "lr":   lr_scheduler.get_lr()
                 }, step=step)
 
+        ############ Eval Epoch
+        model_engine.eval()
+
+        eval_total_loss = 0
+        eval_total_steps = 0
+
+        eval_loader.sampler.set_epoch(epoch)
+        with torch.no_grad():
+            for batch in eval_loader:
+                # To device
+                batch = {k: v.cuda() for k, v in batch.items()}
+
+                # Eval
+                loss = model_engine(**batch,
+                                    use_cache=False, output_attentions=False, output_hidden_states=False).loss
+                
+                eval_total_loss += loss.item()
+                eval_total_steps += 1
+
+        # Gather eval loss
+        eval_loss = torch.tensor(eval_total_loss / eval_total_steps, device="cpu")
+        reduce(eval_loss, dst=0, op=ReduceOp.SUM)
+
+        if LOCAL_RANK == 0:
+            wandb.log({"eval_loss": eval_loss / args.num_gpus}, step=step)
+
+
+    # Save model
+    model_engine.save_checkpoint(args.save_path)
 
 
 if __name__ == "__main__":
