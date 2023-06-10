@@ -1,6 +1,9 @@
 # VSCode
 .vscode/
 
+# WandB
+wandb/
+
 # Old
 old/
 
