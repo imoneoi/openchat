@@ -4,50 +4,13 @@ Generate training data based on conversations
 Usage: python -m ochat.data.generate_data --in-file sharegpt_gpt4.json --tokenizer-name HF_REPO_NAME --out-dir .
 """
 
-from typing import Optional
-from dataclasses import dataclass
 import argparse
 import json
 import os
 import random
 
-import numpy as np
 import transformers
-
-
-@dataclass
-class ModelDataConfig:
-    name: str
-
-    # Prompt
-    system: str
-
-    role_prefix: dict
-    ai_role: str
-    eot_token: str
-    bos_token: Optional[str]
-
-    # Tokenize
-    max_tokens: int
-
-
-CONFIG = ModelDataConfig(
-    name="OChat",
-
-    # Prompt
-    system="",
-
-    role_prefix={
-        "human": "Human: ",
-        "gpt": "Assistant: "
-    },
-    ai_role="gpt",
-    eot_token="<|end_of_turn|>",
-    bos_token="<s>",
-
-    # Tokenize
-    max_tokens=4096
-)
+from ochat.config.model_config import OCHAT_CONFIG
 
 
 TOKENIZER: transformers.AutoTokenizer = None
@@ -58,38 +21,10 @@ def convert_single_conversation(c):
         """Tokenize text-only, ignoring all special tokens."""
         return TOKENIZER.convert_tokens_to_ids(TOKENIZER._tokenize(text))
 
-    tokens = []
-    masks = []
+    def _tokenize_special(special_name):
+        return TOKENIZER.convert_tokens_to_ids(special_name)
 
-    # begin of sentence (bos)
-    if CONFIG.bos_token:
-        t = TOKENIZER.convert_tokens_to_ids(CONFIG.bos_token)
-        tokens.append(t)
-        masks.append(False)
-
-    # System
-    if CONFIG.system:
-        t = _tokenize(CONFIG.system) + [TOKENIZER.convert_tokens_to_ids(CONFIG.eot_token)]
-        tokens.extend(t)
-        masks.extend([False] * len(t))
-
-    # Messages
-    for message in c["items"]:
-        # Prefix
-        t = _tokenize(CONFIG.role_prefix[message["from"]])
-        tokens.extend(t)
-        masks.extend([False] * len(t))
-
-        # Message
-        t = _tokenize(message["value"]) + [TOKENIZER.convert_tokens_to_ids(CONFIG.eot_token)]
-        tokens.extend(t)
-        masks.extend([message["from"] == CONFIG.ai_role] * len(t))
-
-    # Truncate to specified tokens
-    tokens = tokens[:CONFIG.max_tokens]
-    masks  = masks[:CONFIG.max_tokens]
-
-    return tokens, masks
+    return OCHAT_CONFIG.generate_conversation_template(_tokenize, _tokenize_special, c["items"])
 
 
 def generate_split(conversations: list, split_name: str, out_dir: str):
