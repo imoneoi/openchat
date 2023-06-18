@@ -12,7 +12,7 @@ import tqdm
 import wandb
 
 from torch.utils.data import DataLoader
-from transformers.trainer_pt_utils import DistributedLengthGroupedSampler
+from transformers.trainer_pt_utils import DistributedLengthGroupedSampler, DistributedSampler
 from transformers.optimization import get_cosine_schedule_with_warmup
 
 
@@ -35,6 +35,8 @@ def _rank0_print(*args):
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    # Distributed
+    parser.add_argument("--local_rank", type=int, required=True)
 
     # Model type and data
     parser.add_argument("--model_path", type=str, required=True)
@@ -42,7 +44,9 @@ def parse_args():
     parser.add_argument("--save_path",  type=str, required=True)
 
     # Hyperparameters
-    parser.add_argument("--epochs",           type=int, default=10)
+    parser.add_argument("--length_grouping",  default=False, action="store_true")
+
+    parser.add_argument("--epochs",           type=int,   default=10)
 
     parser.add_argument("--lr",               type=float, default=2e-5)
     parser.add_argument("--warmup_ratio",     type=float, default=0.03)
@@ -86,17 +90,27 @@ def batch_to_tensor(batch, dtype=torch.long):
     return dict(input_ids=input_ids, labels=labels, attention_mask=attention_mask)
 
 
-def create_distributed_dataloader(args, data):
-    # Get length
-    lengths = [len(tokens) for (tokens, masks) in data]
+def create_distributed_dataloader(args, data, length_grouping):
     # Sampler
-    sampler = DistributedLengthGroupedSampler(
-        batch_size=args.train_micro_batch_size_per_gpu,
-        dataset=data,
-        lengths=lengths,
-        drop_last=False,
-        seed=0
-    )
+    if length_grouping:
+        _rank0_print ("Length grouping enabled !")
+
+        # Get length
+        lengths = [len(tokens) for (tokens, masks) in data]
+        # Length grouped sampler
+        sampler = DistributedLengthGroupedSampler(
+            batch_size=args.train_micro_batch_size_per_gpu,
+            dataset=data,
+            lengths=lengths,
+            drop_last=False,
+            seed=0
+        )
+    else:
+        sampler = DistributedSampler(
+            dataset=data,
+            drop_last=False,
+            seed=0
+        )
 
     return DataLoader(data, 
                       batch_size=args.train_micro_batch_size_per_gpu,
@@ -150,10 +164,10 @@ def train():
     global LOCAL_RANK
 
     deepspeed.init_distributed(dist_backend="nccl")
-    LOCAL_RANK = int(os.environ["LOCAL_RANK"])
 
     # Args
     args       = parse_args()
+    LOCAL_RANK = args.local_rank
 
     # Data
     _rank0_print("Loading data...")
@@ -165,8 +179,8 @@ def train():
     model_engine, lr_scheduler = create_model(args, train_dataset_size)
 
     # Data Loader
-    train_loader = create_distributed_dataloader(args, train_dataset)
-    eval_loader  = create_distributed_dataloader(args, eval_dataset)
+    train_loader = create_distributed_dataloader(args, train_dataset, args.length_grouping)
+    eval_loader  = create_distributed_dataloader(args, eval_dataset, args.length_grouping)
 
     # Progress bar and logger
     progress_bar = None
