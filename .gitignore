@@ -12,6 +12,11 @@ dataset/
 dataset_processed/
 tokenizer/
 
+# All evaluation results
+eval_baselines/
+eval_results/
+eval_results_temp/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
