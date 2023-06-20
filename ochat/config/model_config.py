@@ -57,20 +57,42 @@ class ModelConfig:
         return tokens, masks
 
 
-OCHAT_CONFIG = ModelConfig(
-    name="OChat",
+MODEL_CONFIG_MAP = {
+    # OpenChat
+    "openchat": ModelConfig(
+        name="OpenChat",
 
-    # Prompt
-    system=None,
+        # Prompt
+        system=None,
 
-    role_prefix={
-        "human": "Human: ",
-        "gpt": "Assistant: "
-    },
-    ai_role="gpt",
-    eot_token="<|end_of_turn|>",
-    bos_token="<s>",
+        role_prefix={
+            "human": "Human: ",
+            "gpt": "Assistant: "
+        },
+        ai_role="gpt",
+        eot_token="<|end_of_turn|>",
+        bos_token="<s>",
 
-    # Tokenize
-    max_tokens=8192
-)
+        # Tokenize
+        max_tokens=2048
+    ),
+
+    # OpenCoder / OpenCoderPlus
+    "opencoder": ModelConfig(
+        name="OpenCoder",
+
+        # Prompt
+        system=None,
+
+        role_prefix={
+            "human": "User:",
+            "gpt": "Assistant:"
+        },
+        ai_role="gpt",
+        eot_token="<|end_of_turn|>",
+        bos_token=None,
+
+        # Tokenize
+        max_tokens=8192
+    )
+}

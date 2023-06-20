@@ -9,7 +9,7 @@ import transformers
 import numpy as np
 from tqdm import tqdm
 
-from ochat.config.model_config import ModelConfig, OCHAT_CONFIG
+from ochat.config.model_config import ModelConfig, MODEL_CONFIG_MAP
 
 
 @ray.remote(num_gpus=1)
@@ -84,6 +84,7 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
 
     # Input / output
+    parser.add_argument("--model_type",     type=str, required=True)
     parser.add_argument("--tokenizer_path", type=str, required=True)
     parser.add_argument("--models_path",    type=str, required=True)
     parser.add_argument("--data_path",      type=str, required=True)
@@ -113,7 +114,7 @@ def main():
 
                     tokenizer_path=args.tokenizer_path,
                     model_path=f.path,
-                    model_config=OCHAT_CONFIG,
+                    model_config=MODEL_CONFIG_MAP[args.model_type],
                     question_list=question_list,
 
                     temperature=args.temperature,

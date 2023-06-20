@@ -10,10 +10,11 @@ import os
 import random
 
 import transformers
-from ochat.config.model_config import OCHAT_CONFIG
+from ochat.config.model_config import ModelConfig, MODEL_CONFIG_MAP
 
 
 TOKENIZER: transformers.AutoTokenizer = None
+MODEL_CONFIG: ModelConfig = None
 
 
 def convert_single_conversation(c):
@@ -24,7 +25,7 @@ def convert_single_conversation(c):
     def _tokenize_special(special_name):
         return TOKENIZER.convert_tokens_to_ids(special_name)
 
-    return OCHAT_CONFIG.generate_conversation_template(_tokenize, _tokenize_special, c["items"])
+    return MODEL_CONFIG.generate_conversation_template(_tokenize, _tokenize_special, c["items"])
 
 
 def generate_split(conversations: list, split_name: str, out_dir: str):
@@ -42,10 +43,12 @@ def generate_split(conversations: list, split_name: str, out_dir: str):
         json.dump(all_plain_texts, f, indent="\t")
 
 
-def generate_dataset(seed, in_file, tokenizer_name, out_dir, eval_ratio):
-    # Load tokenizer
-    global TOKENIZER
-    TOKENIZER = transformers.AutoTokenizer.from_pretrained(tokenizer_name, use_auth_token=True, use_fast=False)
+def generate_dataset(model_type, in_file, tokenizer_name, out_dir, seed, eval_ratio):
+    # Load model and tokenizer
+    global MODEL_CONFIG, TOKENIZER
+
+    MODEL_CONFIG = MODEL_CONFIG_MAP[model_type]
+    TOKENIZER    = transformers.AutoTokenizer.from_pretrained(tokenizer_name, use_auth_token=True, use_fast=False)
 
     # Load conversations
     with open(in_file, "r") as f:
@@ -65,10 +68,12 @@ def generate_dataset(seed, in_file, tokenizer_name, out_dir, eval_ratio):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--model-type", type=str, required=True)
     parser.add_argument("--in-file", type=str, required=True)
     parser.add_argument("--tokenizer-name", type=str, required=True)
     parser.add_argument("--out-dir", type=str, default=".")
+
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--eval-ratio", type=float, default=0.01)
     args = parser.parse_args()
 
