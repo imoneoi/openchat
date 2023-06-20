@@ -28,18 +28,18 @@ def convert_single_conversation(c):
     return MODEL_CONFIG.generate_conversation_template(_tokenize, _tokenize_special, c["items"])
 
 
-def generate_split(conversations: list, split_name: str, out_dir: str):
+def generate_split(model_type: str, conversations: list, split_name: str, out_dir: str):
     # FIXME: Tokenizer have GIL, build faster multiprocessing
     converted = list(map(convert_single_conversation, conversations))
 
     # Output dataset
-    with open(os.path.join(out_dir, f"ochat.{split_name}.json"), "w") as f:
+    with open(os.path.join(out_dir, f"{model_type}.{split_name}.json"), "w") as f:
         json.dump(converted, f)
 
     # Output plain texts
     all_plain_texts = TOKENIZER.batch_decode([tokens for (tokens, masks) in converted], spaces_between_special_tokens=False)
 
-    with open(os.path.join(out_dir, f"ochat.{split_name}.text.json"), "w") as f:
+    with open(os.path.join(out_dir, f"{model_type}.{split_name}.text.json"), "w") as f:
         json.dump(all_plain_texts, f, indent="\t")
 
 
@@ -62,8 +62,8 @@ def generate_dataset(model_type, in_file, tokenizer_name, out_dir, seed, eval_ra
     train_conversations = conversations[eval_num:]
     eval_conversations  = conversations[:eval_num]
 
-    generate_split(train_conversations, "train", out_dir)
-    generate_split(eval_conversations, "eval", out_dir)
+    generate_split(model_type, train_conversations, "train", out_dir)
+    generate_split(model_type, eval_conversations, "eval", out_dir)
 
 
 if __name__ == "__main__":
