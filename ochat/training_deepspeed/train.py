@@ -138,7 +138,7 @@ def create_model(args, train_dataset_size):
     train_total_steps = _ceildiv(train_dataset_size, train_batch_size) * args.epochs
 
     # Create model + optimizer + lr scheduler
-    model = transformers.AutoModelForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16)
+    model = transformers.AutoModelForCausalLM.from_pretrained(args.model_path, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16)
     # Model to assigned cuda device
     model = model.to(LOCAL_RANK)
     # Enable gradient checkpointing
