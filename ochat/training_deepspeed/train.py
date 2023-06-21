@@ -47,6 +47,7 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, required=True)
 
     # Model type and data
+    parser.add_argument("--model_type", type=str, required=True)
     parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--data_path",  type=str, required=True)
     parser.add_argument("--save_path",  type=str, required=True)
@@ -70,7 +71,7 @@ def parse_args():
 
 def create_dataset(args, split_name):
     # Load data
-    with open(os.path.join(args.data_path, f"ochat.{split_name}.json"), "r") as f:
+    with open(os.path.join(args.data_path, f"{args.model_type}.{split_name}.json"), "r") as f:
         data = json.load(f)
 
     return data, len(data)
