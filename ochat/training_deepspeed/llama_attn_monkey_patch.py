@@ -1,4 +1,5 @@
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
+import warnings
 
 import torch
 from torch import nn
@@ -15,6 +16,7 @@ def forward(
     past_key_value: Optional[Tuple[torch.Tensor]] = None,
     output_attentions: bool = False,
     use_cache: bool = False,
+    attn_train_mode: bool = False,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
     # qkv
     bsz, q_len, _ = hidden_states.size()
@@ -39,7 +41,14 @@ def forward(
     past_key_value = (key_states, value_states) if use_cache else None
 
     # flash attn
-    attn_output = nn.functional.scaled_dot_product_attention(query_states, key_states, value_states, attention_mask)
+    if attn_train_mode:
+        # Train mode, only causal mask
+        assert attention_mask is None
+        attn_output = nn.functional.scaled_dot_product_attention(query_states, key_states, value_states, is_causal=True)
+
+    else:
+        # Other modes, use attention mask
+        attn_output = nn.functional.scaled_dot_product_attention(query_states, key_states, value_states, attention_mask)
 
     # projection
     attn_output = attn_output.transpose(1, 2)
@@ -51,7 +60,22 @@ def forward(
     return attn_output, None, past_key_value
 
 
-def replace_llama_attn():
-    print("LLaMA Attention patch enabled!")
+def replace_llama_attn(attn_train_mode: bool = False):
+    warnings.warn("LLaMA Attention patch enabled!")
 
-    transformers.models.llama.modeling_llama.LlamaAttention.forward = forward
+    if attn_train_mode:
+        warnings.warn("Training mode attention enabled. This have no additional mask instead of causal, and must be used on right-padded autoregressive training only.")
+
+        # Attention mask is not used.
+        transformers.models.llama.modeling_llama.LlamaModel._prepare_decoder_attention_mask = lambda *args, **kwargs: None
+
+        # Enable FlashAttention only
+        torch.backends.cuda.enable_flash_sdp(True)
+        torch.backends.cuda.enable_mem_efficient_sdp(False)
+        torch.backends.cuda.enable_math_sdp(False)
+
+    # Forward wrapper
+    def _attn_forward(*args, **kwargs):
+        return forward(*args, **kwargs, attn_train_mode=attn_train_mode)
+
+    transformers.models.llama.modeling_llama.LlamaAttention.forward = _attn_forward
