@@ -1,3 +1,11 @@
+# Make it more memory efficient by monkey patching the LLaMA model with scaled_dot_product_attention.
+
+# Need to call this before importing transformers.
+from ochat.training_deepspeed.llama_attn_monkey_patch import replace_llama_attn
+
+replace_llama_attn()
+
+
 import json
 import argparse
 import random
