@@ -20,58 +20,71 @@ def attn_forward(
     encoder_attention_mask: Optional[torch.Tensor] = None,
     use_cache: Optional[bool] = False,
     output_attentions: Optional[bool] = False,
-    attn_train_mode: bool = False,
 ) -> Union[
     Tuple[torch.Tensor, Optional[torch.Tensor]],
     Tuple[torch.Tensor, Optional[torch.Tensor], Tuple[torch.Tensor, ...]],
 ]:
     BS, T, _ = hidden_states.shape
 
+    # qkv proj: [BS x T x D]
+    assert self.multi_query
+    query, key_value = self.c_attn(hidden_states).split((self.embed_dim, 2 * self.head_dim), dim=-1)
+
+    # Cache
+    if layer_past is not None:
+        # reuse k, v, self_attention
+        key_value   = torch.cat([layer_past, key_value], dim=1)
+
+    past_key_value = key_value if use_cache else None
+
+    kv_seq_len = key_value.shape[1]
+
     # unpad
     if attention_mask is not None:
-        unpadded_hidden_state, indices, cu_seqlens, max_seqlen = unpad_input(hidden_states, attention_mask)
+        # q
+        unpadded_q, indices_q, cu_seqlens_q,  max_seqlen_q  = unpad_input(query, attention_mask[..., -T:])
+        # kv
+        unpadded_kv, _,        cu_seqlens_kv, max_seqlen_kv = unpad_input(key_value, attention_mask)
     else:
-        unpadded_hidden_state = hidden_states.view(-1, self.embed_dim)
+        # q
+        unpadded_q   = query.view(-1, self.hidden_size)
 
-        max_seqlen  = T
-        cu_seqlens           = torch.arange(0, (BS + 1) * T, step=T, dtype=torch.int32, device=hidden_states.device)
+        max_seqlen_q = T
+        cu_seqlens_q = torch.arange(0, (BS + 1) * T, step=T, dtype=torch.int32, device=hidden_states.device)
+        # kv
+        unpadded_kv   = key_value.view(-1, 2 * self.head_dim)
+
+        max_seqlen_kv = kv_seq_len
+        cu_seqlens_kv = torch.arange(0, (BS + 1) * kv_seq_len, step=kv_seq_len, dtype=torch.int32, device=hidden_states.device)
 
     # MQA
-    # x: [total_nnz x D]
-    # q: [total_nnz x H x Dh]
-    # k: [total_nnz x 1 x Dh]
-    # v: [total_nnz x 1 x Dh]
-    assert self.multi_query
-    query, key_value = self.c_attn(unpadded_hidden_state).split((self.embed_dim, 2 * self.head_dim), dim=-1)
-
-    query     = query.view(-1, self.num_heads, self.head_dim)
-    key_value = key_value.view(-1, 2, 1, self.head_dim).broadcast_to(-1, 2, self.num_heads, self.head_dim)
+    unpadded_q  = unpadded_q.view(-1, self.num_heads, self.head_dim)
+    unpadded_kv = unpadded_kv.view(-1, 2, 1, self.head_dim).broadcast_to(-1, 2, self.num_heads, self.head_dim)
 
     # flash attn
-    assert not use_cache, "use_cache is not supported."
     assert not output_attentions, "output_attentions is not supported."
 
     attn_output = flash_attn_unpadded_kvpacked_func(
-        q=query, kv=key_value,
-        cu_seqlens_q=cu_seqlens, cu_seqlens_k=cu_seqlens,
-        max_seqlen_q=max_seqlen, max_seqlen_k=max_seqlen,
+        q=unpadded_q, kv=unpadded_kv,
+        cu_seqlens_q=cu_seqlens_q, cu_seqlens_k=cu_seqlens_kv,
+        max_seqlen_q=max_seqlen_q, max_seqlen_k=max_seqlen_kv,
         dropout_p=self.attn_dropout.p if self.training else 0.0,
         causal=True
     )
 
-    # output projections and dropout
+    # attn_output: [num_heads, total_nnz, head_dim]
     attn_output = attn_output.view(-1, self.embed_dim)
 
+    if attention_mask is not None:
+        attn_output = pad_input(attn_output, indices_q, BS, T)
+    else:
+        attn_output = attn_output.view(BS, T, self.hidden_size)
+
+    # final projection
     attn_output = self.c_proj(attn_output)
     attn_output = self.resid_dropout(attn_output)
-    
-    # pad
-    if attention_mask is not None:
-        attn_output = pad_input(attn_output, indices, BS, T)
-    else:
-        attn_output = attn_output.view(BS, T, self.embed_dim)
 
-    return attn_output, None, None
+    return attn_output, past_key_value
 
 
 # Patched forward for attention mask

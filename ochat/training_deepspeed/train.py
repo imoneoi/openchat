@@ -1,7 +1,7 @@
-# Make it more memory efficient by monkey patching the LLaMA model with FlashAttn
+# Make it more memory efficient by monkey patching the model with FlashAttn
 # Need to call this before importing transformers.
-from ochat.training_deepspeed.llama_attn_monkey_patch import replace_llama_attn
-from ochat.training_deepspeed.starcoder_attn_monkey_patch import replace_starcoder_attn
+from ochat.patches.llama_attn_monkey_patch import replace_llama_attn
+from ochat.patches.starcoder_attn_monkey_patch import replace_starcoder_attn
 
 replace_llama_attn()
 replace_starcoder_attn()
