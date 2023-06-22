@@ -1,9 +1,10 @@
-# Make it more memory efficient by monkey patching the LLaMA model with scaled_dot_product_attention.
-
+# Make it more memory efficient by monkey patching the LLaMA model with FlashAttn
 # Need to call this before importing transformers.
 from ochat.training_deepspeed.llama_attn_monkey_patch import replace_llama_attn
+from ochat.training_deepspeed.starcoder_attn_monkey_patch import replace_starcoder_attn
 
-replace_llama_attn(attn_train_mode=True)  # Use FlashAttn
+replace_llama_attn()
+replace_starcoder_attn()
 
 
 import argparse
