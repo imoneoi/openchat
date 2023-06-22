@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import argparse
 import time
@@ -35,21 +36,25 @@ async def chat_completion_and_parse_score(**kwargs):
     review = await chat_completion_with_backoff(**kwargs)
     review = review["choices"][0]["message"]["content"].strip("\n")
 
-    # Try to find the score pair in the beginning line
-    try:
-        sp = review.split("\n")[0].replace(",", " ").split(" ")
-        if len(sp) == 2:
-            return float(sp[0]), float(sp[1]), review
-    except:
-        pass
+    # Try to find the score pair in any line (reverse-order)
+    for line in reversed(review.split("\n")):
+        try:
+            sp = line.replace(",", " ").split(" ")
+            if len(sp) == 2:
+                return float(sp[0]), float(sp[1]), review
+        except:
+            pass
 
-    # Try to find the score pair in the last line
-    try:
-        sp = review.split("\n")[-1].replace(",", " ").split(" ")
-        if len(sp) == 2:
-            return float(sp[0]), float(sp[1]), review
-    except:
-        pass
+    # Try to find the score JSON list in any line (reverse-order)
+    for line in reversed(review.split("\n")):
+        matches = re.findall(r"\[[^\[\]]*\]", line)
+        for match in matches:
+            try:
+                sp = json.loads(match)
+                if len(sp) == 2:
+                    return float(sp[0]), float(sp[1]), review
+            except:
+                pass
 
     return 0., 0., review
 
@@ -104,6 +109,7 @@ async def openai_eval(reviewer_list: list, prompt_list: list, answer1_list: list
                 "score": ((a_score1 + b_score1) / 2, (a_score2 + b_score2) / 2), 
                 "raw_a": [(a_score1, a_score2), a_review],
                 "raw_b": [(b_score1, b_score2), b_review],
+                "reviewer": reviewer
             }
 
         except Exception as e:

@@ -19,7 +19,7 @@ def main():
     # Input / output
     parser.add_argument("--data_path",    type=str, required=True)
     parser.add_argument("--output_path",  type=str, required=True)
-    parser.add_argument("--model_types",  type=str, nargs='+', default=["gpt-3.5-turbo-0301", "gpt-4-0314"])
+    parser.add_argument("--model_types",  type=str, nargs='+', default=["gpt-3.5-turbo", "gpt-4"])
 
     # Temperature
     parser.add_argument("--temperature", type=float, default=0.7)
