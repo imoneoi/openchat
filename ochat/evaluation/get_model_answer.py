@@ -39,7 +39,7 @@ def get_model_answers(
 
     # Load tokenizer and model
     tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_path, use_auth_token=True, use_fast=False)
-    model     = transformers.AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.bfloat16).cuda()
+    model     = transformers.AutoModelForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16).cuda()
 
     # Tokenizer functions
     def _tokenize(text):

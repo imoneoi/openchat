@@ -12,5 +12,6 @@ scikit-learn
 umap
 # Training
 transformers
+accelerate
 wandb
 flash-attn

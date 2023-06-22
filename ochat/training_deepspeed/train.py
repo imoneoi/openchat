@@ -1,9 +1,10 @@
-# Make it more memory efficient by monkey patching the LLaMA model with scaled_dot_product_attention.
-
+# Make it more memory efficient by monkey patching the LLaMA model with FlashAttn
 # Need to call this before importing transformers.
 from ochat.training_deepspeed.llama_attn_monkey_patch import replace_llama_attn
+from ochat.training_deepspeed.starcoder_attn_monkey_patch import replace_starcoder_attn
 
 replace_llama_attn()
+replace_starcoder_attn()
 
 
 import argparse
@@ -138,7 +139,7 @@ def create_model(args, train_dataset_size):
     train_total_steps = _ceildiv(train_dataset_size, train_batch_size) * args.epochs
 
     # Create model + optimizer + lr scheduler
-    model = transformers.AutoModelForCausalLM.from_pretrained(args.model_path, torch_dtype=torch.bfloat16)
+    model = transformers.AutoModelForCausalLM.from_pretrained(args.model_path, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16)
     # Model to assigned cuda device
     model = model.to(LOCAL_RANK)
     # Enable gradient checkpointing
