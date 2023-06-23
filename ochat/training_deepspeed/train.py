@@ -264,6 +264,9 @@ def train():
     lean_state_dict = deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict())
     model_engine.module.save_pretrained(args.save_path, state_dict=lean_state_dict)
 
+    # Also save tokenizer from base model
+    transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False).save_pretrained(args.save_path)
+
 
 if __name__ == "__main__":
     train()
