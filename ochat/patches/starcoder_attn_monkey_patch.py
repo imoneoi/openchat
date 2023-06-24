@@ -47,7 +47,7 @@ def attn_forward(
         unpadded_kv, _,        cu_seqlens_kv, max_seqlen_kv = unpad_input(key_value, attention_mask)
     else:
         # q
-        unpadded_q   = query.view(-1, self.hidden_size)
+        unpadded_q   = query.view(-1, self.embed_dim)
 
         max_seqlen_q = T
         cu_seqlens_q = torch.arange(0, (BS + 1) * T, step=T, dtype=torch.int32, device=hidden_states.device)
@@ -64,12 +64,13 @@ def attn_forward(
     # flash attn
     assert not output_attentions, "output_attentions is not supported."
 
+    is_causal = T > 1  # T == 1 (decoding) do not need causal mask.
     attn_output = flash_attn_unpadded_kvpacked_func(
         q=unpadded_q, kv=unpadded_kv,
         cu_seqlens_q=cu_seqlens_q, cu_seqlens_k=cu_seqlens_kv,
         max_seqlen_q=max_seqlen_q, max_seqlen_k=max_seqlen_kv,
         dropout_p=self.attn_dropout.p if self.training else 0.0,
-        causal=True
+        causal=is_causal
     )
 
     # attn_output: [num_heads, total_nnz, head_dim]
@@ -78,7 +79,7 @@ def attn_forward(
     if attention_mask is not None:
         attn_output = pad_input(attn_output, indices_q, BS, T)
     else:
-        attn_output = attn_output.view(BS, T, self.hidden_size)
+        attn_output = attn_output.view(BS, T, self.embed_dim)
 
     # final projection
     attn_output = self.c_proj(attn_output)

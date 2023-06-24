@@ -15,3 +15,8 @@ transformers
 accelerate
 wandb
 flash-attn
+# Serving
+fastapi
+pydantic
+shortuuid
+uvicorn
