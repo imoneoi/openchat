@@ -25,7 +25,16 @@ def convert_single_conversation(c):
     def _tokenize_special(special_name):
         return TOKENIZER.convert_tokens_to_ids(special_name)
 
-    return MODEL_CONFIG.generate_conversation_template(_tokenize, _tokenize_special, c["items"])
+    # Conversation template
+    tokens, masks = MODEL_CONFIG.generate_conversation_template(_tokenize, _tokenize_special, c["items"])
+
+    # Truncate to specified tokens
+    # TODO: Use window approach in the future.
+    if MODEL_CONFIG.max_tokens:
+        tokens = tokens[:MODEL_CONFIG.max_tokens]
+        masks  = masks[:MODEL_CONFIG.max_tokens]
+
+    return tokens, masks
 
 
 def generate_split(model_type: str, conversations: list, split_name: str, out_dir: str):

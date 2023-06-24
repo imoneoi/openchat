@@ -49,11 +49,6 @@ class ModelConfig:
             else:
                 assert idx == len(message_list) - 1, "Empty message for completion must be on the last."
 
-        # Truncate to specified tokens
-        if self.max_tokens:
-            tokens = tokens[:self.max_tokens]
-            masks  = masks[:self.max_tokens]
-
         return tokens, masks
 
 
@@ -63,11 +58,11 @@ MODEL_CONFIG_MAP = {
         name="OpenChat",
 
         # Prompt
-        system=None,
+        system="A chat between a curious user and an AI assistant. The AI assistant works step by step to ensure correct and helpful answers are provided to the user, and responds using Markdown.",
 
         role_prefix={
-            "human": "Human: ",
-            "gpt": "Assistant: "
+            "human": "User:",
+            "gpt": "Assistant:"
         },
         ai_role="gpt",
         eot_token="<|end_of_turn|>",
@@ -77,12 +72,31 @@ MODEL_CONFIG_MAP = {
         max_tokens=2048
     ),
 
+    # OpenChat (extended 8192 context)
+    "openchat_8192": ModelConfig(
+        name="OpenChat-8192",
+
+        # Prompt
+        system="A chat between a curious user and an AI assistant. The AI assistant works step by step to ensure correct and helpful answers are provided to the user, and responds using Markdown.",
+
+        role_prefix={
+            "human": "User:",
+            "gpt": "Assistant:"
+        },
+        ai_role="gpt",
+        eot_token="<|end_of_turn|>",
+        bos_token="<s>",
+
+        # Tokenize
+        max_tokens=8192
+    ),
+
     # OpenCoder / OpenCoderPlus
     "opencoder": ModelConfig(
         name="OpenCoder",
 
         # Prompt
-        system=None,
+        system="A chat between a curious user and an AI assistant. The AI assistant works step by step to ensure correct and helpful answers are provided to the user, and responds using Markdown.",
 
         role_prefix={
             "human": "User:",
