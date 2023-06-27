@@ -58,6 +58,25 @@ class ModelConfig:
 
 
 MODEL_CONFIG_MAP = {
+    # OpenChat 8192
+    "openchat_8192": ModelConfig(
+        name="OpenChat_8192",
+
+        # Prompt
+        system=None,
+
+        role_prefix={
+            "human": "Human: ",
+            "gpt": "Assistant: "
+        },
+        ai_role="gpt",
+        eot_token="<|end_of_turn|>",
+        bos_token="<s>",
+
+        # Tokenize
+        max_tokens=8192
+    ),
+
     # OpenChat
     "openchat": ModelConfig(
         name="OpenChat",
