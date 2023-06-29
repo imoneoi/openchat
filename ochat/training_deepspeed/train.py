@@ -1,5 +1,3 @@
-import ochat.patches.apply  # Apply attention patches
-
 import argparse
 import os
 import json
@@ -16,6 +14,8 @@ import wandb
 from torch.utils.data import DataLoader
 from transformers.trainer_pt_utils import DistributedLengthGroupedSampler, DistributedSampler
 from transformers.optimization import get_cosine_schedule_with_warmup
+
+from ochat.config.model_config import MODEL_CONFIG_MAP
 
 
 LOCAL_RANK      = None
@@ -132,7 +132,7 @@ def create_model(args, train_dataset_size):
     train_total_steps = _ceildiv(train_dataset_size, train_batch_size) * args.epochs
 
     # Create model + optimizer + lr scheduler
-    model = transformers.AutoModelForCausalLM.from_pretrained(args.model_path, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16)
+    model = MODEL_CONFIG_MAP[args.model_type].model_create(args.model_path)
     # Model to assigned cuda device
     model = model.to(LOCAL_RANK)
     # Enable gradient checkpointing

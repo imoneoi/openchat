@@ -1,0 +1,10 @@
+# Training + Serving
+sentencepiece
+transformers
+accelerate
+flash-attn
+# Serving
+fastapi
+pydantic
+shortuuid
+uvicorn

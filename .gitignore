@@ -7,6 +7,9 @@ wandb/
 # Old
 old/
 
+# Logs
+logs/
+
 # All datasets
 dataset/
 dataset_processed/

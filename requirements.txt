@@ -2,7 +2,6 @@
 beautifulsoup4
 markdownify
 ray
-sentencepiece
 openai
 tenacity
 tiktoken
@@ -11,9 +10,11 @@ plotly
 scikit-learn
 umap
 # Training
+wandb
+# Training + Serving
+sentencepiece
 transformers
 accelerate
-wandb
 flash-attn
 # Serving
 fastapi

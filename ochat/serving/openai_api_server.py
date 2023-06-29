@@ -1,8 +1,5 @@
-import ochat.patches.apply  # Apply attention patches
-
 from typing import List, Optional, Dict
 from dataclasses import dataclass
-from functools import partial
 import argparse
 import json
 import logging
@@ -46,8 +43,6 @@ class AppSettings(BaseSettings):
 app_settings = AppSettings()
 app = fastapi.FastAPI()
 
-logger = logging.getLogger(__name__)
-
 model = Model()
 
 
@@ -80,7 +75,7 @@ async def show_available_models():
     ])
 
 
-async def chat_completion_streaming_generator(stream_response_generator):
+async def chat_completion_streaming_generator(stream_response_generator, logging_info):
     """
     Event stream format:
     https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#event_stream_format
@@ -99,6 +94,9 @@ async def chat_completion_streaming_generator(stream_response_generator):
     yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
 
     # Subsequent chunks with delta content
+    logging_text = ""
+    logging_finish_reason = ""
+
     for is_generating, content in stream_response_generator:
         if is_generating:
             choice_data = openai_api_protocol.ChatCompletionResponseStreamChoice(
@@ -106,6 +104,7 @@ async def chat_completion_streaming_generator(stream_response_generator):
                 delta=openai_api_protocol.DeltaMessage(content=content),
                 finish_reason=None,
             )
+            logging_text += content
         else:
             # Finish chunk
             choice_data = openai_api_protocol.ChatCompletionResponseStreamChoice(
@@ -113,12 +112,16 @@ async def chat_completion_streaming_generator(stream_response_generator):
                 delta=openai_api_protocol.DeltaMessage(content=None),
                 finish_reason=content,
             )
+            logging_finish_reason = content
 
         chunk = openai_api_protocol.ChatCompletionStreamResponse(
             id=id, choices=[choice_data], model=model.model_config.name
         )
 
         yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+
+    # logging
+    logging.info(json.dumps({"completion": logging_text, "finish_reason": logging_finish_reason, **logging_info}))
 
     yield "data: [DONE]\n\n"
 
@@ -139,15 +142,16 @@ async def create_chat_completion(request: openai_api_protocol.ChatCompletionRequ
 
     # get params
     generation_params = dict(
-        temperature=request.temperature or model.default_temperature,
-        top_p=request.top_p or model.default_top_p
+        temperature=request.temperature if request.temperature is not None else model.default_temperature,
+        top_p=request.top_p if request.top_p is not None else model.default_top_p
     )
 
     stream_tokens = model.stream_tokens if request.stream else None
 
-    # response
-    print (conversation, generation_params)
+    # logging
+    logging_info = {"conversation": conversation, "params": generation_params}
 
+    # response
     stream_response = generate_stream(
         model=model.model, tokenizer=model.tokenizer, model_config=model.model_config,
         conversation=conversation,
@@ -158,7 +162,7 @@ async def create_chat_completion(request: openai_api_protocol.ChatCompletionRequ
 
     # stream
     if request.stream:
-        return StreamingResponse(chat_completion_streaming_generator(stream_response),
+        return StreamingResponse(chat_completion_streaming_generator(stream_response, logging_info),
                                  media_type="text/event-stream")
     
     # normal
@@ -167,6 +171,9 @@ async def create_chat_completion(request: openai_api_protocol.ChatCompletionRequ
 
     is_generating, finish_reason = next(stream_response)
     assert not is_generating
+
+    # logging
+    logging.info(json.dumps({"completion": text, "finish_reason": finish_reason, **logging_info}))
 
     return openai_api_protocol.ChatCompletionResponse(
         model=model.model_config.name,
@@ -199,18 +206,21 @@ def main():
     parser.add_argument("--allowed-methods", type=json.loads, default=["*"], help="allowed methods")
     parser.add_argument("--allowed-headers", type=json.loads, default=["*"], help="allowed headers")
 
+    # Logging
+    parser.add_argument("--logfile", type=str, default=None, help="Log file")
+
     # Server API keys
     parser.add_argument("--api-keys", type=lambda s: s.split(","), help="Optional list of comma separated API keys",)
     args = parser.parse_args()
 
     # Load model
-    model.model = transformers.AutoModelForCausalLM.from_pretrained(args.model_path, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16).cuda()
-    model.tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False)
+    model.model_config        = MODEL_CONFIG_MAP[args.model_type]
+
+    model.model     = model.model_config.model_create(args.model_path).cuda()
+    model.tokenizer = model.model_config.model_tokenizer_create(args.model_path)
     model.model.eval()
 
     # Config
-    model.model_config        = MODEL_CONFIG_MAP[args.model_type]
-
     model.default_temperature = args.default_temperature
     model.default_top_p       = args.default_top_p
     model.max_generate_tokens = args.max_generate_tokens
@@ -226,6 +236,13 @@ def main():
                             temperature=model.default_temperature, top_p=model.default_top_p):
         print (t, end="")
 
+    # Logging setup
+    if args.logfile is not None:
+        logging.basicConfig(level=logging.INFO, filename=args.logfile, filemode="a")
+    else:
+        # To console
+        logging.basicConfig(level=logging.INFO)
+
     # Load app
     app.add_middleware(
         CORSMiddleware,
@@ -236,7 +253,7 @@ def main():
     )
     app_settings.api_keys = args.api_keys
 
-    logger.info(f"args: {args}")
+    logging.info(f"args: {args}")
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 

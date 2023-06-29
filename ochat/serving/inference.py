@@ -77,7 +77,7 @@ def generate_stream(
     space_token      = tokenizer.tokenize(" ")[0][0]
 
     # Streaming generation
-    max_generated_tokens = min(max_generated_tokens, model_config.max_tokens - len(prompt_tokens) - 1)
+    max_generated_tokens = min(max_generated_tokens, model_config.model_max_context - len(prompt_tokens) - 1)
     generated_tokens     = torch.zeros((1, max_generated_tokens), dtype=torch.long, device=model.device)
     generated_token_idx  = 0
 

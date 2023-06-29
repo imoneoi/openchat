@@ -1,5 +1,3 @@
-import ochat.patches.apply  # Apply attention patches
-
 import json
 import argparse
 import random
@@ -31,8 +29,8 @@ def get_model_answers(
     torch.random.manual_seed(seed)
 
     # Load tokenizer and model
-    tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_path, use_fast=False)
-    model     = transformers.AutoModelForCausalLM.from_pretrained(model_path, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16).cuda()
+    tokenizer = model_config.model_tokenizer_create(tokenizer_path)
+    model     = model_config.model_create(model_path).cuda()
 
     # Generate
     answer_list = []

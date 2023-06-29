@@ -1,0 +1,29 @@
+services:
+  openchat-server:
+    build: ./docker
+    networks:
+     - openchat-server
+
+    restart: unless-stopped
+
+    # gpu access
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    # model type
+    environment:
+      MODEL_TYPE: opencoder # [NOTE] Specify your model type
+    # model path mount
+    volumes:
+      - /home/one/one/trained_models_opencoder/opencoderplus_5ep:/model:ro # [NOTE] Specify your model path
+      - ./ochat:/ochat:ro
+      - ./logs:/logs:rw
+
+networks:
+  openchat-server:
+    name: "openchat-server"
