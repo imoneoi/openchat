@@ -1,5 +1,10 @@
-from typing import Optional
+from typing import Optional, Callable
 from dataclasses import dataclass
+from functools import partial
+
+import torch
+import transformers
+import ochat.models
 
 
 @dataclass
@@ -14,8 +19,10 @@ class ModelConfig:
     eot_token: str
     bos_token: Optional[str] = None
 
-    # Tokenize
-    max_tokens: Optional[int] = None
+    # Model
+    model_max_context: Optional[int] = None
+    model_create: Optional[Callable] = None
+    model_tokenizer_create: Optional[Callable] = None
 
     # Get template
     def generate_conversation_template(self, tokenize_fn, tokenize_special_fn, message_list):
@@ -49,11 +56,6 @@ class ModelConfig:
             else:
                 assert idx == len(message_list) - 1, "Empty message for completion must be on the last."
 
-        # Truncate to specified tokens
-        if self.max_tokens:
-            tokens = tokens[:self.max_tokens]
-            masks  = masks[:self.max_tokens]
-
         return tokens, masks
 
 
@@ -73,8 +75,14 @@ MODEL_CONFIG_MAP = {
         eot_token="<|end_of_turn|>",
         bos_token="<s>",
 
-        # Tokenize
-        max_tokens=8192
+        # Model
+        model_max_context=8192,
+        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                             extend_context_to=8192,
+                             low_cpu_mem_usage=True,
+                             torch_dtype=torch.bfloat16),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False),
     ),
 
     # OpenChat
@@ -93,7 +101,12 @@ MODEL_CONFIG_MAP = {
         bos_token="<s>",
 
         # Tokenize
-        max_tokens=2048
+        model_max_context=2048,
+        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                             low_cpu_mem_usage=True,
+                             torch_dtype=torch.bfloat16),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False),
     ),
 
     # OpenCoder / OpenCoderPlus
@@ -112,6 +125,11 @@ MODEL_CONFIG_MAP = {
         bos_token=None,
 
         # Tokenize
-        max_tokens=8192
+        model_max_context=8192,
+        model_create=partial(ochat.models.GPTBigCodeForCausalLM.from_pretrained,
+                             low_cpu_mem_usage=True,
+                             torch_dtype=torch.bfloat16),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False)
     )
 }
