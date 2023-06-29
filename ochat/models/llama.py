@@ -63,18 +63,22 @@ class LlamaRotaryEmbedding(torch.nn.Module):
     def __init__(self, dim, max_position_embeddings=2048, extend_context_to=None, base=10000, device=None):
         super().__init__()
 
+        # Extension and calculate factor
         if extend_context_to is None:
             extend_context_to = max_position_embeddings
         else:
-            print (f"LLaMA context extended to {extend_context_to}")
+            print (f"LLaMA context extended from {max_position_embeddings} to {extend_context_to}")
 
-        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim * (max_position_embeddings / extend_context_to)))
+        self.extend_factor = max_position_embeddings / extend_context_to
+
+        # RoPE
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
         self.register_buffer("inv_freq", inv_freq)
 
         # Build here to make `torch.jit.trace` work.
         self.max_seq_len_cached = max(max_position_embeddings, extend_context_to)
 
-        t = torch.arange(self.max_seq_len_cached, device=self.inv_freq.device, dtype=self.inv_freq.dtype)
+        t = torch.arange(self.max_seq_len_cached, device=self.inv_freq.device, dtype=self.inv_freq.dtype) * self.extend_factor
         freqs = torch.einsum("i,j->ij", t, self.inv_freq)
 
         # Different from paper, but it uses a different permutation in order to obtain the same calculation
@@ -88,7 +92,7 @@ class LlamaRotaryEmbedding(torch.nn.Module):
         # This `if` block is unlikely to be run after we build sin/cos in `__init__`. Keep the logic here just in case.
         if seq_len > self.max_seq_len_cached:
             self.max_seq_len_cached = seq_len
-            t = torch.arange(self.max_seq_len_cached, device=x.device, dtype=self.inv_freq.dtype)
+            t = torch.arange(self.max_seq_len_cached, device=x.device, dtype=self.inv_freq.dtype) * self.extend_factor
             freqs = torch.einsum("i,j->ij", t, self.inv_freq)
             # Different from paper, but it uses a different permutation in order to obtain the same calculation
             emb = torch.cat((freqs, freqs), dim=-1).to(x.device)
