@@ -66,10 +66,10 @@ class LlamaRotaryEmbedding(torch.nn.Module):
         # Extension and calculate factor
         if extend_context_to is None:
             extend_context_to = max_position_embeddings
-        else:
-            print (f"LLaMA context extended from {max_position_embeddings} to {extend_context_to}")
 
         self.extend_factor = max_position_embeddings / extend_context_to
+
+        print (f"LLaMA context extended from {max_position_embeddings} to {extend_context_to}, factor {self.extend_factor}")
 
         # RoPE
         inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
@@ -538,7 +538,7 @@ class LlamaModel(LlamaPreTrainedModel):
                 def create_custom_forward(module):
                     def custom_forward(*inputs):
                         # None for past_key_value
-                        return module(*inputs, output_attentions, None)
+                        return module(self.rotary_emb, *inputs, output_attentions)
 
                     return custom_forward
 
