@@ -159,7 +159,7 @@ def sample_pipeline(filename):
 
 
 def main(in_dir, out_file):
-    file_list = glob.glob(os.path.join(in_dir, "*.txt"))
+    file_list = glob.glob(os.path.join(in_dir, "*.html"))
 
     # Process samples
     samples = Pool().map(sample_pipeline, file_list)
