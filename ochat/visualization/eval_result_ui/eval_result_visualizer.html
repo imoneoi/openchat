@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Result Visualization</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js/dist/plotly.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
+</head>
+
+<body class="bg-gray-100">
+    <div class="container mx-auto p-8">
+        <div id="drop-area" class="bg-white border-2 border-dashed p-4 text-center">
+            <h2 class="mb-2">Drop JSON Lines files here</h2>
+            <input id="fileElem" type="file" multiple accept=".jsonl" class="hidden">
+            <label class="cursor-pointer underline" for="fileElem">or select files</label>
+        </div>
+        <div id="chart" class="mt-8 overflow-x-auto"></div>
+    </div>
+    <div class="container mx-auto w-full">
+        <table id="data-table" class="table-auto w-full mt-8 hidden border-collapse border border-gray-200">
+            <thead id="table-head" class="bg-blue-500 text-white"></thead>
+            <tbody id="table-body" class="divide-x divide-y divide-gray-200"></tbody>
+        </table>
+    </div>
+    <script>
+        const COLOR_SCALE = [
+            '#1f77b4',  // muted blue
+            '#ff7f0e',  // safety orange
+            '#2ca02c',  // cooked asparagus green
+            '#d62728',  // brick red
+            '#9467bd',  // muted purple
+            '#8c564b',  // chestnut brown
+            '#e377c2',  // raspberry yogurt pink
+            '#7f7f7f',  // middle gray
+            '#bcbd22',  // curry yellow-green
+            '#17becf'   // blue-teal
+        ];
+        // Placeholder for data
+        let MODELS = {};
+
+        document.getElementById('fileElem').addEventListener('change', handleFiles, false);
+
+        function processScore(data) {
+            const score_a = data.score.raw_a[0];
+            const score_b = data.score.raw_b[0];
+
+            const score_a_ok = (score_a[0] != 0) || (score_a[1] != 0);
+            const score_b_ok = (score_b[0] != 0) || (score_b[1] != 0);
+            const num_ok = score_a_ok + score_b_ok;
+
+            if (!num_ok) return [0.0, 0.0];
+
+            return [
+                (score_a[0] + score_b[0]) / num_ok,
+                (score_a[1] + score_b[1]) / num_ok
+            ]
+        }
+
+        function handleFiles() {
+            const totalFiles = this.files.length;
+            let filesLoaded = 0;
+
+            [...this.files].forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const lines = event.target.result.trim('\n').split('\n');
+                    lines.forEach(line => {
+                        const data = JSON.parse(line);
+                        const score = processScore(data);
+                        const modelBaseName = data.answer_model.substring(data.answer_model.lastIndexOf('/') + 1);
+
+                        if (!MODELS[modelBaseName]) MODELS[modelBaseName] = { scores: [], scores_baseline: [], qas: [] };
+                        
+                        MODELS[modelBaseName].scores.push(score[0]);
+                        MODELS[modelBaseName].scores_baseline.push(score[1]);
+                        MODELS[modelBaseName].qas.push({ question: data.text, answer: data.answer });
+                    });
+
+                    filesLoaded++;
+                    if (filesLoaded === totalFiles) {
+                        calculateAverageAndSort();
+                        drawChart();
+                        populateTable();
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        function calculateAverageAndSort() {
+            for (const model in MODELS) {
+                const score = MODELS[model].scores.reduce((a, b) => a + b, 0);
+                const score_baseline = MODELS[model].scores_baseline.reduce((a, b) => a + b, 0);
+
+                MODELS[model].avgScore = score / score_baseline * 100;
+            }
+
+            // sort models
+            const modelsArray = Object.entries(MODELS).sort(([, a], [, b]) => b.avgScore - a.avgScore);
+
+            MODELS = Object.fromEntries(modelsArray);
+        }
+
+        function drawChart() {
+            const data = Object.keys(MODELS).map((key, i) => ({
+                type: 'bar',
+                orientation: 'h',
+
+                y: [key],
+                x: [MODELS[key].avgScore],
+
+                marker: { color: COLOR_SCALE[i % COLOR_SCALE.length] },
+                name: key
+            }));
+            const layout = {
+                showlegend: false,
+                margin: {
+                    l: 120
+                }
+            };
+
+            Plotly.newPlot('chart', data, layout);
+        }
+
+        function populateTable() {
+            const modelNames = Object.keys(MODELS);
+            // Populate table head
+            const tableHead = document.getElementById('table-head');
+            let tableHeadHTML = "";
+
+            modelNames.forEach(name => {
+                tableHeadHTML += `<th>${name}</th>`;
+            });
+            tableHead.innerHTML = tableHeadHTML;
+
+            // Populate table body
+            // Assuming same amount of questions in each model
+            const tableBody = document.getElementById('table-body');
+            const questionsAmount = MODELS[modelNames[0]].qas.length;
+
+            for (let i = 0; i < questionsAmount; i++) {
+                const questionRow = document.createElement('tr');
+                questionRow.innerHTML = `<td class="text-center font-bold prose prose-xl" colspan="${modelNames.length}">${MODELS[modelNames[0]].qas[i].question}</td>`;
+                tableBody.appendChild(questionRow);
+
+                let answerHTML = "";
+                modelNames.forEach(name => {
+                    answerHTML += `<td><article class="prose">${marked.parse(MODELS[name].qas[i].answer)}</article></td>`;
+                });
+
+                const answerRow = document.createElement('tr');
+                answerRow.innerHTML = answerHTML;
+                tableBody.appendChild(answerRow);
+            }
+
+            document.getElementById('data-table').classList.remove('hidden');
+        }
+    </script>
+</body>
+
+</html>
