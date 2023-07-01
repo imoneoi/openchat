@@ -50,9 +50,9 @@ Note that our evaluation schema slightly differs from Vicuna. Following [Wang et
 | gpt4                  | 95.3         | 0.7           |
 | claude                | 88.4         | 1.1           |
 | chatgpt               | 86.1         | 1.2           |
-| openchat-13b          | **80.9**     | 1.4           |
-| openchat8192-13b      | 79.5         | 1.4           |
-| opencoderplus-15b     | 78.7         | 1.4           |
+| **openchat-13b**      | **80.9**     | 1.4           |
+| **openchat8192-13b**  | **79.5**     | 1.4           |
+| **opencoderplus-15b** | **78.7**     | 1.4           |
 | wizardlm-13b          | 75.3         | 1.5           |
 | guanaco-65b           | 71.8         | 1.6           |
 | vicuna-13b            | 70.4         | 1.6           |
@@ -145,7 +145,9 @@ We added an EOT (end-of-turn) token to every base model. For LLaMA models, the e
 
 For LLaMA-based models with 8192 context, the `max_position_embeddings` was set to 8192, and RoPE codes were extrapolated. An attempt to interpolate the RoPE code was made, but it resulted in a significant drop in performance (~101% Vicuna GPT-4 evaluation) without mixing pretraining data.
 
-## Dataset processing
+## Dataset
+
+**🤗 Converted dataset available at [openchat_sharegpt4_dataset](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset)**
 
 The dataset used in the project is a cleaned and filtered version of ShareGPT, retaining only GPT-4 conversations. The original ShareGPT contained approximately 90K conversations, and only 6K cleaned GPT-4 conversations were retained for fine-tuning.
 
@@ -165,11 +167,11 @@ The data pipeline consists of three steps:
 - Filtering: Preserving only conversations marked as `Model: GPT-4`
 - Converting: Converting and tokenizing all conversations for finetuning
 
-The final converted dataset follows the format:
+**The final converted dataset follows the format:**
 
 *MODEL_TYPE.train.json / .eval.json*
 
-```json
+```
 [
     [token_id_list, supervise_mask_list],
     [token_id_list, supervise_mask_list],
