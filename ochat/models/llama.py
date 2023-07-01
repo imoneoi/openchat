@@ -67,7 +67,10 @@ class LlamaRotaryEmbedding(torch.nn.Module):
         if extend_context_to is None:
             extend_context_to = max_position_embeddings
 
-        self.extend_factor = max_position_embeddings / extend_context_to
+        # FIXME: Currently do not interpolate RoPE (performance on Vicuna GPT-4 and MMLU will drop significantly)
+        # Needs mixing with training data.
+        # self.extend_factor = max_position_embeddings / extend_context_to
+        self.extend_factor = 1
 
         print (f"LLaMA context extended from {max_position_embeddings} to {extend_context_to}, factor {self.extend_factor}")
 
