@@ -4,7 +4,6 @@ import random
 import os
 
 import torch
-import transformers
 import numpy as np
 from tqdm import tqdm
 
@@ -15,7 +14,6 @@ from ochat.serving.inference import generate_stream
 def get_model_answers(
     seed: int,
     # Input
-    tokenizer_path: str,
     model_path: str,
     model_config: ModelConfig,
     question_list: list,
@@ -29,7 +27,7 @@ def get_model_answers(
     torch.random.manual_seed(seed)
 
     # Load tokenizer and model
-    tokenizer = model_config.model_tokenizer_create(tokenizer_path)
+    tokenizer = model_config.model_tokenizer_create(model_path)
     model     = model_config.model_create(model_path).cuda()
 
     # Generate
@@ -44,7 +42,7 @@ def get_model_answers(
             conversation=conversation,
             temperature=temperature, top_p=top_p))
 
-        print(answer)
+        tqdm.write(answer)
 
         answer_list.append(
             {
@@ -63,7 +61,6 @@ def main():
 
     # Input / output
     parser.add_argument("--model_type",     type=str, required=True)
-    parser.add_argument("--tokenizer_path", type=str, required=True)
     parser.add_argument("--models_path",    type=str, required=True)
     parser.add_argument("--data_path",      type=str, required=True)
     parser.add_argument("--output_path",    type=str, required=True)
@@ -85,10 +82,10 @@ def main():
             output_filename = os.path.join(args.output_path, f"{os.path.basename(args.data_path)}_{f.name}_{args.seed}.jsonl")
 
             if not os.path.exists(output_filename):
+                tqdm.write (f"Evaluating {f.path}...")
                 eval_results[output_filename] = get_model_answers(
                     seed=args.seed,
 
-                    tokenizer_path=args.tokenizer_path,
                     model_path=f.path,
                     model_config=MODEL_CONFIG_MAP[args.model_type],
                     question_list=question_list,

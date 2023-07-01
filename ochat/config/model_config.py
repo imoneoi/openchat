@@ -82,7 +82,8 @@ MODEL_CONFIG_MAP = {
                              low_cpu_mem_usage=True,
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False),
+                                       use_fast=False,
+                                       use_auth_token=True),
     ),
 
     # OpenChat
@@ -106,7 +107,8 @@ MODEL_CONFIG_MAP = {
                              low_cpu_mem_usage=True,
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False),
+                                       use_fast=False,
+                                       use_auth_token=True),
     ),
 
     # OpenCoder / OpenCoderPlus
@@ -130,6 +132,7 @@ MODEL_CONFIG_MAP = {
                              low_cpu_mem_usage=True,
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False)
+                                       use_fast=False,
+                                       use_auth_token=True)
     )
 }

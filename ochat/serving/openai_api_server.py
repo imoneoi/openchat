@@ -32,7 +32,7 @@ class Model:
     default_temperature: float = None
     default_top_p:       float = None
 
-    max_generate_tokens:   int = None
+    max_generated_tokens:  int = None
     stream_tokens:         int = None
 
 
@@ -143,7 +143,8 @@ async def create_chat_completion(request: openai_api_protocol.ChatCompletionRequ
     # get params
     generation_params = dict(
         temperature=request.temperature if request.temperature is not None else model.default_temperature,
-        top_p=request.top_p if request.top_p is not None else model.default_top_p
+        top_p=request.top_p if request.top_p is not None else model.default_top_p,
+        max_generated_tokens=request.max_tokens if request.max_tokens is not None else model.max_generated_tokens
     )
 
     stream_tokens = model.stream_tokens if request.stream else None
@@ -155,7 +156,6 @@ async def create_chat_completion(request: openai_api_protocol.ChatCompletionRequ
     stream_response = generate_stream(
         model=model.model, tokenizer=model.tokenizer, model_config=model.model_config,
         conversation=conversation,
-        max_generated_tokens=model.max_generate_tokens,
         stream_period=stream_tokens,
         **generation_params
     )
@@ -194,7 +194,7 @@ def main():
     parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--default_temperature", type=float, default=0.7)
     parser.add_argument("--default_top_p",       type=float, default=0.9)
-    parser.add_argument("--max_generate_tokens", type=int,   default=768)
+    parser.add_argument("--max_generated_tokens", type=int,   default=768)
 
     parser.add_argument("--stream_tokens",       type=int,   default=6)
 
@@ -223,7 +223,7 @@ def main():
     # Config
     model.default_temperature = args.default_temperature
     model.default_top_p       = args.default_top_p
-    model.max_generate_tokens = args.max_generate_tokens
+    model.max_generated_tokens = args.max_generated_tokens
 
     model.stream_tokens       = args.stream_tokens
 
@@ -232,7 +232,7 @@ def main():
     print (f"Test generate: {test_question}")
     for is_generating, t in generate_stream(model.model, model.tokenizer, model.model_config,
                             conversation=[{"from": "human", "value": test_question}],
-                            max_generated_tokens=model.max_generate_tokens, stream_period=6,
+                            max_generated_tokens=model.max_generated_tokens, stream_period=6,
                             temperature=model.default_temperature, top_p=model.default_top_p):
         print (t, end="")
 
