@@ -81,12 +81,22 @@
 
                     filesLoaded++;
                     if (filesLoaded === totalFiles) {
+                        assignColors();
                         calculateAverageAndSort();
                         drawChart();
                         populateTable();
                     }
                 };
                 reader.readAsText(file);
+            });
+        }
+
+        function assignColors() {
+            // assign color by name
+            const sortedKeys = Object.keys(MODELS).sort();
+
+            sortedKeys.forEach((key, index) => {
+                MODELS[key].color = COLOR_SCALE[index % COLOR_SCALE.length];
             });
         }
 
@@ -112,17 +122,36 @@
                 y: [key],
                 x: [MODELS[key].avgScore],
 
-                marker: { color: COLOR_SCALE[i % COLOR_SCALE.length] },
+                text: [MODELS[key].avgScore.toFixed(1)],
+
+                marker: { color: MODELS[key].color },
                 name: key
             }));
             const layout = {
                 showlegend: false,
                 margin: {
-                    l: 120
+                    l: 150
+                },
+                xaxis: {
+                    title: {
+                        text: 'Average Score (%)',
+                        font: {
+                            size: 16
+                        }
+                    }
+                },
+                yaxis: {
+                    tickfont: {
+                        size: 16
+                    }
                 }
             };
 
-            Plotly.newPlot('chart', data, layout);
+            Plotly.newPlot('chart', data, layout, {
+                toImageButtonOptions: {
+                    format: "svg"
+                }
+            });
         }
 
         function populateTable() {
