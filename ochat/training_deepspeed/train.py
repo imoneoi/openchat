@@ -49,7 +49,7 @@ def parse_args():
     # Hyperparameters
     parser.add_argument("--length_grouping",  default=False, action="store_true")
 
-    parser.add_argument("--epochs",           type=int,   default=10)
+    parser.add_argument("--epochs",           type=int,   default=5)
 
     parser.add_argument("--lr",               type=float, default=2e-5)
     parser.add_argument("--warmup_ratio",     type=float, default=0.03)
