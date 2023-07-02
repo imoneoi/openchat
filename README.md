@@ -1,16 +1,16 @@
-# OpenChat: Less is More for Open-source Models
+# OpenLLMs: Less is More for Open-source Models
 
-OpenChat is a series of open-source language models fine-tuned on a diverse and high-quality dataset of multi-round conversations. With only ~6K GPT-4 conversations filtered from the ~90K ShareGPT conversations, OpenChat is designed to achieve high performance with limited data.
+OpenLLMs is a series of open-source language models fine-tuned on an extremely small, diverse, and high-quality dataset of multi-round conversations. In detail, we use only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations. Surprisingly, OpenLLMs has been demonstrated to achieve high performance with limited data.
 
-**🔥 80.9% [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) win-rate, rank #1 of open-source models**
+**🔥 80.9% win-rate, rank #1 of open-source models on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/)**
 
-**🚀 105.7% ChatGPT performance (Vicuna GPT-4 eval)**
+**🚀 105.7% ChatGPT performance on [Vicuna GPT-4 eval](https://lmsys.org/blog/2023-03-30-vicuna/)**
 
-**🤗 Using only 6K data**
+**🤗 Using only [6K data](https://github.com/imoneoi/openchat/tree/master/ochat/data)**
 
 ## News
 
-- [2023/07] We released the OpenChat model series, with **105%** ChatGPT performance (Vicuna GPT-4 evaluation)
+- [2023/07] We released the OpenLLMs model series. Among them, OpenChat obtains **80.9%** win-rate on AlpacaEval and **105%** ChatGPT performance on Vicuna GPT-4 evaluation.
 
 ## Models
 
@@ -18,10 +18,10 @@ OpenChat is a series of open-source language models fine-tuned on a diverse and 
 
  - **OpenChat**: based on LLaMA-13B with a context length of 2048.
    - Achieves **105.7%** of ChatGPT score on the Vicuna GPT-4 evaluation.
-   - Achieves a **80.9%** win-rate on AlpacaEval.
+   - Achieves **80.9%** win-rate on AlpacaEval.
  - **OpenChat-8192**: based on LLaMA-13B, with an extended context length of 8192.
    - Achieves **106.6%** of ChatGPT score on the Vicuna GPT-4 evaluation.
-   - Achieves a **79.5%** win-rate on AlpacaEval.
+   - Achieves **79.5%** win-rate on AlpacaEval.
 
 #### Code Models:
 
@@ -41,7 +41,7 @@ We have evaluated our models using the Vicuna GPT-4 and AlpacaEval benchmarks. T
 
 ![gpt35eval](assets/vicuna_gpt35.svg)
 
-Note that our evaluation schema slightly differs from Vicuna. Following [Wang et. al, 2023](https://arxiv.org/pdf/2305.17926.pdf), we additionally adopted evidence calibration (EC) + balanced position calibration (BPC) to reduce potential bias.
+Note that our evaluation schema slightly differs from Vicuna's. Following [Wang et. al, 2023](https://arxiv.org/pdf/2305.17926.pdf), we additionally adopted evidence calibration (EC) + balanced position calibration (BPC) to reduce potential bias.
 
 ### AlpacaEval
 
@@ -73,7 +73,7 @@ Note that our evaluation schema slightly differs from Vicuna. Following [Wang et
 
 ## Installation
 
-To use OpenChat, you need to have CUDA and PyTorch installed. You can clone this repository and install the dependencies via pip:
+To use OpenLLMs, you need to have CUDA and PyTorch installed. You can clone this repository and install the dependencies via pip:
 
 ```bash
 git clone git@github.com:imoneoi/OChat.git
@@ -257,14 +257,14 @@ The same routine as ChatGPT / GPT-4 was used to run other benchmarks or evaluati
 ## Limitations
 
 **Foundation Model Limitations**
-Despite its advanced capabilities, OpenChat is still bound by the limitations inherent in its foundation models. These limitations may impact the model's performance in areas such as:
+Despite its advanced capabilities, OpenLLMs is still bound by the limitations inherent in its foundation models. These limitations may impact the model's performance in areas such as:
 
  - Complex reasoning
  - Mathematical and arithmetic tasks
  - Programming and coding challenges
 
 **Hallucination of Non-existent Information**
-OpenChat may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained from the model.
+OpenLLMs may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained from the model.
 
 ## TODO
 
@@ -272,7 +272,7 @@ OpenChat may sometimes generate information that does not exist or is not accura
 - [ ] Mixing SFT data with pretraining data (e.g. RedPajama)
 - [ ] Extending context by interpolating RoPE (requires mixing with pretraining data)
 - [ ] Trying LIMA dropout (to determine its usefulness)
-- [ ] Training larger LLaMA models (needs more compute)
+- [ ] Training larger LLaMA models (needs more computing power)
 - [ ] Support inference with 2x consumer GPUs
 
 ## Contact
