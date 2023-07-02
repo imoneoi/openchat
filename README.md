@@ -8,6 +8,8 @@ OpenLLMs is a series of open-source language models fine-tuned on an extremely s
 
 **🤗 Using only [6K data](https://github.com/imoneoi/openchat/tree/master/ochat/data)**
 
+[![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
+
 ## News
 
 - [2023/07] We released the OpenLLMs model series. Among them, OpenChat obtains **80.9%** win-rate on AlpacaEval and **105%** ChatGPT performance on Vicuna GPT-4 evaluation.
@@ -278,3 +280,17 @@ OpenLLMs may sometimes generate information that does not exist or is not accura
 ## Contact
 
 imonenext@gmail.com
+
+## Citation
+
+```
+@software{openllms23,
+  title = {{OpenLLMs: Less is More for Open-source Models}},
+  author = {Wang, Guan and Cheng, Sijie and Yu, Qiying and Liu, Changling},
+  doi = {10.5281/zenodo.8105775},
+  url = {https://github.com/imoneoi/openchat},
+  version = {pre-release},
+  year = {2023},
+  month = {7},
+}
+```
