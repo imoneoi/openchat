@@ -246,6 +246,18 @@ To visualize and plot the evaluation results, use `ochat/visualization/eval_resu
 
 The same routine as ChatGPT / GPT-4 was used to run other benchmarks or evaluations such as AlpacaEval. Simply run the API server and set the `openai.api_base` of the benchmark program.
 
+## Limitations
+
+**Foundation Model Limitations**
+Despite its advanced capabilities, OpenChat is still bound by the limitations inherent in its foundation models. These limitations may impact the model's performance in areas such as:
+
+ - Complex reasoning
+ - Mathematical and arithmetic tasks
+ - Programming and coding challenges
+
+**Hallucination of Non-existent Information**
+OpenChat may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained from the model.
+
 ## TODO
 
 - [ ] Improving conversation splitting
