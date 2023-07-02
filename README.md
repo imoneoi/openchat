@@ -2,9 +2,9 @@
 
 OpenChat is a series of open-source language models fine-tuned on a diverse and high-quality dataset of multi-round conversations. With only ~6K GPT-4 conversations filtered from the ~90K ShareGPT conversations, OpenChat is designed to achieve high performance with limited data.
 
-**🚀 105.7% ChatGPT performance (Vicuna GPT-4 eval)**
+**🔥 80.9% [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) win-rate, rank #1 of open-source models**
 
-**🔥 80.9% AlpacaEval win-rate**
+**🚀 105.7% ChatGPT performance (Vicuna GPT-4 eval)**
 
 **🤗 Using only 6K data**
 
@@ -103,7 +103,7 @@ The currently supported `ChatCompletions` arguments are:
 
 We also provide a **Web UI** for a better user experience, please refer to the following section for details.
 
-*Note:* We recommend having a GPU with memory of at least 40GB to run the server.
+*Note:* We recommend having a GPU with memory of at least 40GB (1x A100) to run the server.
 
 ## Web UI
 
@@ -253,3 +253,8 @@ The same routine as ChatGPT / GPT-4 was used to run other benchmarks or evaluati
 - [ ] Extending context by interpolating RoPE (requires mixing with pretraining data)
 - [ ] Trying LIMA dropout (to determine its usefulness)
 - [ ] Training larger LLaMA models (needs more compute)
+- [ ] Support inference with 2x consumer GPUs
+
+## Contact
+
+imonenext@gmail.com
