@@ -9,56 +9,86 @@ import json
 import os
 import random
 
-import transformers
-from ochat.config.model_config import ModelConfig, MODEL_CONFIG_MAP
+import ray
 
 
-TOKENIZER: transformers.AutoTokenizer = None
-MODEL_CONFIG: ModelConfig = None
+def _split(a, n):
+    # Split list a to n chunks
+    # https://stackoverflow.com/questions/2130016/splitting-a-list-into-n-parts-of-approximately-equal-length
+    k, m = divmod(len(a), n)
+    return [a[i*k+min(i, m): (i+1)*k+min(i+1, m)] for i in range(n)]
 
 
-def convert_single_conversation(c):
+def conversation_properties(c):
+    return {
+        "is_gpt4": c.get("model", "") == "Model: GPT-4"
+    }
+
+
+@ray.remote
+def convert_conversation_batch(model_type: str, model_path: str, batch: list):
+    from ochat.config.model_config import MODEL_CONFIG_MAP
+
+    # Tokenization
+    model_config = MODEL_CONFIG_MAP[model_type]
+    tokenizer = model_config.model_tokenizer_create(model_path)
+
     def _tokenize(text):
         """Tokenize text-only, ignoring all special tokens."""
-        return TOKENIZER.convert_tokens_to_ids(TOKENIZER._tokenize(text))
+        return tokenizer.convert_tokens_to_ids(tokenizer._tokenize(text))
 
     def _tokenize_special(special_name):
-        return TOKENIZER.convert_tokens_to_ids(special_name)
+        return tokenizer.convert_tokens_to_ids(special_name)
+    
+    # Generate data
+    results = []
+    texts = []
+    for c in batch:
+        props = conversation_properties(c)
 
-    # Generate template
-    tokens, masks = MODEL_CONFIG.generate_conversation_template(_tokenize, _tokenize_special, c["items"])
+        # Generate template
+        tokens, masks = model_config.generate_conversation_template(_tokenize, _tokenize_special, c["items"], props)
 
-    # Truncate to specified tokens
-    max_context = MODEL_CONFIG.model_max_context
-    if max_context is not None:
-        tokens = tokens[:max_context]
-        masks  = masks[:max_context]
+        # Truncate to specified tokens
+        max_context = model_config.model_max_context
+        if max_context is not None:
+            tokens = tokens[:max_context]
+            masks  = masks[:max_context]
 
-    return tokens, masks
+        results.append((tokens, masks))
+        texts.append(tokenizer.decode(tokens, spaces_between_special_tokens=False))
+
+    return results, texts
 
 
-def generate_split(model_type: str, conversations: list, split_name: str, out_dir: str):
-    # FIXME: Tokenizer have GIL, build faster multiprocessing
-    converted = list(map(convert_single_conversation, conversations))
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_dir: str, num_cpus: int = os.cpu_count()):
+    # launch remote workers
+    ray.init(num_cpus=num_cpus)
 
-    # Output dataset
+    handles = [convert_conversation_batch.remote(
+        model_type=model_type,
+        model_path=model_path,
+        batch=batch
+    ) for batch in _split(conversations, num_cpus)]
+
+    # aggegrate results
+    results = []
+    texts = []
+    for handle in handles:
+        batch_result, batch_text = ray.get(handle)
+
+        results.extend(batch_result)
+        texts.extend(batch_text)
+
     with open(os.path.join(out_dir, f"{model_type}.{split_name}.json"), "w") as f:
-        json.dump(converted, f)
-
-    # Output plain texts
-    all_plain_texts = TOKENIZER.batch_decode([tokens for (tokens, masks) in converted], spaces_between_special_tokens=False)
-
+        json.dump(results, f)
     with open(os.path.join(out_dir, f"{model_type}.{split_name}.text.json"), "w") as f:
-        json.dump(all_plain_texts, f, indent="\t")
+        json.dump(texts, f, indent="\t")
+
+    ray.shutdown()
 
 
 def generate_dataset(model_type, model_path, in_file, out_dir, seed, eval_ratio):
-    # Load model and tokenizer
-    global MODEL_CONFIG, TOKENIZER
-
-    MODEL_CONFIG = MODEL_CONFIG_MAP[model_type]
-    TOKENIZER    = MODEL_CONFIG.model_tokenizer_create(model_path)
-
     # Load conversations
     with open(in_file, "r") as f:
         conversations = json.load(f)
@@ -71,8 +101,8 @@ def generate_dataset(model_type, model_path, in_file, out_dir, seed, eval_ratio)
     train_conversations = conversations[eval_num:]
     eval_conversations  = conversations[:eval_num]
 
-    generate_split(model_type, train_conversations, "train", out_dir)
-    generate_split(model_type, eval_conversations, "eval", out_dir)
+    generate_split(model_type, model_path, train_conversations, "train", out_dir)
+    generate_split(model_type, model_path, eval_conversations, "eval", out_dir)
 
 
 if __name__ == "__main__":

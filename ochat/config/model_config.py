@@ -1,4 +1,4 @@
-from typing import Optional, Callable
+from typing import Optional, Callable, Union
 from dataclasses import dataclass
 from functools import partial
 
@@ -14,7 +14,7 @@ class ModelConfig:
     # Prompt
     system: Optional[str]
 
-    role_prefix: dict
+    role_prefix: Union[dict, Callable]
     ai_role: str
     eot_token: str
     bos_token: Optional[str] = None
@@ -25,7 +25,7 @@ class ModelConfig:
     model_tokenizer_create: Optional[Callable] = None
 
     # Get template
-    def generate_conversation_template(self, tokenize_fn, tokenize_special_fn, message_list):
+    def generate_conversation_template(self, tokenize_fn, tokenize_special_fn, message_list, message_props=None):
         tokens = []
         masks = []
 
@@ -44,7 +44,12 @@ class ModelConfig:
         # Messages
         for idx, message in enumerate(message_list):
             # Prefix
-            t = tokenize_fn(self.role_prefix[message["from"]])
+            if callable(self.role_prefix):
+                role_prefix = self.role_prefix(message["from"], message_props)
+            else:
+                role_prefix = self.role_prefix[message["from"]]
+
+            t = tokenize_fn(role_prefix)
             tokens.extend(t)
             masks.extend([False] * len(t))
 
@@ -57,6 +62,23 @@ class ModelConfig:
                 assert idx == len(message_list) - 1, "Empty message for completion must be on the last."
 
         return tokens, masks
+
+
+def _v2_conditional_prefix(from_role, props):
+    human_prefix = "User:"
+    gpt4_prefix  = "Assistant GPT4:"
+    other_prefix = "Assistant GPT3:"
+
+    if from_role == "human":
+        return human_prefix
+    
+    if from_role == "gpt":
+        if props is None:
+            return gpt4_prefix  # inference using gpt-4 prefix
+        
+        return gpt4_prefix if props["is_gpt4"] else other_prefix
+    
+    raise NotImplementedError(f"Unknown role {from_role}")
 
 
 MODEL_CONFIG_MAP = {
@@ -97,6 +119,28 @@ MODEL_CONFIG_MAP = {
             "human": "Human: ",
             "gpt": "Assistant: "
         },
+        ai_role="gpt",
+        eot_token="<|end_of_turn|>",
+        bos_token="<s>",
+
+        # Tokenize
+        model_max_context=2048,
+        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                             low_cpu_mem_usage=True,
+                             torch_dtype=torch.bfloat16),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False,
+                                       use_auth_token=True),
+    ),
+
+    # OpenChat
+    "openchat_v2": ModelConfig(
+        name="OpenChat_v2",
+
+        # Prompt
+        system=None,
+
+        role_prefix=_v2_conditional_prefix,
         ai_role="gpt",
         eot_token="<|end_of_turn|>",
         bos_token="<s>",
