@@ -63,6 +63,14 @@ Note that our evaluation schema slightly differs from Vicuna. Following [Wang et
 | alpaca-7b             | 26.5         | 1.5           |
 | text_davinci_001      | 15.2         | 1.2           |
 
+## Standard benchmarks
+
+(Working in progress ...)
+
+| Models                                                                          | LLaMA-13B BFloat16 | OpenChat  | OpenChat8192 |
+|---------------------------------------------------------------------------------|--------------------|-----------|--------------|
+| MMLU [(chain-of-thought hub)](https://github.com/FranxYao/chain-of-thought-hub) | 46.66              | **48.53** | 45.16        |
+
 ## Installation
 
 To use OpenChat, you need to have CUDA and PyTorch installed. You can clone this repository and install the dependencies via pip:
