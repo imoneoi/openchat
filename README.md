@@ -6,7 +6,7 @@ OpenLLMs is a series of open-source language models fine-tuned on an extremely s
 
 **🚀 105.7% ChatGPT performance on [Vicuna GPT-4 eval](https://lmsys.org/blog/2023-03-30-vicuna/)**
 
-**🤗 Using only [6K data](https://github.com/imoneoi/openchat/tree/master/ochat/data)**
+**🤗 Using only [6K data](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset)**
 
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
@@ -276,6 +276,9 @@ OpenLLMs may sometimes generate information that does not exist or is not accura
 - [ ] Trying LIMA dropout (to determine its usefulness)
 - [ ] Training larger LLaMA models (needs more computing power)
 - [ ] Support inference with 2x consumer GPUs
+
+## License
+Our weight license is subject to their corresponding base model. For example, OpenChat and OpenChat-8192 are the same as the model [License](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md) of LLaMA for non-commercial use only, while OpenCoderPlus is under the [License](https://huggingface.co/blog/starcoder) of StarCoder. Furthermore, we should follow [Privacy Practices](https://chrome.google.com/webstore/detail/sharegpt-share-your-chatg/daiacboceoaocpibfodeljbdfacokfjb) of ShareGPT. The code is released under Apache License 2.0.
 
 ## Contact
 
