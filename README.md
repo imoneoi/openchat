@@ -33,11 +33,11 @@ OpenChat is a series of open-source language models fine-tuned on a diverse and 
 
 We have evaluated our models using the Vicuna GPT-4 and AlpacaEval benchmarks. The evaluation results are presented in the following figures.
 
-**Vicuna GPT-4 Evalutaion (v.s. gpt-3.5-turbo)**
+**Vicuna GPT-4 Evaluation (v.s. gpt-3.5-turbo)**
 
 ![gpt4eval](assets/vicuna_gpt4.svg)
 
-**Vicuna GPT-3.5-Turbo Evalutaion (v.s. gpt-3.5-turbo)**
+**Vicuna GPT-3.5-Turbo Evaluation (v.s. gpt-3.5-turbo)**
 
 ![gpt35eval](assets/vicuna_gpt35.svg)
 
