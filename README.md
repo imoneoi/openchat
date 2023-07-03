@@ -12,28 +12,36 @@ OpenLLMs is a series of open-source language models fine-tuned on an extremely s
 
 ## News
 
-- [2023/07] We released the OpenLLMs model series. Among them, OpenChat obtains **80.9%** win-rate on AlpacaEval and **105%** ChatGPT performance on Vicuna GPT-4 evaluation.
+- [2023/07] We released the [OpenLLMs model series](https://huggingface.co/openchat). Among them, OpenChat obtains **80.9%** win-rate on AlpacaEval and **105%** ChatGPT performance on Vicuna GPT-4 evaluation.
 
-## Models
+## Models and Dataset
 
 #### Generic Models:
 
- - **OpenChat**: based on LLaMA-13B with a context length of 2048.
+ - **[OpenChat](https://huggingface.co/openchat/openchat)**: based on LLaMA-13B with a context length of 2048.
    - Achieves **105.7%** of ChatGPT score on the Vicuna GPT-4 evaluation.
    - Achieves **80.9%** win-rate on AlpacaEval.
- - **OpenChat-8192**: based on LLaMA-13B, with an extended context length of 8192.
+ - **[OpenChat-8192](https://huggingface.co/openchat/openchat_8192)**: based on LLaMA-13B, with an extended context length of 8192.
    - Achieves **106.6%** of ChatGPT score on the Vicuna GPT-4 evaluation.
    - Achieves **79.5%** win-rate on AlpacaEval.
 
 #### Code Models:
 
- - **OpenCoderPlus**: based on StarCoderPlus with a native context length of 8192.
+ - **[OpenCoderPlus](https://huggingface.co/openchat/opencoderplus)**: based on StarCoderPlus with a native context length of 8192.
    - Achieves **102.5%** of ChatGPT score on the Vicuna GPT-4 evaluation.
    - Achieves a **78.7%** win-rate on AlpacaEval.
+  
+#### Dataset:
 
-**Model Evaluation**
+ - **[openchat_sharegpt4_dataset](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset)**: ~6k cleaned and filtered GPT-4 data from ShareGPT.
 
-We have evaluated our models using the Vicuna GPT-4 and AlpacaEval benchmarks. The evaluation results are presented in the following figures.
+## Model Evaluation
+
+We have evaluated our models using the two most popular evaluation benchmarks, including Vicuna GPT-4 and AlpacaEval benchmarks. The evaluation results are presented in the following figures.
+
+### Vicuna Evaluation
+
+Considering that our fine-tuning dataset is produced by GPT-4, we use both GPT-4 and GPT-3.5-Turbo as evaluators, respectively. Note that our evaluation schema slightly differs from Vicuna's. Following [Wang et. al, 2023](https://arxiv.org/pdf/2305.17926.pdf), we additionally adopted evidence calibration (EC) + balanced position calibration (BPC) to reduce potential bias.
 
 **Vicuna GPT-4 Evaluation (v.s. gpt-3.5-turbo)**
 
@@ -43,9 +51,10 @@ We have evaluated our models using the Vicuna GPT-4 and AlpacaEval benchmarks. T
 
 ![gpt35eval](assets/vicuna_gpt35.svg)
 
-Note that our evaluation schema slightly differs from Vicuna's. Following [Wang et. al, 2023](https://arxiv.org/pdf/2305.17926.pdf), we additionally adopted evidence calibration (EC) + balanced position calibration (BPC) to reduce potential bias.
 
 ### AlpacaEval
+
+Here we list the minimal version of AlpacaEval with our released models. The full version of AlpacaEval can be found on this [page](https://tatsu-lab.github.io/alpaca_eval/).
 
 |                       | **Win Rate** | **Std Error** |
 |-----------------------|--------------|---------------|
@@ -67,6 +76,7 @@ Note that our evaluation schema slightly differs from Vicuna's. Following [Wang 
 
 ## Standard benchmarks
 
+Due to the limitations of Vicuna GPT-4 Evaluation and AlpacaEval, we are trying to use extensive standard benchmarks to prove the performance of our models.
 (Working in progress ...)
 
 | Models                                                                          | LLaMA-13B BFloat16 | OpenChat  | OpenChat8192 |
