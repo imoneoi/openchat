@@ -93,6 +93,7 @@ git clone git@github.com:imoneoi/OChat.git
 ```
 
 ```bash
+pip install --no-build-isolation flash-attn
 pip install -r requirements.txt
 ```
 
