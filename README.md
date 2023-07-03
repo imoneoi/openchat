@@ -1,6 +1,6 @@
 # OpenLLMs: Less is More for Open-source Models
 
-OpenLLMs is a series of open-source language models fine-tuned on an extremely small, diverse, and high-quality dataset of multi-round conversations. In detail, we use only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations. Surprisingly, OpenLLMs has been demonstrated to achieve high performance with limited data.
+OpenLLMs is a series of open-source language models fine-tuned on a small, yet diverse and high-quality dataset of multi-round conversations. Specifically, we utilize only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations. Despite the small size of the dataset, OpenLLMs has demostrated remarkable performance.
 
 **🔥 80.9% win-rate, rank #1 of open-source models on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/)**
 
@@ -32,7 +32,7 @@ OpenLLMs is a series of open-source language models fine-tuned on an extremely s
  - **[OpenCoderPlus](https://huggingface.co/openchat/opencoderplus)**: based on StarCoderPlus with a native context length of 8192.
    - Achieves **102.5%** of ChatGPT score on the Vicuna GPT-4 evaluation.
    - Achieves a **78.7%** win-rate on AlpacaEval.
-  
+
 #### Dataset:
 
  - **[openchat_sharegpt4_dataset](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset)**: ~6k cleaned and filtered GPT-4 data from ShareGPT.
@@ -76,10 +76,9 @@ Here we list the minimal version of AlpacaEval with our released models. The ful
 | alpaca-7b             | 26.5         | 1.5           |
 | text_davinci_001      | 15.2         | 1.2           |
 
-## Standard benchmarks
+## Standard benchmarks (In progress)
 
-Due to the limitations of Vicuna GPT-4 Evaluation and AlpacaEval, we are trying to use extensive standard benchmarks to prove the performance of our models.
-(Working in progress ...)
+Due to the limitations of Vicuna GPT-4 Evaluation and AlpacaEval, we are trying to use extensive standard benchmarks to evaluate the performance of OpenLLMs.
 
 | Models                                                                          | LLaMA-13B BFloat16 | OpenChat  | OpenChat8192 |
 |---------------------------------------------------------------------------------|--------------------|-----------|--------------|
@@ -310,3 +309,7 @@ imonenext@gmail.com
   month = {7},
 }
 ```
+
+## Acknowledgements
+
+We thank the great work by [LLaMA](https://arxiv.org/abs/2302.13971), [self-instruct](https://arxiv.org/abs/2212.10560), [FastChat (Vicuna)](https://github.com/lm-sys/FastChat), [Alpaca](https://github.com/tatsu-lab/stanford_alpaca.git) and [StarCoder](https://github.com/bigcode-project/starcoder).
