@@ -314,3 +314,5 @@ imonenext@gmail.com
 ## Acknowledgements
 
 We thank the great work by [LLaMA](https://arxiv.org/abs/2302.13971), [self-instruct](https://arxiv.org/abs/2212.10560), [FastChat (Vicuna)](https://github.com/lm-sys/FastChat), [Alpaca](https://github.com/tatsu-lab/stanford_alpaca.git) and [StarCoder](https://github.com/bigcode-project/starcoder).
+
+We also thank the great support by GPT Desk Pte. Ltd. and Tsinghua Laboratory of Brain and Intelligence (THBI).
