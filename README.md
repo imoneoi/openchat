@@ -10,14 +10,6 @@ OpenLLMs is a series of open-source language models fine-tuned on an extremely s
 
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
-## Roadmap
-
-- OpenLLMs V1.5: Fine-tune larger foundation models that can handle more complex tasks and reasoning.
-- OpenLLMs V2: Improve alignment and RLHF on minimal and mixed-quality data to enhance the accuracy and robustness of the models.
-- OpenLLMs V3: Make high-quality chat models that are open-source, commercially available, and permissively licensed to enable broader adoption and usage.
-
-**❤️ Seeking sponsorship for computing resources to support the fine-tuning of larger models.**
-
 ## News
 
 - [2023/07] We released the [OpenLLMs model series](https://huggingface.co/openchat). Among them, OpenChat obtains **80.9%** win-rate on AlpacaEval and **105%** ChatGPT performance on Vicuna GPT-4 evaluation.
