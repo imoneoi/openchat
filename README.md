@@ -97,6 +97,16 @@ pip install --no-build-isolation flash-attn
 pip install -r requirements.txt
 ```
 
+*Note:* FlashAttention may have compatibility issues. If you encounter these problems, you can try to create a new "conda" environment and follow the instructions below.
+
+```
+conda install python
+conda install cudatoolkit-dev -c conda-forge
+pip3 install torch torchvision torchaudio
+pip install --no-build-isolation flash-attn
+pip install -r requirements.txt
+```
+
 ## Weights & Serving
 
 We provide full weights of all models as huggingface repos. You can use the following commands to start a local API server at `http://localhost:18888`. Please note that models should be used under their foundation models' license.
