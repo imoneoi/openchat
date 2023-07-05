@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 import math
+from functools import partial
 
 import torch
 import torch.distributed
@@ -10,17 +11,17 @@ import transformers
 import deepspeed
 import tqdm
 import wandb
+import numpy as np
 
 from torch.utils.data import DataLoader
-from transformers.trainer_pt_utils import DistributedLengthGroupedSampler, DistributedSampler
-from transformers.optimization import get_cosine_schedule_with_warmup
+from transformers.optimization import _get_cosine_schedule_with_warmup_lr_lambda
 
 from ochat.config.model_config import MODEL_CONFIG_MAP
+from ochat.training_deepspeed.ffd_sampler import FFDDistributedBatchSampler
 
 
 LOCAL_RANK      = None
 
-PAD_TOKEN_ID    = 0      # <unk> in LLaMA
 IGNORE_LABEL_ID = -100   # Defined in torch CrossEntropyLoss
 
 
@@ -47,13 +48,12 @@ def parse_args():
     parser.add_argument("--save_path",  type=str, required=True)
 
     # Hyperparameters
-    parser.add_argument("--length_grouping",  default=False, action="store_true")
+    parser.add_argument("--batch_size_per_gpu", type=int,   default=16)
+    parser.add_argument("--epochs",             type=int,   default=5)
 
-    parser.add_argument("--epochs",           type=int,   default=5)
-
-    parser.add_argument("--lr",               type=float, default=2e-5)
-    parser.add_argument("--warmup_ratio",     type=float, default=0.03)
-    parser.add_argument("--weight_decay",     type=float, default=0.)
+    parser.add_argument("--lr",                 type=float, default=2e-5)
+    parser.add_argument("--warmup_ratio",       type=float, default=0.03)
+    parser.add_argument("--weight_decay",       type=float, default=0.)
 
     # DeepSpeed parameters
     parser = deepspeed.add_config_arguments(parser)
@@ -68,68 +68,64 @@ def create_dataset(args, split_name):
     with open(os.path.join(args.data_path, f"{args.model_type}.{split_name}.json"), "r") as f:
         data = json.load(f)
 
-    return data, len(data)
+    return data
 
 
 def batch_to_tensor(batch, dtype=torch.long):
-    batch_size = len(batch)
-    max_length = max([len(tokens) for (tokens, masks) in batch])
+    batch_lengths = torch.tensor([len(tokens) for (tokens, masks) in batch], dtype=torch.int32, device="cpu")
 
-    # create batch
-    input_ids      = torch.full((batch_size, max_length), PAD_TOKEN_ID, dtype=dtype,      pin_memory=True, device="cpu")
-    label_mask     = torch.full((batch_size, max_length), False,        dtype=torch.bool, pin_memory=True, device="cpu")
-    attention_mask = torch.full((batch_size, max_length), False,        dtype=torch.bool, pin_memory=True, device="cpu")
+    # seqlen
+    max_seqlen    = torch.max(batch_lengths)
+    cu_seqlen     = torch.nn.functional.pad(torch.cumsum(batch_lengths), (1, 0))
+    
+    # nz elements
+    nz_num               = torch.sum(batch_lengths)
+    nz_input_ids         = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
+    nz_position_ids      = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
+    nz_shifted_label_ids = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
 
-    for idx, (tokens, masks) in enumerate(batch):
+    index = 0
+    for tokens, masks in batch:
         length = len(tokens)
 
-        input_ids[idx, :length]      = torch.tensor(tokens, dtype=dtype,     device="cpu")
-        label_mask[idx, :length]     = torch.tensor(masks, dtype=torch.bool, device="cpu")
-        attention_mask[idx, :length] = True
+        tokens       = torch.tensor(tokens, dtype=dtype,      device="cpu")
+        masks        = torch.tensor(masks,  dtype=torch.bool, device="cpu")
+        position_ids = torch.arange(length, dtype=dtype,      device="cpu")
 
-    # create labels
-    labels = torch.where(label_mask, input_ids, IGNORE_LABEL_ID).pin_memory()
+        shifted_label_ids = torch.where(masks, tokens, IGNORE_LABEL_ID)
+        shifted_label_ids = torch.nn.functional.pad(shifted_label_ids[1:], (0, 1), "constant", IGNORE_LABEL_ID)
 
-    return dict(input_ids=input_ids, labels=labels, attention_mask=attention_mask)
+        nz_input_ids[index: index + length]         = tokens
+        nz_position_ids[index: index + length]      = position_ids
+        nz_shifted_label_ids[index: index + length] = shifted_label_ids
+
+    # inputs
+    return dict(max_seqlen=max_seqlen,
+                cu_seqlen=cu_seqlen,
+                nz_input_ids=nz_input_ids,
+                nz_position_ids=nz_position_ids, 
+                nz_shifted_label_ids=nz_shifted_label_ids)
 
 
-def create_distributed_dataloader(args, data, length_grouping):
+def create_distributed_dataloader(args, data):
     # Sampler
-    if length_grouping:
-        _rank0_print ("Length grouping enabled !")
-
-        # Get length
-        lengths = [len(tokens) for (tokens, masks) in data]
-        # Length grouped sampler
-        sampler = DistributedLengthGroupedSampler(
-            batch_size=args.train_micro_batch_size_per_gpu,
-            dataset=data,
-            lengths=lengths,
-            drop_last=False,
-            seed=0
-        )
-    else:
-        sampler = DistributedSampler(
-            dataset=data,
-            drop_last=False,
-            seed=0
-        )
+    # Get length
+    lengths = np.array([len(tokens) for (tokens, masks) in data])
+    # Length grouped sampler
+    sampler = FFDDistributedBatchSampler(
+        batch_max_length=args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context,
+        lengths=lengths,
+        seed=0
+    )
 
     return DataLoader(data, 
-                      batch_size=args.train_micro_batch_size_per_gpu,
-                      sampler=sampler,
+                      batch_sampler=sampler,
                       drop_last=False,
-                      collate_fn=batch_to_tensor)
+                      collate_fn=batch_to_tensor), sampler.num_batches()
 
 
 def create_model(args, train_dataset_size):
     global LOCAL_RANK
-
-    # Get train total steps
-    with open(args.deepspeed_config, "r") as f:
-        train_batch_size = json.load(f)["train_batch_size"]
-
-    train_total_steps = _ceildiv(train_dataset_size, train_batch_size) * args.epochs
 
     # Create model + optimizer + lr scheduler
     model = MODEL_CONFIG_MAP[args.model_type].model_create(args.model_path)
@@ -141,26 +137,27 @@ def create_model(args, train_dataset_size):
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, fused=True)
 
-    # LR Scheduler
-    lr_scheduler = get_cosine_schedule_with_warmup(optimizer,
-                                                   num_warmup_steps=math.ceil(train_total_steps * args.warmup_ratio),
-                                                   num_training_steps=train_total_steps)
-
     # DeepSpeed model
-    model_engine, _, _, lr_scheduler = deepspeed.initialize(args=args,
-                                                            model=model,
-                                                            model_parameters=model.parameters(),
-                                                            optimizer=optimizer,
-                                                            lr_scheduler=lr_scheduler)
+    model_engine, optimizer, _, _ = deepspeed.initialize(args=args,
+                                                         model=model,
+                                                         model_parameters=model.parameters(),
+                                                         optimizer=optimizer)
 
     # Put deepspeed arguments
-    args.train_batch_size               = model_engine.train_batch_size()
-    args.train_micro_batch_size_per_gpu = model_engine.train_micro_batch_size_per_gpu()
     args.device                         = model_engine.device
 
-    args.train_total_steps              = train_total_steps
+    return model_engine, optimizer
 
-    return model_engine, lr_scheduler
+
+def create_lr_scheduler(args, train_total_steps):
+    lr_scheduler = partial(
+        _get_cosine_schedule_with_warmup_lr_lambda,
+        num_warmup_steps=math.ceil(train_total_steps * args.warmup_ratio),
+        num_training_steps=train_total_steps,
+        num_cycles=0.5,
+    )
+
+    return lr_scheduler
 
 
 def train():
@@ -174,21 +171,25 @@ def train():
 
     # Data
     _rank0_print("Loading data...")
-    train_dataset, train_dataset_size = create_dataset(args, "train")
-    eval_dataset,  eval_dataset_size  = create_dataset(args, "eval")
+    train_dataset = create_dataset(args, "train")
+    eval_dataset  = create_dataset(args, "eval")
 
     # Model
     _rank0_print("Loading model...")
-    model_engine, lr_scheduler = create_model(args, train_dataset_size)
+    model_engine, optimizer = create_model(args)
 
     # Data Loader
-    train_loader = create_distributed_dataloader(args, train_dataset, args.length_grouping)
-    eval_loader  = create_distributed_dataloader(args, eval_dataset, args.length_grouping)
+    train_loader, train_num_batches = create_distributed_dataloader(args, train_dataset)
+    eval_loader,  eval_num_batches  = create_distributed_dataloader(args, eval_dataset)
+    train_total_steps               = args.epochs * train_num_batches
+
+    # LR Scheduler
+    lr_scheduler = create_lr_scheduler(args, train_total_steps)
 
     # Progress bar and logger
     progress_bar = None
     if LOCAL_RANK == 0:
-        progress_bar = tqdm.tqdm(total=args.train_total_steps)
+        progress_bar = tqdm.tqdm(total=train_total_steps)
 
         wandb.init(project=os.path.basename(args.model_path), config=args)
 
@@ -202,6 +203,10 @@ def train():
 
         train_loader.sampler.set_epoch(epoch)
         for batch in train_loader:
+            step += 1
+            if step > train_total_steps:  # At most train_total_steps
+                break
+
             # To device
             batch = {k: v.to(args.device) for k, v in batch.items()}
 
@@ -211,18 +216,21 @@ def train():
 
             model_engine.backward(loss)
 
+            # Set LR & Step optimizer
+            lr_this_step = lr_scheduler(step)
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr_this_step
+
+            model_engine.step()
+
             # Log
-            if model_engine.is_gradient_accumulation_boundary() and (LOCAL_RANK == 0):
+            if LOCAL_RANK == 0:
                 wandb.log({
                     "loss": loss.item(),
-                    "lr":   lr_scheduler.get_last_lr()[0]
+                    "lr":   lr_this_step
                 }, step=step)
 
-                step += 1
                 progress_bar.update()
-
-            # Step optimizer
-            model_engine.step()
 
         ############ Eval Epoch
         model_engine.eval()
@@ -231,7 +239,7 @@ def train():
         eval_total_steps = 0
 
         eval_loader.sampler.set_epoch(epoch)
-        with torch.no_grad():
+        with torch.inference_mode():
             for batch in eval_loader:
                 # To device
                 batch = {k: v.to(args.device) for k, v in batch.items()}

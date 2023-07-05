@@ -77,7 +77,7 @@ MODEL_CONFIG_MAP = {
 
         # Model
         model_max_context=8192,
-        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+        model_create=partial(ochat.models.UnpaddedLlamaForCausalLM.from_pretrained,
                              extend_context_to=8192,
                              low_cpu_mem_usage=True,
                              torch_dtype=torch.bfloat16),
@@ -103,7 +103,7 @@ MODEL_CONFIG_MAP = {
 
         # Tokenize
         model_max_context=2048,
-        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+        model_create=partial(ochat.models.UnpaddedLlamaForCausalLM.from_pretrained,
                              low_cpu_mem_usage=True,
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
