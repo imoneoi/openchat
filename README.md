@@ -1,6 +1,6 @@
 # OpenLLMs: Less is More for Open-source Models
 
-OpenLLMs is a series of open-source language models fine-tuned on a small, yet diverse and high-quality dataset of multi-round conversations. Specifically, we utilize only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations. Despite the small size of the dataset, OpenLLMs has demonstrated remarkable performance.
+OpenLLMs is a series of open-source language models fine-tuned on a small, yet diverse and high-quality dataset of multi-round conversations. Specifically, we utilize only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations. Despite the small size of the dataset, OpenLLMs has demonstrated remarkable performance. We hope this project can bring you some insights, such as the importance of data quality, the bias of evaluation benchmarks, and so on.
 
 **🔥 80.9% win-rate, rank #1 of open-source models on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/)**
 
@@ -39,7 +39,11 @@ OpenLLMs is a series of open-source language models fine-tuned on a small, yet d
 
 ## Model Evaluation
 
-We have evaluated our models using the two most popular evaluation benchmarks, including Vicuna GPT-4 and AlpacaEval benchmarks. The evaluation results are presented in the following figures.
+We have evaluated our models using the two most popular evaluation benchmarks, including Vicuna GPT-4 and AlpacaEval benchmarks. Additionally, we are ongoing to evaluate our models on MT-bench advised by the lmsys team. The evaluation results are presented in the following figures.
+
+### MT-bench (In progress)
+Please wait for our results :)
+
 
 ### Vicuna Evaluation
 
@@ -52,7 +56,6 @@ Considering that our fine-tuning dataset is produced by GPT-4, we use both GPT-4
 **Vicuna GPT-3.5-Turbo Evaluation (v.s. gpt-3.5-turbo)**
 
 ![gpt35eval](assets/vicuna_gpt35.svg)
-
 
 ### AlpacaEval
 
@@ -80,9 +83,9 @@ Here we list the minimal version of AlpacaEval with our released models. The ful
 
 Due to the limitations of Vicuna GPT-4 Evaluation and AlpacaEval, we are trying to use extensive standard benchmarks to evaluate the performance of OpenLLMs.
 
-| Models                                                                          | LLaMA-13B BFloat16 | OpenChat  | OpenChat8192 |
-|---------------------------------------------------------------------------------|--------------------|-----------|--------------|
-| MMLU [(chain-of-thought hub)](https://github.com/FranxYao/chain-of-thought-hub) | 46.66              | **48.53** | 45.16        |
+| Models                                                                          | LLaMA-13B BFloat16 | OpenChat  | OpenChat8192 | gpt-3.5-turbo|
+|---------------------------------------------------------------------------------|--------------------|-----------|--------------|--------------|
+| MMLU [(chain-of-thought hub)](https://github.com/FranxYao/chain-of-thought-hub) | 46.66              | **48.53** | 45.16        |67.3          |
 
 ## Installation
 
