@@ -109,7 +109,7 @@ pip install -r requirements.txt
 
 ## Weights & Serving
 
-We provide full weights of all models as huggingface repos. You can use the following commands to start a local API server at `http://localhost:18888`. Please note that models should be used under their foundation models' license.
+We provide full weights of all models as Hugging Face repos. You can use the following commands to start a local API server at `http://localhost:18888`. Please note that models should be used under their foundation models' license.
 
 | Model         | Size | Context | Weights                                                                 | Serve                                                                                                      |
 |---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
