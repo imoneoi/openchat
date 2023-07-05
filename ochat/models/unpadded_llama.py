@@ -297,15 +297,22 @@ class UnpaddedLlamaModel(UnpaddedLlamaPreTrainedModel):
         # decoder layers
         for decoder_layer in self.layers:
             if self.gradient_checkpointing and self.training:
+
+                def create_custom_forward(module):
+                    def custom_forward(*inputs):
+                        # None for past_key_value
+                        return module(*inputs)
+
+                    return custom_forward
+
                 nz_hidden_states = torch.utils.checkpoint.checkpoint(
-                    decoder_layer.forward,
+                    create_custom_forward(decoder_layer),
 
-                    cos_sin=cos_sin,
-
-                    nz_hidden_states=nz_hidden_states,
-                    nz_position_ids=nz_position_ids,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen
+                    cos_sin,
+                    nz_hidden_states,
+                    nz_position_ids,
+                    cu_seqlens,
+                    max_seqlen
                 )
             else:
                 nz_hidden_states = decoder_layer(
@@ -323,7 +330,7 @@ class UnpaddedLlamaModel(UnpaddedLlamaPreTrainedModel):
 
 
 class UnpaddedLlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
-    # _tied_weights_keys = ["lm_head.weight"]
+    _tied_weights_keys = ["lm_head.weight"]
     # FIXME: LLaMA does not tie embeddings?
 
     def __init__(self, config, extend_context_to=None):
@@ -374,10 +381,6 @@ class UnpaddedLlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
 
         loss = None
         if nz_shifted_label_ids is not None:
-            # Flatten the tokens
-            logits = logits.view(-1, self.config.vocab_size)
-            nz_shifted_label_ids = nz_shifted_label_ids.view(-1)
-
             loss = CrossEntropyLoss()(logits, nz_shifted_label_ids)
 
         return CausalLMOutputWithPast(

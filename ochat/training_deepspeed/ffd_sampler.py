@@ -77,17 +77,16 @@ def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int,
 
         # use length l
         batch = ffd_with_result(lengths[start_index: start_index + l], c, start_index)
-        
-        start_index += l
-        s = lengths_cumsum[start_index - 1]
-
-        # add ffd
         if len(batch) < n:
             break
 
+        start_index += l
+        s = lengths_cumsum[start_index - 1]
+
+        # add local rank
         result.append(batch[rank])
 
-    return result
+    return result, s / max(1, len(result) * c * n)  # Avoid division by zero
 
 
 class FFDDistributedBatchSampler(Sampler):
@@ -122,29 +121,41 @@ class FFDDistributedBatchSampler(Sampler):
 
         self.epoch = 0
 
+        # statistics
+        self.total_epochs = 0
+        self.total_efficiency = 0
+
     def set_epoch(self, epoch: int):
         self.epoch = epoch
 
-    def generate_batches(self):
+    def generate_batches(self, set_stats=False):
         indices = np.random.default_rng(seed=self.seed + self.epoch).permutation(len(self.lengths))
 
         lengths = self.lengths[indices]
         lengths_cumsum = np.cumsum(lengths)
 
-        batches = allocate(lengths=lengths,
+        batches, efficiency = allocate(lengths=lengths,
                            lengths_cumsum=lengths_cumsum,
                            rank=self.rank,
                            c=self.batch_max_length,
                            n=self.num_replicas)
         
         batches = [indices[batch] for batch in batches]
+
+        # statistics
+        if set_stats:
+            self.total_epochs += 1
+            self.total_efficiency += efficiency
         
         return batches
     
     def __iter__(self):
-        batches = self.generate_batches()
+        batches = self.generate_batches(set_stats=True)
         return iter(batches)
 
     def num_batches(self):
         batches = self.generate_batches()
         return len(batches)
+
+    def efficiency(self):
+        return self.total_efficiency / self.total_epochs

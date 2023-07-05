@@ -22,18 +22,15 @@ from ochat.training_deepspeed.ffd_sampler import FFDDistributedBatchSampler
 
 LOCAL_RANK      = None
 
+PAD_ID          = 0
 IGNORE_LABEL_ID = -100   # Defined in torch CrossEntropyLoss
-
-
-def _ceildiv(a, b):
-    return -(a // -b)
 
 
 def _rank0_print(*args):
     global LOCAL_RANK
 
     if LOCAL_RANK == 0:
-        print(*args)
+        tqdm.tqdm.write(*args)
 
 
 def parse_args():
@@ -48,7 +45,7 @@ def parse_args():
     parser.add_argument("--save_path",  type=str, required=True)
 
     # Hyperparameters
-    parser.add_argument("--batch_size_per_gpu", type=int,   default=16)
+    parser.add_argument("--batch_size_per_gpu", type=int,   default=14)
     parser.add_argument("--epochs",             type=int,   default=5)
 
     parser.add_argument("--lr",                 type=float, default=2e-5)
@@ -71,26 +68,37 @@ def create_dataset(args, split_name):
     return data
 
 
-def batch_to_tensor(batch, dtype=torch.long):
-    batch_lengths = torch.tensor([len(tokens) for (tokens, masks) in batch], dtype=torch.int32, device="cpu")
+def batch_to_tensor(batch, target_len, dtype=torch.long):
+    # Pad an unused item to reach target_len, for faster GEMM
+    pad_cur_len = sum([len(token_list) for (token_list, mask_list) in batch])
+    pad_len     = target_len - pad_cur_len
+    if pad_len > 0:
+        batch.append([
+            [PAD_ID] * pad_len,
+            [False] * pad_len
+        ])
 
     # seqlen
+    batch_lengths = torch.tensor([len(token_list) for (token_list, mask_list) in batch], dtype=torch.int32, device="cpu")
+
     max_seqlen    = torch.max(batch_lengths)
-    cu_seqlen     = torch.nn.functional.pad(torch.cumsum(batch_lengths), (1, 0))
-    
+    cu_seqlens    = torch.nn.functional.pad(batch_lengths.cumsum(-1, dtype=torch.int32), (1, 0))
+
     # nz elements
-    nz_num               = torch.sum(batch_lengths)
+    nz_num        = cu_seqlens[-1]
+    assert nz_num == target_len
+
     nz_input_ids         = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
     nz_position_ids      = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
     nz_shifted_label_ids = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
 
     index = 0
-    for tokens, masks in batch:
-        length = len(tokens)
+    for token_list, mask_list in batch:
+        length = len(token_list)
 
-        tokens       = torch.tensor(tokens, dtype=dtype,      device="cpu")
-        masks        = torch.tensor(masks,  dtype=torch.bool, device="cpu")
-        position_ids = torch.arange(length, dtype=dtype,      device="cpu")
+        tokens       = torch.tensor(token_list, dtype=dtype,      device="cpu")
+        masks        = torch.tensor(mask_list,  dtype=torch.bool, device="cpu")
+        position_ids = torch.arange(length,     dtype=dtype,      device="cpu")
 
         shifted_label_ids = torch.where(masks, tokens, IGNORE_LABEL_ID)
         shifted_label_ids = torch.nn.functional.pad(shifted_label_ids[1:], (0, 1), "constant", IGNORE_LABEL_ID)
@@ -99,9 +107,11 @@ def batch_to_tensor(batch, dtype=torch.long):
         nz_position_ids[index: index + length]      = position_ids
         nz_shifted_label_ids[index: index + length] = shifted_label_ids
 
+        index += length
+
     # inputs
     return dict(max_seqlen=max_seqlen,
-                cu_seqlen=cu_seqlen,
+                cu_seqlens=cu_seqlens,
                 nz_input_ids=nz_input_ids,
                 nz_position_ids=nz_position_ids, 
                 nz_shifted_label_ids=nz_shifted_label_ids)
@@ -111,20 +121,25 @@ def create_distributed_dataloader(args, data):
     # Sampler
     # Get length
     lengths = np.array([len(tokens) for (tokens, masks) in data])
-    # Length grouped sampler
+
+    # FFD distributed sampler
+    batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
+
     sampler = FFDDistributedBatchSampler(
-        batch_max_length=args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context,
+        batch_max_length=batch_max_len,
         lengths=lengths,
         seed=0
     )
 
+    collate_fn = partial(batch_to_tensor, target_len=batch_max_len)
+
     return DataLoader(data, 
                       batch_sampler=sampler,
                       drop_last=False,
-                      collate_fn=batch_to_tensor), sampler.num_batches()
+                      collate_fn=collate_fn), sampler.num_batches()
 
 
-def create_model(args, train_dataset_size):
+def create_model(args):
     global LOCAL_RANK
 
     # Create model + optimizer + lr scheduler
@@ -201,7 +216,7 @@ def train():
         ############ Train Epoch
         model_engine.train()
 
-        train_loader.sampler.set_epoch(epoch)
+        train_loader.batch_sampler.set_epoch(epoch)
         for batch in train_loader:
             step += 1
             if step > train_total_steps:  # At most train_total_steps
@@ -211,26 +226,26 @@ def train():
             batch = {k: v.to(args.device) for k, v in batch.items()}
 
             # Update
-            loss = model_engine(**batch,
-                                use_cache=False, output_attentions=False, output_hidden_states=False).loss
+            loss = model_engine(**batch).loss
 
             model_engine.backward(loss)
 
-            # Set LR & Step optimizer
-            lr_this_step = lr_scheduler(step)
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = lr_this_step
+            if model_engine.is_gradient_accumulation_boundary():
+                # Set LR
+                lr_this_step = args.lr * lr_scheduler(step)
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = lr_this_step
+
+                # Log
+                if LOCAL_RANK == 0:
+                    wandb.log({"loss": loss.item(), "lr": lr_this_step}, step=step)
+                    progress_bar.update()
 
             model_engine.step()
 
-            # Log
-            if LOCAL_RANK == 0:
-                wandb.log({
-                    "loss": loss.item(),
-                    "lr":   lr_this_step
-                }, step=step)
-
-                progress_bar.update()
+        # Log batch efficiency
+        if LOCAL_RANK == 0:
+            wandb.log({"batch_efficiency": train_loader.batch_sampler.efficiency()}, step=step)
 
         ############ Eval Epoch
         model_engine.eval()
@@ -238,15 +253,14 @@ def train():
         eval_total_loss = torch.zeros((), dtype=torch.float32, device=args.device)
         eval_total_steps = 0
 
-        eval_loader.sampler.set_epoch(epoch)
+        eval_loader.batch_sampler.set_epoch(epoch)
         with torch.inference_mode():
             for batch in eval_loader:
                 # To device
                 batch = {k: v.to(args.device) for k, v in batch.items()}
 
                 # Eval
-                eval_loss = model_engine(**batch,
-                                         use_cache=False, output_attentions=False, output_hidden_states=False).loss
+                eval_loss = model_engine(**batch).loss
                 
                 # Accumulate eval loss
                 eval_total_loss.add_(eval_loss)
