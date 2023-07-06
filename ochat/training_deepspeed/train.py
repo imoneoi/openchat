@@ -26,6 +26,10 @@ PAD_ID          = 0
 IGNORE_LABEL_ID = -100   # Defined in torch CrossEntropyLoss
 
 
+def _find_multiple(a, b):
+    return (-(a // -b)) * b
+
+
 def _rank0_print(*args):
     global LOCAL_RANK
 
@@ -68,11 +72,13 @@ def create_dataset(args, split_name):
     return data
 
 
-def batch_to_tensor(batch, target_len, dtype=torch.long):
-    # Pad an unused item to reach target_len, for faster GEMM
+def batch_to_tensor(batch, dtype=torch.long):
+    # Pad an unused item to reach multiple of 64, for faster GEMM
     pad_cur_len = sum([len(token_list) for (token_list, mask_list) in batch])
-    pad_len     = target_len - pad_cur_len
+    pad_len     = _find_multiple(pad_cur_len, 64) - pad_cur_len
+
     if pad_len > 0:
+        assert pad_len < 64
         batch.append([
             [PAD_ID] * pad_len,
             [False] * pad_len
@@ -85,9 +91,7 @@ def batch_to_tensor(batch, target_len, dtype=torch.long):
     cu_seqlens    = torch.nn.functional.pad(batch_lengths.cumsum(-1, dtype=torch.int32), (1, 0))
 
     # nz elements
-    nz_num        = cu_seqlens[-1]
-    assert nz_num == target_len
-
+    nz_num               = cu_seqlens[-1]
     nz_input_ids         = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
     nz_position_ids      = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
     nz_shifted_label_ids = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
@@ -131,12 +135,10 @@ def create_distributed_dataloader(args, data):
         seed=0
     )
 
-    collate_fn = partial(batch_to_tensor, target_len=batch_max_len)
-
     return DataLoader(data, 
                       batch_sampler=sampler,
                       drop_last=False,
-                      collate_fn=collate_fn), sampler.num_batches()
+                      collate_fn=batch_to_tensor), sampler.num_batches()
 
 
 def create_model(args):
