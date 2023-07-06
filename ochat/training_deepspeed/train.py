@@ -49,6 +49,8 @@ def parse_args():
     parser.add_argument("--save_path",  type=str, required=True)
 
     # Hyperparameters
+    parser.add_argument("--loss_balancing",     action="store_true", default=False)
+
     parser.add_argument("--batch_size_per_gpu", type=int,   default=14)
     parser.add_argument("--epochs",             type=int,   default=5)
 
@@ -72,20 +74,21 @@ def create_dataset(args, split_name):
     return data
 
 
-def batch_to_tensor(batch, dtype=torch.long):
+def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
     # Pad an unused item to reach multiple of 64, for faster GEMM
-    pad_cur_len = sum([len(token_list) for (token_list, mask_list) in batch])
+    pad_cur_len = sum([len(token_list) for (token_list, mask_list, group) in batch])
     pad_len     = _find_multiple(pad_cur_len, 64) - pad_cur_len
 
     if pad_len > 0:
         assert pad_len < 64
         batch.append([
             [PAD_ID] * pad_len,
-            [False] * pad_len
+            [False] * pad_len,
+            0
         ])
 
     # seqlen
-    batch_lengths = torch.tensor([len(token_list) for (token_list, mask_list) in batch], dtype=torch.int32, device="cpu")
+    batch_lengths = torch.tensor([len(token_list) for (token_list, mask_list, group) in batch], dtype=torch.int32, device="cpu")
 
     max_seqlen    = torch.max(batch_lengths)
     cu_seqlens    = torch.nn.functional.pad(batch_lengths.cumsum(-1, dtype=torch.int32), (1, 0))
@@ -96,8 +99,12 @@ def batch_to_tensor(batch, dtype=torch.long):
     nz_position_ids      = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
     nz_shifted_label_ids = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
 
+    nz_shifted_loss_weights = None
+    if group_loss_weights is not None:
+        nz_shifted_loss_weights = torch.zeros((nz_num, ), dtype=loss_dtype, pin_memory=True, device="cpu")
+
     index = 0
-    for token_list, mask_list in batch:
+    for token_list, mask_list, group in batch:
         length = len(token_list)
 
         tokens       = torch.tensor(token_list, dtype=dtype,      device="cpu")
@@ -110,6 +117,12 @@ def batch_to_tensor(batch, dtype=torch.long):
         nz_input_ids[index: index + length]         = tokens
         nz_position_ids[index: index + length]      = position_ids
         nz_shifted_label_ids[index: index + length] = shifted_label_ids
+        
+        if group_loss_weights is not None:
+            shifted_loss_weights = masks * torch.full((length, ), group_loss_weights[group], dtype=loss_dtype, device="cpu")
+            shifted_loss_weights = torch.nn.functional.pad(shifted_loss_weights[1:], (0, 1), "constant", 0)
+
+            nz_shifted_loss_weights[index: index + length] = shifted_loss_weights
 
         index += length
 
@@ -118,13 +131,25 @@ def batch_to_tensor(batch, dtype=torch.long):
                 cu_seqlens=cu_seqlens,
                 nz_input_ids=nz_input_ids,
                 nz_position_ids=nz_position_ids, 
-                nz_shifted_label_ids=nz_shifted_label_ids)
+                nz_shifted_label_ids=nz_shifted_label_ids,
+                nz_shifted_loss_weights=nz_shifted_loss_weights)
 
 
 def create_distributed_dataloader(args, data):
     # Sampler
     # Get length
-    lengths = np.array([len(tokens) for (tokens, masks) in data])
+    lengths = np.array([len(tokens) for (tokens, masks, group) in data])
+
+    # Loss balancing
+    group_loss_weights = None
+    if args.loss_balancing:
+        groups = np.array([group for (tokens, masks, group) in data])
+
+        unique, unique_counts = np.unique(groups, return_counts=True)
+        total_count           = np.sum(unique_counts)
+        group_loss_weights    = {k: total_count / c for k, c in zip(unique, unique_counts)}
+
+        _rank0_print(f"Loss balancing enabled. Weights: {args.loss_balancing}")
 
     # FFD distributed sampler
     batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
@@ -135,10 +160,12 @@ def create_distributed_dataloader(args, data):
         seed=0
     )
 
+    collate_fn = partial(batch_to_tensor, group_loss_weights=group_loss_weights)
+
     return DataLoader(data, 
                       batch_sampler=sampler,
                       drop_last=False,
-                      collate_fn=batch_to_tensor), sampler.num_batches()
+                      collate_fn=collate_fn), sampler.num_batches()
 
 
 def create_model(args):

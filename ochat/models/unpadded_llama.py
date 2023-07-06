@@ -39,6 +39,14 @@ from flash_attn.bert_padding import pad_input
 logger = logging.get_logger(__name__)
 
 
+@torch.jit.script
+def weighted_cross_entropy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
+    factor = weights.sum()
+    factor = torch.where(factor == 0, 0, torch.reciprocal(factor))  # Avoid NaNs
+
+    return factor * (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
+
+
 class UnpaddedLlamaRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
         """
@@ -369,6 +377,7 @@ class UnpaddedLlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
         max_seqlen: torch.Tensor,
         # Unpadded labels
         nz_shifted_label_ids: Optional[torch.Tensor] = None,
+        nz_shifted_loss_weights:      Optional[torch.Tensor] = None
     ) -> CausalLMOutputWithPast:
         # Model logits
         hidden_states = self.model(
@@ -381,7 +390,10 @@ class UnpaddedLlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
 
         loss = None
         if nz_shifted_label_ids is not None:
-            loss = CrossEntropyLoss()(logits, nz_shifted_label_ids)
+            if nz_shifted_loss_weights is not None:
+                loss = weighted_cross_entropy(logits, nz_shifted_label_ids, nz_shifted_loss_weights)
+            else:
+                loss = CrossEntropyLoss()(logits, nz_shifted_label_ids)
 
         return CausalLMOutputWithPast(
             loss=loss,

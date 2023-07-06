@@ -19,6 +19,9 @@ class ModelConfig:
     eot_token: str
     bos_token: Optional[str] = None
 
+    # Label
+    group_fn: Optional[Callable] = None
+
     # Model
     model_max_context: Optional[int] = None
     model_create: Optional[Callable] = None
@@ -61,7 +64,11 @@ class ModelConfig:
             else:
                 assert idx == len(message_list) - 1, "Empty message for completion must be on the last."
 
-        return tokens, masks
+        group = 0
+        if self.group_fn:
+            group = self.group_fn(message_props)
+
+        return tokens, masks, group
 
 
 def _v2_conditional_prefix(from_role, props):
@@ -79,6 +86,13 @@ def _v2_conditional_prefix(from_role, props):
         return gpt4_prefix if props["is_gpt4"] else other_prefix
     
     raise NotImplementedError(f"Unknown role {from_role}")
+
+
+def _v2_group(props):
+    if props is None:
+        return 1
+
+    return 1 if props["is_gpt4"] else 0
 
 
 MODEL_CONFIG_MAP = {
@@ -144,6 +158,9 @@ MODEL_CONFIG_MAP = {
         ai_role="gpt",
         eot_token="<|end_of_turn|>",
         bos_token="<s>",
+
+        # Label
+        group_fn=_v2_group,
 
         # Tokenize
         model_max_context=2048,
