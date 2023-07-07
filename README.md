@@ -17,7 +17,7 @@ OpenLLMs is a series of open-source language models based on supervised fine-tun
 
 ## News
 
-- [2023/07/07] We released the [OpenLLMs_v2 model series]().
+- [2023/07/07] We released the [OpenLLMs_v2 model series](https://huggingface.co/openchat).
 
 - [2023/07/01] We released the [OpenLLMs_v1 model series](https://huggingface.co/openchat).
 
@@ -28,11 +28,11 @@ OpenLLMs is a series of open-source language models based on supervised fine-tun
 #### <a id="v2"></a> OpenLLMs_v2 
 The OpenLLMs_v2 family is inspired by offline reinforcement learning, including conditional behavior cloning (OpenChat-v2) and weighted behavior cloning (OpenChat-v2-w).
 
- - **[OpenChat-v2-w]()**: ~80k cleaned ShareGPT data with conditioning and weighted loss, based on LLaMA-13B with a context length of 2048.
+ - **[OpenChat-v2-w](https://huggingface.co/openchat/openchat_v2_w)**: ~80k cleaned ShareGPT data with conditioning and weighted loss, based on LLaMA-13B with a context length of 2048.
    - Achieves **51.5%** win-rate and **6.32** score on MT-bench.
    - Achieves **83.8%** win-rate on the Vicuna GPT-4 evaluation.
    - Achieves **87.1%** win-rate on AlpacaEval.
- - **[OpenChat-v2]()**: ~80k cleaned ShareGPT data with only conditioning, based on LLaMA-13B with a context length of 2048.
+ - **[OpenChat-v2](https://huggingface.co/openchat/openchat_v2)**: ~80k cleaned ShareGPT data with only conditioning, based on LLaMA-13B with a context length of 2048.
    - Achieves **47.2%** win-rate and **6.67** score on MT-bench.
    - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
    - Achieves **85.0%** win-rate on AlpacaEval.
@@ -75,7 +75,6 @@ It is worth noting that all the win-rate, including MT-bench, is computed withou
 | **openchat-v2-13b**   | **85.0**     | **47.2**      |              | **6.67**     |
 | **openchat-13b**      | **80.9**     |               |              |              |
 | **openchat8192-13b**  | **79.5**     |               |              |              |
-| **opencoderplus-15b** | **78.7**     |               |              |              |
 | wizardlm-13b          | 75.3         | -             | -            | 6.35         |
 | guanaco-65b           | 71.8         | -             | -            | 6.41         |
 | vicuna-13b            | 70.4         | 22.6          | 50.0         | 6.39         |
@@ -291,12 +290,9 @@ OpenLLMs may sometimes generate information that does not exist or is not accura
 
 ## TODO
 
-- [ ] Improving conversation splitting
-- [ ] Mixing SFT data with pretraining data (e.g. RedPajama)
-- [ ] Extending context by interpolating RoPE (requires mixing with pretraining data)
-- [ ] Trying LIMA dropout (to determine its usefulness)
-- [ ] Training larger LLaMA models (needs more computing power)
-- [ ] Support inference with 2x consumer GPUs
+- [ ] Updating performance on more standard benchmarks
+- [ ] Training larger LLaMA models
+- [ ] Prepare the v3 version
 
 ## License
 
@@ -304,7 +300,7 @@ Our weight license is subject to their corresponding base model. For example, Op
 
 ## Contact
 
-imonenext@gmail.com
+💓 We are a student team from Tsinghua University. Considering that we hope to further move on our OpenLLMs, we need support for more computing power. If you are interested in our OpenLLMs, welcome to contact Wang Guan (Project Leader; imonenext@gmail.com) or Cheng Sijie (LeslieCheng0701@outlook.com).
 
 ## Citation
 
