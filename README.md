@@ -34,7 +34,7 @@ The OpenLLMs_v2 family is inspired by offline reinforcement learning, including 
    - Achieves **87.1%** win-rate on AlpacaEval.
  - **[OpenChat-v2](https://huggingface.co/openchat/openchat_v2)**: ~80k cleaned ShareGPT data with only conditioning, based on LLaMA-13B with a context length of 2048.
    - Achieves **47.2%** win-rate and **6.67** score on MT-bench.
-   - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
+   - Achieves **83.6%** win-rate on the Vicuna GPT-4 evaluation.
    - Achieves **85.0%** win-rate on AlpacaEval.
   
 #### <a id="v1"></a> OpenLLMs_v1
@@ -42,16 +42,15 @@ The OpenLLMs_v1 family is to validate the importance of data quality.
 
  - **[OpenChat-v1-2048](https://huggingface.co/openchat/openchat)**: only ~6k GPT-4 conversations, based on LLaMA-13B with a context length of 2048.
    - Achieves **** win-rate and **** score on MT-bench.
-   - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
+   - Achieves **77.3%** win-rate on the Vicuna GPT-4 evaluation.
    - Achieves **80.9%** win-rate on AlpacaEval.
  - **[OpenChat-v1-8192](https://huggingface.co/openchat/openchat_8192)**: only ~6k GPT-4 conversations, based on LLaMA-13B, with an extended context length of 8192.
    - Achieves **** win-rate and **** score on MT-bench.
-   - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
+   - Achieves **82.1%** win-rate on the Vicuna GPT-4 evaluation.
    - Achieves **79.5%** win-rate on AlpacaEval.
  - **[OpenCoderPlus-8192](https://huggingface.co/openchat/opencoderplus)**: based on StarCoderPlus with a native context length of 8192.
-   - Achieves **** win-rate and **** score on MT-bench.
-   - Achieves **** of win-rate on the Vicuna GPT-4 evaluation.
    - Achieves a **78.7%** win-rate on AlpacaEval.
+   - Other benchmarks do not support StarCoder, we will try to fix it.
 
 #### Dataset:
 
