@@ -72,9 +72,9 @@ It is worth noting that all the win-rate, including MT-bench, is computed withou
 | claude                | 88.4         | 73.6          | 83.9         | 7.90         |
 | **openchat-v2-w-13b** | **87.1**     | **51.5**      | **83.8**     | **6.32**     |
 |chatgpt (gpt-3.5-turbo)| 86.1         | 50.0          | 50.0         | 7.94         |
-| **openchat-v2-13b**   | **85.0**     | **47.2**      |              | **6.67**     |
-| **openchat-13b**      | **80.9**     |               |              |              |
-| **openchat8192-13b**  | **79.5**     |               |              |              |
+| **openchat-v2-13b**   | **85.0**     | **47.2**      | **83.6**     | **6.67**     |
+| **openchat-13b**      | **80.9**     |               | **77.3**     |              |
+| **openchat8192-13b**  | **79.5**     |               | **82.1**     |              |
 | wizardlm-13b          | 75.3         | -             | -            | 6.35         |
 | guanaco-65b           | 71.8         | -             | -            | 6.41         |
 | vicuna-13b            | 70.4         | 22.6          | 50.0         | 6.39         |
