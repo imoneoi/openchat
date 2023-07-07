@@ -11,6 +11,7 @@ scikit-learn
 umap
 # Training
 wandb
+numba
 # Training + Serving
 sentencepiece
 transformers
@@ -21,3 +22,4 @@ fastapi
 pydantic
 shortuuid
 uvicorn
+vllm
