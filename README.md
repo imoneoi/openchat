@@ -1,48 +1,53 @@
 # OpenLLMs: Less is More for Open-source Models
 
-OpenLLMs is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1 and v2](#generic-models)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts ~6k GPT-4 and ~xk ChatGPT with a conditioning strategy combined with weighted loss. Despite our methods being simple, OpenLLMs has demonstrated remarkable performance. Our final vision is to develop an open-source and commercially available large language model, and we are still moving on.
+OpenLLMs is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1](#v1) and [v2](#v2)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts cleaned ~80k ShareGPT conversations with a conditioning strategy and weighted loss. Despite our methods being simple, OpenLLMs has demonstrated remarkable performance. Our final vision is to develop an open-source and commercially available large language model, and we are still moving on.
 
 
-**💥 x.xx score and xx.x% win-rate, rank #1 of 13B open-source models on [MT-bench](https://chat.lmsys.org/?leaderboard)**
+**💥 51.5% win-rate v.s. ChatGPT and 6.32 score on [MT-bench](https://chat.lmsys.org/?leaderboard)**
 
-**🔥 xx.x% win-rate on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/)**
+**🚀 83.8% win-rate v.s. ChatGPT on [Vicuna GPT-4 eval](https://lmsys.org/blog/2023-03-30-vicuna/)**
 
-**🚀 xxx% ChatGPT score on [Vicuna GPT-4 eval](https://lmsys.org/blog/2023-03-30-vicuna/)**
+**🔥 87.1% win-rate v.s. Davinci003 on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/)**
 
-**🤗 Using only [~6K GPT-4 data](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset) and [~xK ChatGPT data]()**
+**🤗 Using [~6K GPT-4 data](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset) in v1 and [~80K cleaned ShareGPT data]() in v2**
 
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
 ## News
 
-- [2023/07/07] We released the OpenChat-v2 model, surpassing ChatGPT on AlpacaEval.
+- [2023/07/07] We released the [OpenLLMs_v2 model series]().
 
-- [2023/07/01] We released the [OpenLLMs model series](https://huggingface.co/openchat).
+- [2023/07/01] We released the [OpenLLMs_v1 model series](https://huggingface.co/openchat).
 
 ## Models and Dataset
 
 *⚠️ Note:* The evaluation metrics represent a quantified measure of a subset of the model's capabilities. A score of 105% does not necessarily indicate that the model is better than ChatGPT in all scenarios or for all use cases. It is essential to consider the specific tasks or applications for which the model was evaluated and compare the results accordingly.
 
-#### <a id="generic-models"></a> Generic Models
+#### <a id="v2"></a> OpenLLMs_v2 
+The OpenLLMs_v2 family is inspired by offline reinforcement learning, including conditional behavior cloning (OpenChat-v2) and weighted behavior cloning (OpenChat-v2-w).
 
-
- - **[OpenChat-v2]()**: ~6k GPT-4 and ~xk ChatGPT with conditioning and weighted loss, based on LLaMA-13B with a context length.
-   - Achieves **** score, and **** win-rate on MT-bench.
+ - **[OpenChat-v2-w]()**: ~80k cleaned ShareGPT data with conditioning and weighted loss, based on LLaMA-13B with a context length of 2048.
+   - Achieves **6.32** score, and **51.5** win-rate on MT-bench.
    - Achieves **** of ChatGPT score on the Vicuna GPT-4 evaluation.
-   - Achieves **** win-rate on AlpacaEval.
+   - Achieves **87.1** win-rate on AlpacaEval.
+ - **[OpenChat-v2]()**: ~80k cleaned ShareGPT data with only conditioning, based on LLaMA-13B with a context length of 2048.
+   - Achieves **6.67** score, and **47.2** win-rate on MT-bench.
+   - Achieves **** of ChatGPT score on the Vicuna GPT-4 evaluation.
+   - Achieves **85.0** win-rate on AlpacaEval.
+  
+#### <a id="v1"></a> OpenLLMs_v1
+The OpenLLMs_v2 family is to validate the importance of data quality.
+
  - **[OpenChat-v1-2048](https://huggingface.co/openchat/openchat)**: only ~6k GPT-4 conversations, based on LLaMA-13B with a context length of 2048.
-   - Achieves **** score, and **** win-rate on MT-bench.
-   - Achieves **105.7%** of ChatGPT score on the Vicuna GPT-4 evaluation.
+   - Achieves **** score, and **** win:tie:loss on MT-bench.
+   - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
    - Achieves **80.9%** win-rate on AlpacaEval.
  - **[OpenChat-v1-8192](https://huggingface.co/openchat/openchat_8192)**: only ~6k GPT-4 conversations, based on LLaMA-13B, with an extended context length of 8192.
-   - Achieves **** score, and **** win-rate on MT-bench.
-   - Achieves **106.6%** of ChatGPT score on the Vicuna GPT-4 evaluation.
+   - Achieves **** score, and **** win:tie:loss on MT-bench.
+   - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
    - Achieves **79.5%** win-rate on AlpacaEval.
-
-#### Code Models:
-
  - **[OpenCoderPlus-8192](https://huggingface.co/openchat/opencoderplus)**: based on StarCoderPlus with a native context length of 8192.
-   - Achieves **102.5%** of ChatGPT score on the Vicuna GPT-4 evaluation.
+   - Achieves **** of win-rate on the Vicuna GPT-4 evaluation.
    - Achieves a **78.7%** win-rate on AlpacaEval.
 
 #### Dataset:
@@ -51,42 +56,40 @@ OpenLLMs is a series of open-source language models based on supervised fine-tun
 
 ## Model Evaluation
 
-We have evaluated our models using the four most popular evaluation benchmarks, including AlpacaEval, MT-bench, MMLU, and Vicuna GPT-4 benchmarks. 
+We have evaluated our models using the three most popular evaluation benchmarks, including AlpacaEval, MT-bench, and Vicuna GPT-4 benchmarks. 
 Here we list the minimal version of benchmarks with our released models. The full version can be found on [MT-bench](https://chat.lmsys.org/?leaderboard) and [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/).
+
+It is worth noting that all the win-rate, including MT-bench, is computed by ```df["win_rate"] = df["win"] / (df["win"] + df["loss"])``` rather than ```df["win_rate"] = df["win"] / (df["win"] + df["loss"] + df["tie"])``` in MT-Bench which might have some bugs. We will replace the unfilled results after MT-bench is updated.
+
 
 ### Leaderboard
 
-|                       |**AlpacaEval (win rate %)**| **MT-bench (score)** | **MT-bench (win rate %)** | **MMLU** |  
+|                       |**AlpacaEval (win rate %)**| **MT-bench (win rate %)** | **Vicuna-bench (win rate %)**| **MT-bench (score)** | 
 |-----------------------|--------------|---------------|--------------|--------------|
-| gpt4                  | 95.3         | 8.99         | 69.4          | 86.4         |
-| claude                | 88.4         | 7.9          | 46.9          | 75.6         |
-| **openchat-v2-13b**   |              |              |               |              |    
-|chatgpt (gpt-3.5-turbo)| 86.1         | -            | -             | 70           |
-| claude-instance       | -            | 7.85         | 40            | 61.3         |
-| vicuna-33B            | -            | 7.12         | 43.8          | 59.2         |
-| wizardlm-30B          | -            | 7.01         | 23.1          | 58.7         |
-| **openchat-13b**      | **80.9**     |              |               |              |
-| **openchat8192-13b**  | **79.5**     |              |               |              |
-| **opencoderplus-15b** | **78.7**     |              |               |              |
-| wizardlm-13b          | 75.3         | 6.35         | 16.9          | 52.3         |
-| guanaco-65b           | 71.8         | 6.41         | 23.8          | 62.1         |
-| vicuna-13b            | 70.4         | 6.39         | 20.6          | 52.1         |
-| guanaco-33b           | 66.0         | 6.53         | 26.2          | 57.6         |
-| text_davinci_003      | 50.0         | -            | -             | -            |
-| falcon-40b-instruct   | 45.7         | 5.17         | 6.2           | 54.7         |
+|                       |**v.s. Davinci003**     | **v.s. ChatGPT** | **v.s. ChatGPT** |   | 
+| gpt4                  | 95.3         | 92.2          | 100.0        | 8.99         | 
+| claude                | 88.4         | 73.6          | 83.9         | 7.90         |
+| **openchat-v2-w-13b** | **87.1**     | **51.5**      | **83.8**     | **6.32**     |
+|chatgpt (gpt-3.5-turbo)| 86.1         | 50.0          | 50.0         | 7.94         |
+| **openchat-v2-13b**   | **85.0**     | **47.2**      |              | **6.67**     |
+| **openchat-13b**      | **80.9**     |               |              |              |
+| **openchat8192-13b**  | **79.5**     |               |              |              |
+| **opencoderplus-15b** | **78.7**     |               |              |              |
+| wizardlm-13b          | 75.3         | -             | -            | 6.35         |
+| guanaco-65b           | 71.8         | -             | -            | 6.41         |
+| vicuna-13b            | 70.4         | 22.6          | 50.0         | 6.39         |
+| guanaco-33b           | 66.0         | -             | -            | 6.53         |
+| text_davinci_003      | 50.0         | -             | -            | -            |
+| falcon-40b-instruct   | 45.7         | -             | -            | 5.17         |
 
 
-### Vicuna Evaluation
+## Standard benchmarks (In progress)
 
-Considering that our fine-tuning dataset is produced by GPT-4, we use both GPT-4 and GPT-3.5-Turbo as evaluators, respectively. Note that our evaluation schema slightly differs from Vicuna's. Following [Wang et. al, 2023](https://arxiv.org/pdf/2305.17926.pdf), we additionally adopted evidence calibration (EC) + balanced position calibration (BPC) to reduce potential bias.
+We are trying to use extensive standard benchmarks to evaluate the performance of OpenLLMs, we will release the evaluation results as soon as possible!
 
-**Vicuna GPT-4 Evaluation (v.s. gpt-3.5-turbo)**
-
-![gpt4eval](assets/vicuna_gpt4.svg)
-
-**Vicuna GPT-3.5-Turbo Evaluation (v.s. gpt-3.5-turbo)**
-
-![gpt35eval](assets/vicuna_gpt35.svg)
+| Models                                                                          | LLaMA-13B BFloat16 | OpenChat  | OpenChat8192 | gpt-3.5-turbo|
+|---------------------------------------------------------------------------------|--------------------|-----------|--------------|--------------|
+| MMLU [(chain-of-thought hub)](https://github.com/FranxYao/chain-of-thought-hub) | 46.66              | **48.53** | 45.16        |67.3          |
 
 ## Installation
 
