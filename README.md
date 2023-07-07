@@ -27,26 +27,27 @@ OpenLLMs is a series of open-source language models based on supervised fine-tun
 The OpenLLMs_v2 family is inspired by offline reinforcement learning, including conditional behavior cloning (OpenChat-v2) and weighted behavior cloning (OpenChat-v2-w).
 
  - **[OpenChat-v2-w]()**: ~80k cleaned ShareGPT data with conditioning and weighted loss, based on LLaMA-13B with a context length of 2048.
-   - Achieves **6.32** score, and **51.5** win-rate on MT-bench.
-   - Achieves **** of ChatGPT score on the Vicuna GPT-4 evaluation.
-   - Achieves **87.1** win-rate on AlpacaEval.
+   - Achieves **51.5%** win-rate and **6.32** score on MT-bench.
+   - Achieves **83.8%** win-rate on the Vicuna GPT-4 evaluation.
+   - Achieves **87.1%** win-rate on AlpacaEval.
  - **[OpenChat-v2]()**: ~80k cleaned ShareGPT data with only conditioning, based on LLaMA-13B with a context length of 2048.
-   - Achieves **6.67** score, and **47.2** win-rate on MT-bench.
-   - Achieves **** of ChatGPT score on the Vicuna GPT-4 evaluation.
-   - Achieves **85.0** win-rate on AlpacaEval.
+   - Achieves **47.2%** win-rate and **6.67** score on MT-bench.
+   - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
+   - Achieves **85.0%** win-rate on AlpacaEval.
   
 #### <a id="v1"></a> OpenLLMs_v1
 The OpenLLMs_v2 family is to validate the importance of data quality.
 
  - **[OpenChat-v1-2048](https://huggingface.co/openchat/openchat)**: only ~6k GPT-4 conversations, based on LLaMA-13B with a context length of 2048.
-   - Achieves **** score, and **** win:tie:loss on MT-bench.
+   - Achieves **** win-rate and **** score on MT-bench.
    - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
    - Achieves **80.9%** win-rate on AlpacaEval.
  - **[OpenChat-v1-8192](https://huggingface.co/openchat/openchat_8192)**: only ~6k GPT-4 conversations, based on LLaMA-13B, with an extended context length of 8192.
-   - Achieves **** score, and **** win:tie:loss on MT-bench.
+   - Achieves **** win-rate and **** score on MT-bench.
    - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
    - Achieves **79.5%** win-rate on AlpacaEval.
  - **[OpenCoderPlus-8192](https://huggingface.co/openchat/opencoderplus)**: based on StarCoderPlus with a native context length of 8192.
+   - Achieves **** win-rate and **** score on MT-bench.
    - Achieves **** of win-rate on the Vicuna GPT-4 evaluation.
    - Achieves a **78.7%** win-rate on AlpacaEval.
 
