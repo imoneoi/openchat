@@ -92,7 +92,7 @@ Due to the limitations of Vicuna GPT-4 Evaluation and AlpacaEval, we are trying 
 To use OpenLLMs, you need to have CUDA and PyTorch installed. You can clone this repository and install the dependencies via pip:
 
 ```bash
-git clone git@github.com:imoneoi/OChat.git
+git clone git@github.com:imoneoi/openchat.git
 ```
 
 ```bash
