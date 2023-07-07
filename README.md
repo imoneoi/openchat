@@ -1,15 +1,15 @@
 # OpenLLMs: Less is More for Open-source Large Language Models
 
-OpenLLMs is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1](#v1) and [v2](#v2)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts cleaned ~80k ShareGPT conversations with a conditioning strategy and weighted loss. Despite our methods being simple, OpenLLMs has demonstrated remarkable performance. Our final vision is to develop an open-source and commercially available large language model, and we are still moving on.
+OpenLLMs is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1](#v1) and [v2](#v2)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts cleaned ~80k ShareGPT conversations with a conditioning strategy and weighted loss. Despite our methods being simple, OpenLLMs has demonstrated remarkable performance. Our final vision is to develop a high-performance, open-source and commercially available large language model, and we are still moving on.
 
 
 **💥 51.5% win-rate v.s. ChatGPT on [MT-bench](https://chat.lmsys.org/?leaderboard)**
 
 **🚀 83.8% win-rate v.s. ChatGPT on [Vicuna GPT-4 eval](https://lmsys.org/blog/2023-03-30-vicuna/)**
 
-**🔥 87.1% win-rate v.s. Davinci003 on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/)**
+**🔥 87.1% win-rate v.s. Davinci003 on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/), rank #1 of open-source models**
 
-**🤗 Using [~6K GPT-4 data](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset) in v1 and [~80K cleaned ShareGPT data]() in v2**
+**🤗 Using [~6K GPT-4 data](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset) in v1 and [~80K cleaned ShareGPT data](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset) in v2**
 
 **🕒 Optimized unpadded training, ~1 hour for v1 and ~6 hours for v2 (8xA100 80G)**
 
@@ -29,29 +29,27 @@ OpenLLMs is a series of open-source language models based on supervised fine-tun
 The OpenLLMs_v2 family is inspired by offline reinforcement learning, including conditional behavior cloning (OpenChat-v2) and weighted behavior cloning (OpenChat-v2-w).
 
  - **[OpenChat-v2-w](https://huggingface.co/openchat/openchat_v2_w)**: ~80k cleaned ShareGPT data with conditioning and weighted loss, based on LLaMA-13B with a context length of 2048.
-   - Achieves **51.5%** win-rate and **6.32** score on MT-bench.
-   - Achieves **83.8%** win-rate on the Vicuna GPT-4 evaluation.
-   - Achieves **87.1%** win-rate on AlpacaEval.
+   - Achieves **51.5%** win-rate over ChatGPT on MT-bench.
+   - Achieves **83.8%** win-rate over ChatGPT on Vicuna-bench.
+   - Achieves **87.1%** win-rate over text-davinci-003 on AlpacaEval.
  - **[OpenChat-v2](https://huggingface.co/openchat/openchat_v2)**: ~80k cleaned ShareGPT data with only conditioning, based on LLaMA-13B with a context length of 2048.
-   - Achieves **47.2%** win-rate and **6.67** score on MT-bench.
-   - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
-   - Achieves **85.0%** win-rate on AlpacaEval.
-  
+   - Achieves **47.2%** win-rate over ChatGPT on MT-bench.
+   - Achieves **83.6%** win-rate over ChatGPT on Vicuna-bench.
+   - Achieves **85.0%** win-rate over text-davinci-003 on AlpacaEval.
+
 #### <a id="v1"></a> OpenLLMs_v1
 The OpenLLMs_v1 family is to validate the importance of data quality.
 
- - **[OpenChat-v1-2048](https://huggingface.co/openchat/openchat)**: only ~6k GPT-4 conversations, based on LLaMA-13B with a context length of 2048.
-   - Achieves **** win-rate and **** score on MT-bench.
-   - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
-   - Achieves **80.9%** win-rate on AlpacaEval.
+ - **[OpenChat-v1](https://huggingface.co/openchat/openchat)**: only ~6k GPT-4 conversations, based on LLaMA-13B with a context length of 2048.
+   - Achieves **** win-rate over ChatGPT on MT-bench.
+   - Achieves **77.3%** win-rate over ChatGPT on Vicuna-bench.
+   - Achieves **80.9%** win-rate over text-davinci-003 on AlpacaEval.
  - **[OpenChat-v1-8192](https://huggingface.co/openchat/openchat_8192)**: only ~6k GPT-4 conversations, based on LLaMA-13B, with an extended context length of 8192.
-   - Achieves **** win-rate and **** score on MT-bench.
-   - Achieves **** win-rate on the Vicuna GPT-4 evaluation.
-   - Achieves **79.5%** win-rate on AlpacaEval.
- - **[OpenCoderPlus-8192](https://huggingface.co/openchat/opencoderplus)**: based on StarCoderPlus with a native context length of 8192.
-   - Achieves **** win-rate and **** score on MT-bench.
-   - Achieves **** of win-rate on the Vicuna GPT-4 evaluation.
-   - Achieves a **78.7%** win-rate on AlpacaEval.
+   - Achieves **** win-rate over ChatGPT on MT-bench.
+   - Achieves **83.6%** win-rate over ChatGPT on Vicuna-bench.
+   - Achieves **79.5%** win-rate over text-davinci-003 on AlpacaEval.
+ - **[OpenCoderPlus-v1-8192](https://huggingface.co/openchat/opencoderplus)**: based on StarCoderPlus with a native context length of 8192.
+   - Achieves **78.7%** win-rate over text-davinci-003 on AlpacaEval.
 
 #### Dataset:
 
@@ -79,7 +77,7 @@ It is worth noting that all the win-rate, including MT-bench, is computed withou
 | guanaco-65b           | 71.8         | -             | -            | 6.41         |
 | vicuna-13b            | 70.4         | 22.6          | 50.0         | 6.39         |
 | guanaco-33b           | 66.0         | -             | -            | 6.53         |
-| text_davinci_003      | 50.0         | -             | -            | -            |
+| text-davinci-003      | 50.0         | -             | -            | -            |
 | falcon-40b-instruct   | 45.7         | -             | -            | 5.17         |
 
 We are also trying to use extensive standard benchmarks to evaluate the performance of OpenLLMs, such as MMLU, we will release the evaluation results as soon as possible!
@@ -290,9 +288,17 @@ OpenLLMs may sometimes generate information that does not exist or is not accura
 
 ## TODO
 
+**High-priority**
+
+- [ ] Improving reasoning and math skills
 - [ ] Updating performance on more standard benchmarks
 - [ ] Training larger LLaMA models
-- [ ] Prepare the v3 version
+
+**Low-priority**
+
+- [ ] Mixing SFT data with pretraining data (e.g. RedPajama)
+- [ ] Extending context by interpolating RoPE (requires mixing with pretraining data)
+- [ ] Improving conversation splitting
 
 ## License
 
