@@ -1,91 +1,119 @@
-# OpenChat: Less is More for Open-source Models
+# OpenLLMs: Less is More for Open-source Models
 
-OpenChat is a series of open-source language models fine-tuned on a diverse and high-quality dataset of multi-round conversations. With only ~6K GPT-4 conversations filtered from the ~90K ShareGPT conversations, OpenChat is designed to achieve high performance with limited data.
+OpenLLMs is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1 and v2](#generic-models)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts ~6k GPT-4 and ~xk ChatGPT with a conditioning strategy combined with weighted loss. Despite our methods being simple, OpenLLMs has demonstrated remarkable performance. Our final vision is to develop an open-source and commercially available large language model, and we are still moving on.
 
-**🔥 80.9% [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) win-rate, rank #1 of open-source models**
 
-**🚀 105.7% ChatGPT performance (Vicuna GPT-4 eval)**
+**💥 6.67 score and 31.9% win-rate, rank #1 of 13B open-source models on [MT-bench](https://chat.lmsys.org/?leaderboard)**
 
-**🤗 Using only 6K data**
+**🔥 87.1% win-rate, surpass ChatGPT on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/)**
+
+**🚀 xxx% ChatGPT score on [Vicuna GPT-4 eval](https://lmsys.org/blog/2023-03-30-vicuna/)**
+
+**🤗 Using only [~6K GPT-4 data](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset) and [~xK ChatGPT data]()**
+
+[![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
 ## News
 
-- [2023/07] We released the OpenChat model series, with **105%** ChatGPT performance (Vicuna GPT-4 evaluation)
+- [2023/07/07] We released the OpenChat-v2 model, surpassing ChatGPT on AlpacaEval.
 
-## Models
+- [2023/07/01] We released the [OpenLLMs model series](https://huggingface.co/openchat).
 
-#### Generic Models:
+## Models and Dataset
 
- - **OpenChat**: based on LLaMA-13B with a context length of 2048.
+*⚠️ Note:* The evaluation metrics represent a quantified measure of a subset of the model's capabilities. A score of 105% does not necessarily indicate that the model is better than ChatGPT in all scenarios or for all use cases. It is essential to consider the specific tasks or applications for which the model was evaluated and compare the results accordingly.
+
+#### <a id="generic-models"></a> Generic Models
+
+
+ - **[OpenChat-v2]()**: ~6k GPT-4 and ~xk ChatGPT with conditioning and weighted loss, based on LLaMA-13B with a context length.
+   - Achieves **6.67** score, and **31.9%** win-rate on MT-bench.
+   - Achieves **** of ChatGPT score on the Vicuna GPT-4 evaluation.
+   - Achieves **87.13** win-rate on AlpacaEval.
+ - **[OpenChat-v1-2048](https://huggingface.co/openchat/openchat)**: only ~6k GPT-4 conversations, based on LLaMA-13B with a context length of 2048.
+   - Achieves **** score, and **** win-rate on MT-bench.
    - Achieves **105.7%** of ChatGPT score on the Vicuna GPT-4 evaluation.
-   - Achieves a **80.9%** win-rate on AlpacaEval.
- - **OpenChat-8192**: based on LLaMA-13B, with an extended context length of 8192.
+   - Achieves **80.9%** win-rate on AlpacaEval.
+ - **[OpenChat-v1-8192](https://huggingface.co/openchat/openchat_8192)**: only ~6k GPT-4 conversations, based on LLaMA-13B, with an extended context length of 8192.
+   - Achieves **** score, and **** win-rate on MT-bench.
    - Achieves **106.6%** of ChatGPT score on the Vicuna GPT-4 evaluation.
-   - Achieves a **79.5%** win-rate on AlpacaEval.
+   - Achieves **79.5%** win-rate on AlpacaEval.
 
 #### Code Models:
 
- - **OpenCoderPlus**: based on StarCoderPlus with a native context length of 8192.
+ - **[OpenCoderPlus-8192](https://huggingface.co/openchat/opencoderplus)**: based on StarCoderPlus with a native context length of 8192.
    - Achieves **102.5%** of ChatGPT score on the Vicuna GPT-4 evaluation.
    - Achieves a **78.7%** win-rate on AlpacaEval.
 
-**Model Evaluation**
+#### Dataset:
 
-We have evaluated our models using the Vicuna GPT-4 and AlpacaEval benchmarks. The evaluation results are presented in the following figures.
+  - **[openchat_sharegpt4_dataset](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset)**: ~6k cleaned and filtered GPT-4 data from ShareGPT.
 
-**Vicuna GPT-4 Evalutaion (v.s. gpt-3.5-turbo)**
+## Model Evaluation
+
+We have evaluated our models using the four most popular evaluation benchmarks, including AlpacaEval, MT-bench, MMLU, and Vicuna GPT-4 benchmarks. 
+Here we list the minimal version of benchmarks with our released models. The full version can be found on [MT-bench](https://chat.lmsys.org/?leaderboard) and [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/).
+
+### Leaderboard
+
+|                       |**AlpacaEval (win rate %)**| **MT-bench (score)** | **MT-bench (win rate %)** | **MMLU** |  
+|-----------------------|--------------|---------------|--------------|--------------|
+| gpt4                  | 95.3         | 8.99         | 69.4          | 86.4         |
+| claude                | 88.4         | 7.9          | 46.9          | 75.6         |
+| **openchat-v2-13b**   | **87.1**     |              |               |              |    
+|chatgpt (gpt-3.5-turbo)| 86.1         | -            | -             | 70           |
+| claude-instance       | -            | 7.85         | 40            | 61.3         |
+| vicuna-33B            | -            | 7.12         | 43.8          | 59.2         |
+| wizardlm-30B          | -            | 7.01         | 23.1          | 58.7         |
+| **openchat-13b**      | **80.9**     |              |               |              |
+| **openchat8192-13b**  | **79.5**     |              |               |              |
+| **opencoderplus-15b** | **78.7**     |              |               |              |
+| wizardlm-13b          | 75.3         | 6.35         | 16.9          | 52.3         |
+| guanaco-65b           | 71.8         | 6.41         | 23.8          | 62.1         |
+| vicuna-13b            | 70.4         | 6.39         | 20.6          | 52.1         |
+| guanaco-33b           | 66.0         | 6.53         | 26.2          | 57.6         |
+| text_davinci_003      | 50.0         | -            | -             | -            |
+| falcon-40b-instruct   | 45.7         | 5.17         | 6.2           | 54.7         |
+
+
+### Vicuna Evaluation
+
+Considering that our fine-tuning dataset is produced by GPT-4, we use both GPT-4 and GPT-3.5-Turbo as evaluators, respectively. Note that our evaluation schema slightly differs from Vicuna's. Following [Wang et. al, 2023](https://arxiv.org/pdf/2305.17926.pdf), we additionally adopted evidence calibration (EC) + balanced position calibration (BPC) to reduce potential bias.
+
+**Vicuna GPT-4 Evaluation (v.s. gpt-3.5-turbo)**
 
 ![gpt4eval](assets/vicuna_gpt4.svg)
 
-**Vicuna GPT-3.5-Turbo Evalutaion (v.s. gpt-3.5-turbo)**
+**Vicuna GPT-3.5-Turbo Evaluation (v.s. gpt-3.5-turbo)**
 
 ![gpt35eval](assets/vicuna_gpt35.svg)
 
-Note that our evaluation schema slightly differs from Vicuna. Following [Wang et. al, 2023](https://arxiv.org/pdf/2305.17926.pdf), we additionally adopted evidence calibration (EC) + balanced position calibration (BPC) to reduce potential bias.
-
-### AlpacaEval
-
-|                       | **Win Rate** | **Std Error** |
-|-----------------------|--------------|---------------|
-| gpt4                  | 95.3         | 0.7           |
-| claude                | 88.4         | 1.1           |
-| chatgpt               | 86.1         | 1.2           |
-| **openchat-13b**      | **80.9**     | 1.4           |
-| **openchat8192-13b**  | **79.5**     | 1.4           |
-| **opencoderplus-15b** | **78.7**     | 1.4           |
-| wizardlm-13b          | 75.3         | 1.5           |
-| guanaco-65b           | 71.8         | 1.6           |
-| vicuna-13b            | 70.4         | 1.6           |
-| oasst-rlhf-llama-33b  | 66.5         | 1.7           |
-| text_davinci_003      | 50.0         | 0.0           |
-| falcon-40b-instruct   | 45.7         | 1.8           |
-| alpaca-farm-ppo-human | 41.2         | 1.7           |
-| alpaca-7b             | 26.5         | 1.5           |
-| text_davinci_001      | 15.2         | 1.2           |
-
-## Standard benchmarks
-
-(Working in progress ...)
-
-| Models                                                                          | LLaMA-13B BFloat16 | OpenChat  | OpenChat8192 |
-|---------------------------------------------------------------------------------|--------------------|-----------|--------------|
-| MMLU [(chain-of-thought hub)](https://github.com/FranxYao/chain-of-thought-hub) | 46.66              | **48.53** | 45.16        |
-
 ## Installation
 
-To use OpenChat, you need to have CUDA and PyTorch installed. You can clone this repository and install the dependencies via pip:
+To use OpenLLMs, you need to have CUDA and PyTorch installed. You can clone this repository and install the dependencies via pip:
 
 ```bash
 git clone git@github.com:imoneoi/OChat.git
 ```
 
 ```bash
+pip install --no-build-isolation flash-attn
+pip install -r requirements.txt
+```
+
+*Note:* FlashAttention may have compatibility issues. If you encounter these problems, you can try to create a new "conda" environment and follow the instructions below.
+
+```
+conda install python
+conda install cudatoolkit-dev -c conda-forge
+pip3 install torch torchvision torchaudio
+pip install --no-build-isolation flash-attn
 pip install -r requirements.txt
 ```
 
 ## Weights & Serving
 
-We provide full weights of all models as huggingface repos. You can use the following commands to start a local API server at `http://localhost:18888`. Please note that models should be used under their foundation models' license.
+We provide full weights of all models as Hugging Face repos. You can use the following commands to start a local API server at `http://localhost:18888`. Please note that models should be used under their foundation models' license.
 
 | Model         | Size | Context | Weights                                                                 | Serve                                                                                                      |
 |---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
@@ -226,6 +254,8 @@ deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
 
 ## Evaluation
 
+The same routine as ChatGPT / GPT-4 was used to run other benchmarks or evaluations such as AlpacaEval. Simply run the API server and set the `openai.api_base` of the benchmark program.
+
 To run the Vicuna GPT-4 evaluation, follow these steps:
 
 1. Generate model answers
@@ -250,9 +280,17 @@ OPENAI_API_KEY=sk-XXX python -m ochat.evaluation.openai_eval --data_path ./ochat
 
 To visualize and plot the evaluation results, use `ochat/visualization/eval_result_ui/eval_result_visualizer.html`. Open the file using a browser and select all files inside `./eval_results/eval_result_YYYYMMDD` to show the results.
 
-## Benchmarks
+## Limitations
 
-The same routine as ChatGPT / GPT-4 was used to run other benchmarks or evaluations such as AlpacaEval. Simply run the API server and set the `openai.api_base` of the benchmark program.
+**Foundation Model Limitations**
+Despite its advanced capabilities, OpenLLMs is still bound by the limitations inherent in its foundation models. These limitations may impact the model's performance in areas such as:
+
+ - Complex reasoning
+ - Mathematical and arithmetic tasks
+ - Programming and coding challenges
+
+**Hallucination of Non-existent Information**
+OpenLLMs may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained from the model.
 
 ## TODO
 
@@ -260,9 +298,33 @@ The same routine as ChatGPT / GPT-4 was used to run other benchmarks or evaluati
 - [ ] Mixing SFT data with pretraining data (e.g. RedPajama)
 - [ ] Extending context by interpolating RoPE (requires mixing with pretraining data)
 - [ ] Trying LIMA dropout (to determine its usefulness)
-- [ ] Training larger LLaMA models (needs more compute)
+- [ ] Training larger LLaMA models (needs more computing power)
 - [ ] Support inference with 2x consumer GPUs
+
+## License
+
+Our weight license is subject to their corresponding base model. For example, OpenChat and OpenChat-8192 are the same as the model [License](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md) of LLaMA for non-commercial use only, while OpenCoderPlus is under the [License](https://huggingface.co/blog/starcoder) of StarCoder. Furthermore, we should follow [Privacy Practices](https://chrome.google.com/webstore/detail/sharegpt-share-your-chatg/daiacboceoaocpibfodeljbdfacokfjb) of ShareGPT. The code is released under Apache License 2.0.
 
 ## Contact
 
 imonenext@gmail.com
+
+## Citation
+
+```
+@software{openllms23,
+  title = {{OpenLLMs: Less is More for Open-source Models}},
+  author = {Wang, Guan and Cheng, Sijie and Yu, Qiying and Liu, Changling},
+  doi = {10.5281/zenodo.8105775},
+  url = {https://github.com/imoneoi/openchat},
+  version = {pre-release},
+  year = {2023},
+  month = {7},
+}
+```
+
+## Acknowledgements
+
+We thank the great work by [LLaMA](https://arxiv.org/abs/2302.13971), [self-instruct](https://arxiv.org/abs/2212.10560), [FastChat (Vicuna)](https://github.com/lm-sys/FastChat), [Alpaca](https://github.com/tatsu-lab/stanford_alpaca.git) and [StarCoder](https://github.com/bigcode-project/starcoder).
+
+We also thank the great support by GPT Desk Pte. Ltd. and Tsinghua Laboratory of Brain and Intelligence (THBI).
