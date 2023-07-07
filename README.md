@@ -1,4 +1,4 @@
-# OpenLLMs: Less is More for Open-source Models
+# OpenLLMs: Less is More for Open-source Large Language Models
 
 OpenLLMs is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1](#v1) and [v2](#v2)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts cleaned ~80k ShareGPT conversations with a conditioning strategy and weighted loss. Despite our methods being simple, OpenLLMs has demonstrated remarkable performance. Our final vision is to develop an open-source and commercially available large language model, and we are still moving on.
 
@@ -96,7 +96,7 @@ We are trying to use extensive standard benchmarks to evaluate the performance o
 To use OpenLLMs, you need to have CUDA and PyTorch installed. You can clone this repository and install the dependencies via pip:
 
 ```bash
-git clone git@github.com:imoneoi/OChat.git
+git clone git@github.com:imoneoi/openchat.git
 ```
 
 ```bash
