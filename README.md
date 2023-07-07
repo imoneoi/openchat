@@ -306,7 +306,7 @@ Our weight license is subject to their corresponding base model. For example, Op
 
 ## Contact
 
-💓 We are a student team from Tsinghua University. Considering that we hope to further move on our OpenLLMs, we need support for more computing power. If you are interested in our OpenLLMs, welcome to contact Wang Guan (Project Leader; imonenext@gmail.com) or Cheng Sijie (LeslieCheng0701@outlook.com).
+💓 We are a student team from Tsinghua University. Considering that we hope to further move on our OpenLLMs, we need support for more computing power or LLMs API keys. If you are interested in our OpenLLMs, welcome to contact Wang Guan (Project Leader; imonenext@gmail.com) or Cheng Sijie (LeslieCheng0701@outlook.com).
 
 ## Citation
 
