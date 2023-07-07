@@ -11,7 +11,7 @@ OpenLLMs is a series of open-source language models based on supervised fine-tun
 
 **🤗 Using [~6K GPT-4 data](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset) in v1 and [~80K cleaned ShareGPT data]() in v2**
 
-**🕒 Optimized unpadded training, 1 hour for v1 | 6 hours for v2 (8xA100 80G)**
+**🕒 Optimized unpadded training, ~1 hour for v1 and ~6 hours for v2 (8xA100 80G)**
 
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
@@ -61,7 +61,6 @@ The OpenLLMs_v1 family is to validate the importance of data quality.
 
 We have evaluated our models using the three most popular evaluation benchmarks, including AlpacaEval, MT-bench, and Vicuna GPT-4 benchmarks. 
 Here we list the minimal version of benchmarks with our released models. The full version can be found on [MT-bench](https://chat.lmsys.org/?leaderboard) and [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/).
-
 It is worth noting that all the win-rate, including MT-bench, is computed without tie, e.g. ```win_rate = win / (win + loss)```.
 
 ### Leaderboard
@@ -84,14 +83,7 @@ It is worth noting that all the win-rate, including MT-bench, is computed withou
 | text_davinci_003      | 50.0         | -             | -            | -            |
 | falcon-40b-instruct   | 45.7         | -             | -            | 5.17         |
 
-
-## Standard benchmarks (In progress)
-
-We are trying to use extensive standard benchmarks to evaluate the performance of OpenLLMs, we will release the evaluation results as soon as possible!
-
-| Models                                                                          | LLaMA-13B BFloat16 | OpenChat  | OpenChat8192 | gpt-3.5-turbo|
-|---------------------------------------------------------------------------------|--------------------|-----------|--------------|--------------|
-| MMLU [(chain-of-thought hub)](https://github.com/FranxYao/chain-of-thought-hub) | 46.66              | **48.53** | 45.16        |67.3          |
+We are also trying to use extensive standard benchmarks to evaluate the performance of OpenLLMs, such as MMLU, we will release the evaluation results as soon as possible!
 
 ## Installation
 
