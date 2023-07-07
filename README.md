@@ -3,9 +3,9 @@
 OpenLLMs is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1 and v2](#generic-models)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts ~6k GPT-4 and ~xk ChatGPT with a conditioning strategy combined with weighted loss. Despite our methods being simple, OpenLLMs has demonstrated remarkable performance. Our final vision is to develop an open-source and commercially available large language model, and we are still moving on.
 
 
-**💥 6.67 score and 31.9% win-rate, rank #1 of 13B open-source models on [MT-bench](https://chat.lmsys.org/?leaderboard)**
+**💥 x.xx score and xx.x% win-rate, rank #1 of 13B open-source models on [MT-bench](https://chat.lmsys.org/?leaderboard)**
 
-**🔥 87.1% win-rate, surpass ChatGPT on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/)**
+**🔥 xx.x% win-rate on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/)**
 
 **🚀 xxx% ChatGPT score on [Vicuna GPT-4 eval](https://lmsys.org/blog/2023-03-30-vicuna/)**
 
@@ -27,9 +27,9 @@ OpenLLMs is a series of open-source language models based on supervised fine-tun
 
 
  - **[OpenChat-v2]()**: ~6k GPT-4 and ~xk ChatGPT with conditioning and weighted loss, based on LLaMA-13B with a context length.
-   - Achieves **6.67** score, and **31.9%** win-rate on MT-bench.
+   - Achieves **** score, and **** win-rate on MT-bench.
    - Achieves **** of ChatGPT score on the Vicuna GPT-4 evaluation.
-   - Achieves **87.13** win-rate on AlpacaEval.
+   - Achieves **** win-rate on AlpacaEval.
  - **[OpenChat-v1-2048](https://huggingface.co/openchat/openchat)**: only ~6k GPT-4 conversations, based on LLaMA-13B with a context length of 2048.
    - Achieves **** score, and **** win-rate on MT-bench.
    - Achieves **105.7%** of ChatGPT score on the Vicuna GPT-4 evaluation.
@@ -60,7 +60,7 @@ Here we list the minimal version of benchmarks with our released models. The ful
 |-----------------------|--------------|---------------|--------------|--------------|
 | gpt4                  | 95.3         | 8.99         | 69.4          | 86.4         |
 | claude                | 88.4         | 7.9          | 46.9          | 75.6         |
-| **openchat-v2-13b**   | **87.1**     |              |               |              |    
+| **openchat-v2-13b**   |              |              |               |              |    
 |chatgpt (gpt-3.5-turbo)| 86.1         | -            | -             | 70           |
 | claude-instance       | -            | 7.85         | 40            | 61.3         |
 | vicuna-33B            | -            | 7.12         | 43.8          | 59.2         |
