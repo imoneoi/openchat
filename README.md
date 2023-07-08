@@ -3,9 +3,9 @@
 OpenLLMs is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1](#v1) and [v2](#v2)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts cleaned ~80k ShareGPT conversations with a conditioning strategy and weighted loss. Despite our methods being simple, OpenLLMs has demonstrated remarkable performance. Our final vision is to develop a high-performance, open-source and commercially available large language model, and we are still moving on.
 
 
-**💥 51.5% win-rate v.s. ChatGPT on [MT-bench](https://chat.lmsys.org/?leaderboard)**
+**💥 50.9% win-rate-adjusted v.s. ChatGPT on [MT-bench](https://chat.lmsys.org/?leaderboard)**
 
-**🚀 83.8% win-rate v.s. ChatGPT on [Vicuna GPT-4 eval](https://lmsys.org/blog/2023-03-30-vicuna/)**
+**🚀 79.4% win-rate-adjusted v.s. ChatGPT on [Vicuna GPT-4 eval](https://lmsys.org/blog/2023-03-30-vicuna/)**
 
 **🔥 87.1% win-rate v.s. Davinci003 on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/), rank #1 of open-source models**
 
@@ -21,7 +21,8 @@ OpenLLMs is a series of open-source language models based on supervised fine-tun
 
 - [2023/07/01] We released the [OpenLLMs_v1 model series](https://huggingface.co/openchat).
 
-## Models and Dataset
+
+## <a id="section1"></a> Models and Dataset
 
 *⚠️ Note:* The evaluation metrics represent a quantified measure of a subset of the model's capabilities. A win-rate greater than 50% does not necessarily indicate that the model is better than ChatGPT in all scenarios or for all use cases. It is essential to consider the specific tasks or applications for which the model was evaluated and compare the results accordingly.
 
@@ -29,33 +30,37 @@ OpenLLMs is a series of open-source language models based on supervised fine-tun
 The OpenLLMs_v2 family is inspired by offline reinforcement learning, including conditional behavior cloning (OpenChat-v2) and weighted behavior cloning (OpenChat-v2-w).
 
  - **[OpenChat-v2-w](https://huggingface.co/openchat/openchat_v2_w)**: ~80k cleaned ShareGPT data with conditioning and weighted loss, based on LLaMA-13B with a context length of 2048.
-   - Achieves **51.5%** win-rate over ChatGPT on MT-bench.
-   - Achieves **83.8%** win-rate over ChatGPT on Vicuna-bench.
+   - Achieves **50.9%** win-rate over ChatGPT on MT-bench.
+   - Achieves **79.4%** win-rate over ChatGPT on Vicuna-bench.
    - Achieves **87.1%** win-rate over text-davinci-003 on AlpacaEval.
  - **[OpenChat-v2](https://huggingface.co/openchat/openchat_v2)**: ~80k cleaned ShareGPT data with only conditioning, based on LLaMA-13B with a context length of 2048.
-   - Achieves **47.2%** win-rate over ChatGPT on MT-bench.
-   - Achieves **83.6%** win-rate over ChatGPT on Vicuna-bench.
+   - Achieves **48.1%** win-rate over ChatGPT on MT-bench.
+   - Achieves **80.6%** win-rate over ChatGPT on Vicuna-bench.
    - Achieves **85.0%** win-rate over text-davinci-003 on AlpacaEval.
 
 #### <a id="v1"></a> OpenLLMs_v1
 The OpenLLMs_v1 family is to validate the importance of data quality.
-
+<details>
+ <summary>Click to expand</summary>
+ 
  - **[OpenChat-v1](https://huggingface.co/openchat/openchat)**: only ~6k GPT-4 conversations, based on LLaMA-13B with a context length of 2048.
    - Achieves **** win-rate over ChatGPT on MT-bench.
-   - Achieves **77.3%** win-rate over ChatGPT on Vicuna-bench.
+   - Achieves **74.4%** win-rate over ChatGPT on Vicuna-bench.
    - Achieves **80.9%** win-rate over text-davinci-003 on AlpacaEval.
  - **[OpenChat-v1-8192](https://huggingface.co/openchat/openchat_8192)**: only ~6k GPT-4 conversations, based on LLaMA-13B, with an extended context length of 8192.
    - Achieves **** win-rate over ChatGPT on MT-bench.
-   - Achieves **83.6%** win-rate over ChatGPT on Vicuna-bench.
+   - Achieves **75.9%** win-rate over ChatGPT on Vicuna-bench.
    - Achieves **79.5%** win-rate over text-davinci-003 on AlpacaEval.
  - **[OpenCoderPlus-v1-8192](https://huggingface.co/openchat/opencoderplus)**: based on StarCoderPlus with a native context length of 8192.
    - Achieves **78.7%** win-rate over text-davinci-003 on AlpacaEval.
+  
+ </details>
 
 #### Dataset:
 
   - **[openchat_sharegpt4_dataset](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset)**: ~6k cleaned and filtered GPT-4 data from ShareGPT.
 
-## Model Evaluation
+## <a id="section2"></a> Model Evaluation
 
 We have evaluated our models using the three most popular evaluation benchmarks, including AlpacaEval, MT-bench, and Vicuna GPT-4 benchmarks. 
 Here we list the minimal version of benchmarks with our released models. The full version can be found on [MT-bench](https://chat.lmsys.org/?leaderboard) and [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/).
@@ -82,7 +87,7 @@ Here we list the minimal version of benchmarks with our released models. The ful
 
 We are also trying to use extensive standard benchmarks to evaluate the performance of OpenLLMs, such as MMLU, we will release the evaluation results as soon as possible!
 
-## Installation
+## <a id="section3"></a> Installation
 
 To use OpenLLMs, you need to have CUDA and PyTorch installed. You can clone this repository and install the dependencies via pip:
 
@@ -105,15 +110,17 @@ pip install --no-build-isolation flash-attn
 pip install -r requirements.txt
 ```
 
-## Weights & Serving
+## <a id="section4"></a> Weights & Serving
 
 We provide full weights of all models as Hugging Face repos. You can use the following commands to start a local API server at `http://localhost:18888`. Please note that models should be used under their foundation models' license.
 
 | Model         | Size | Context | Weights                                                                 | Serve                                                                                                      |
 |---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| OpenChat      | 13B  | 2048    | [openchat/openchat](https://huggingface.co/openchat/openchat)           | `python -m ochat.serving.openai_api_server --model_type openchat --model_path openchat/openchat`           |
-| OpenChat8192  | 13B  | 8192    | [openchat/openchat_8192](https://huggingface.co/openchat/openchat_8192) | `python -m ochat.serving.openai_api_server --model_type openchat_8192 --model_path openchat/openchat_8192` |
-| OpenCoderPlus | 15B  | 8192    | [openchat/opencoderplus](https://huggingface.co/openchat/opencoderplus) | `python -m ochat.serving.openai_api_server --model_type opencoder --model_path openchat/opencoderplus`     |
+| openchat-v2-w | 13B  | 2048    | [openchat/openchat-v2-w](https://huggingface.co/openchat/openchat_v2_w) | `python -m ochat.serving.openai_api_server --model_type openchat --model_path openchat/openchat_v2_w`      |
+| openchat-v2   | 13B  | 2048    | [openchat/openchat-v2](https://huggingface.co/openchat/openchat_v2)     | `python -m ochat.serving.openai_api_server --model_type openchat --model_path openchat/openchat_v2`        |
+| openchat      | 13B  | 2048    | [openchat/openchat](https://huggingface.co/openchat/openchat)           | `python -m ochat.serving.openai_api_server --model_type openchat --model_path openchat/openchat`           |
+| openchat8192  | 13B  | 8192    | [openchat/openchat_8192](https://huggingface.co/openchat/openchat_8192) | `python -m ochat.serving.openai_api_server --model_type openchat_8192 --model_path openchat/openchat_8192` |
+| opencoderplus | 15B  | 8192    | [openchat/opencoderplus](https://huggingface.co/openchat/opencoderplus) | `python -m ochat.serving.openai_api_server --model_type opencoder --model_path openchat/opencoderplus`     |
 
 The server is compatible with the `ChatCompletions` protocol (please note that some functionalities are not fully supported) and the `openai` package. You can specify the server of `openai` package by setting:
 
@@ -135,7 +142,7 @@ We also provide a **Web UI** for a better user experience, please refer to the f
 
 *Note:* We recommend having a GPU with memory of at least 40GB (1x A100) to run the server.
 
-## Web UI
+## <a id="section5"></a> Web UI
 
 You can interact with the model using [OpenChat-UI](https://github.com/imoneoi/openchat-ui), which is a fork of Chatbot UI with support for OpenChat models.
 
@@ -169,13 +176,13 @@ NEXT_PUBLIC_DEFAULT_TEMPERATURE=0.7
 npm run dev
 ```
 
-## Model modifications
+## <a id="section6"></a> Model modifications
 
 We added an EOT (end-of-turn) token to every base model. For LLaMA models, the embedding of EOT is initialized as the average of all existing token embeddings. For StarCoder models, the embedding of EOT is randomly initialized with 0.02 standard deviation.
 
 For LLaMA-based models with 8192 context, the `max_position_embeddings` was set to 8192, and RoPE codes were extrapolated. An attempt to interpolate the RoPE code was made, but it resulted in a significant drop in performance (~101% Vicuna GPT-4 evaluation) without mixing pretraining data.
 
-## Dataset
+## <a id="section7"></a> Dataset
 
 **🤗 Converted dataset available at [openchat_sharegpt4_dataset](https://huggingface.co/datasets/openchat/openchat_sharegpt4_dataset)**
 
@@ -213,7 +220,7 @@ The data pipeline consists of three steps:
 
 Plain text decoded from `token_id_list`
 
-## Dataset visualization
+### Dataset visualization
 
 We provide a tool for visualizing the embeddings of conversations. To use this tool, open `ochat/visualization/ui/visualizer.html` using a browser and drag `MODEL_TYPE.visualizer.json` into the webpage. Click on 3D plot points to show the corresponding conversation.
 
@@ -221,7 +228,7 @@ The embeddings are created using `openai_embeddings.py` to calculate embeddings 
 
 ![embedding](assets/embeddings.svg)
 
-## Training
+## <a id="section7"></a> Training
 
 The hyperparameters used in training the models are the same across all models:
 
@@ -246,7 +253,7 @@ deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
 
 ```
 
-## Evaluation
+## <a id="section8"></a> Evaluation
 
 The same routine as ChatGPT / GPT-4 was used to run other benchmarks or evaluations such as AlpacaEval. Simply run the API server and set the `openai.api_base` of the benchmark program.
 
