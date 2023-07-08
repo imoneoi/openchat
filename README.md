@@ -68,8 +68,8 @@ Here we list the minimal version of benchmarks with our released models. The ful
 |                       |**AlpacaEval (win rate %)**| **MT-bench (win_rate_adjusted %)** | **Vicuna-bench (win_rate_adjusted %)**| **MT-bench (score)** | 
 |-----------------------|--------------|---------------|--------------|--------------|
 |                       |**v.s. Davinci003**     | **v.s. ChatGPT** | **v.s. ChatGPT** |   | 
-| gpt4                  | 95.3         | 80.6          | 89.2         | 8.99         | 
-| claude                | 88.4         | 62.8          | 77.9         | 7.90         |
+| gpt4                  | 95.3         | 80.6          | 90.0         | 8.99         | 
+| claude                | 88.4         | 62.8          | 76.3         | 7.90         |
 | **openchat-v2-w-13b** | **87.1**     | **50.9**      | **79.4**     | **6.32**     |
 |chatgpt (gpt-3.5-turbo)| 86.1         | 50.0          | 50.0         | 7.94         |
 | **openchat-v2-13b**   | **85.0**     | **48.1**      | **80.6**     | **6.67**     |
@@ -77,7 +77,7 @@ Here we list the minimal version of benchmarks with our released models. The ful
 | **openchat8192-13b**  | **79.5**     |               | **76.3**     |              |
 | wizardlm-13b          | 75.3         | -             | -            | 6.35         |
 | guanaco-65b           | 71.8         | -             | -            | 6.41         |
-| vicuna-13b            | 70.4         | 34.1          | 47.5         | 6.39         |
+| vicuna-13b            | 70.4         | 34.1          | 50.0         | 6.39         |
 | guanaco-33b           | 66.0         | -             | -            | 6.53         |
 | text-davinci-003      | 50.0         | -             | -            | -            |
 | falcon-40b-instruct   | 45.7         | -             | -            | 5.17         |
