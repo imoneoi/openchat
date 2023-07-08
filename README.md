@@ -118,11 +118,19 @@ The server is based on [vLLM](https://github.com/vllm-project/vllm/), to run on 
 
 | Model         | Size | Context | Weights                                                                 | Serve                                                                                                      |
 |---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| openchat-v2-w | 13B  | 2048    | [openchat/openchat-v2-w](https://huggingface.co/openchat/openchat_v2_w) | `python -m ochat.serving.openai_api_server --model_type openchat --model openchat/openchat_v2_w --engine-use-ray --worker-use-ray`      |
-| openchat-v2   | 13B  | 2048    | [openchat/openchat-v2](https://huggingface.co/openchat/openchat_v2)     | `python -m ochat.serving.openai_api_server --model_type openchat --model openchat/openchat_v2 --engine-use-ray --worker-use-ray`        |
+| openchat-v2-w | 13B  | 2048    | [openchat/openchat-v2-w](https://huggingface.co/openchat/openchat_v2_w) | `python -m ochat.serving.openai_api_server --model_type openchat_v2 --model openchat/openchat_v2_w --engine-use-ray --worker-use-ray`      |
+| openchat-v2   | 13B  | 2048    | [openchat/openchat-v2](https://huggingface.co/openchat/openchat_v2)     | `python -m ochat.serving.openai_api_server --model_type openchat_v2 --model openchat/openchat_v2 --engine-use-ray --worker-use-ray`        |
+
+<details>
+  <summary>OpenChat v1: Click to expand</summary>
+
+| Model         | Size | Context | Weights                                                                 | Serve                                                                                                      |
+|---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
 | openchat      | 13B  | 2048    | [openchat/openchat](https://huggingface.co/openchat/openchat)           | `python -m ochat.serving.openai_api_server --model_type openchat --model openchat/openchat --engine-use-ray --worker-use-ray`           |
 | openchat8192  | 13B  | 8192    | [openchat/openchat_8192](https://huggingface.co/openchat/openchat_8192) | `python -m ochat.serving.openai_api_server --model_type openchat_8192 --model openchat/openchat_8192 --engine-use-ray --worker-use-ray` |
 | opencoderplus | 15B  | 8192    | [openchat/opencoderplus](https://huggingface.co/openchat/opencoderplus) | `python -m ochat.serving.openai_api_server --model_type opencoder --model openchat/opencoderplus --engine-use-ray --worker-use-ray`     |
+
+</details>
 
 The server is compatible with the `ChatCompletions` protocol (please note that some functionalities are not fully supported) and the `openai` package. You can specify the server of `openai` package by setting:
 
