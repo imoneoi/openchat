@@ -59,7 +59,7 @@ The OpenLLMs_v1 family is to validate the importance of data quality.
 
 We have evaluated our models using the three most popular evaluation benchmarks, including AlpacaEval, MT-bench, and Vicuna GPT-4 benchmarks. 
 Here we list the minimal version of benchmarks with our released models. The full version can be found on [MT-bench](https://chat.lmsys.org/?leaderboard) and [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/).
-It is worth noting that all the win-rate, including MT-bench, is computed without tie, e.g. ```win_rate = win / (win + loss)```.
+It is worth noting that all the win-rate, including MT-bench, is computed without tie, i.e. ```win_rate = win / (win + loss)```.
 
 ### Leaderboard
 
