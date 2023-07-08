@@ -1,7 +1,4 @@
-<div style="display:flex; align-items:center; justify-content:center;">
-  <img src="assets/logo.png" style="height:30pt;">
-  <h1 style="margin-left: 10px;">OpenChat: Advancing Open-source Language Models with Imperfect Data</h1>
-</div>
+# <img src="assets/logo.png" style="height:30pt; margin-right:5pt; display:inline-block; vertical-align:middle;">OpenChat: Advancing Open-source Language Models with Imperfect Data</h1>
 
 OpenChat is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1](#v1) and [v2](#v2)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts cleaned ~80k ShareGPT conversations with a conditioning strategy and weighted loss. Despite our methods being simple, OpenChat has demonstrated remarkable performance. Our final vision is to develop a high-performance, open-source and commercially available large language model, and we are still moving on.
 
