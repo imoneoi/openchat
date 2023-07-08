@@ -1,4 +1,4 @@
-# OpenLLMs: Less is More for Open-source Large Language Models
+# OpenChat: Advancing Open-source Language Models with Imperfect Data
 
 OpenLLMs is a series of open-source language models based on supervised fine-tuning (SFT). We release two versions ([v1](#v1) and [v2](#v2)) models. Specifically, v1 uses only ~6K GPT-4 conversations directly filtered from the ~90K ShareGPT conversations, while v2 adopts cleaned ~80k ShareGPT conversations with a conditioning strategy and weighted loss. Despite our methods being simple, OpenLLMs has demonstrated remarkable performance. Our final vision is to develop a high-performance, open-source and commercially available large language model, and we are still moving on.
 
@@ -59,26 +59,26 @@ The OpenLLMs_v1 family is to validate the importance of data quality.
 
 We have evaluated our models using the three most popular evaluation benchmarks, including AlpacaEval, MT-bench, and Vicuna GPT-4 benchmarks. 
 Here we list the minimal version of benchmarks with our released models. The full version can be found on [MT-bench](https://chat.lmsys.org/?leaderboard) and [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/).
-It is worth noting that all the win-rate, including MT-bench, is computed without tie, i.e. ```win_rate = win / (win + loss)```.
 
 ### Leaderboard
 
-|                       |**AlpacaEval (win rate %)**| **MT-bench (win rate %)** | **Vicuna-bench (win rate %)**| **MT-bench (score)** | 
+|                       |**AlpacaEval (win rate %)**| **MT-bench (win_rate_adjusted %)** | **Vicuna-bench (win_rate_adjusted %)**| **MT-bench (score)** | 
 |-----------------------|--------------|---------------|--------------|--------------|
 |                       |**v.s. Davinci003**     | **v.s. ChatGPT** | **v.s. ChatGPT** |   | 
-| gpt4                  | 95.3         | 92.2          | 100.0        | 8.99         | 
-| claude                | 88.4         | 73.6          | 83.9         | 7.90         |
-| **openchat-v2-w-13b** | **87.1**     | **51.5**      | **83.8**     | **6.32**     |
+| gpt4                  | 95.3         | 82.5          | 90.0         | 8.99         | 
+| claude                | 88.4         | 65.0          | 76.3         | 7.90         |
+| **openchat-v2-w-13b** | **87.1**     | **50.9**      | **79.4**     | **6.32**     |
 |chatgpt (gpt-3.5-turbo)| 86.1         | 50.0          | 50.0         | 7.94         |
-| **openchat-v2-13b**   | **85.0**     | **47.2**      | **83.6**     | **6.67**     |
-| **openchat-13b**      | **80.9**     |               | **77.3**     |              |
-| **openchat8192-13b**  | **79.5**     |               | **82.1**     |              |
-| wizardlm-13b          | 75.3         | -             | -            | 6.35         |
-| guanaco-65b           | 71.8         | -             | -            | 6.41         |
-| vicuna-13b            | 70.4         | 22.6          | 50.0         | 6.39         |
-| guanaco-33b           | 66.0         | -             | -            | 6.53         |
+| **openchat-v2-13b**   | **85.0**     | **48.1**      | **80.6**     | **6.67**     |
+| **openchat-13b**      | **80.9**     |               | **74.4**     | **5.98**     |
+| **openchat8192-13b**  | **79.5**     |               | **75.9**     | **6.13**     |
+| wizardlm-30b          | -            | 41.9          | -            | 7.01         |
+| wizardlm-13b          | 75.3         | 33.1          | -            | 6.35         |
+| guanaco-65b           | 71.8         | 40.6          | -            | 6.41         |
+| vicuna-13b            | 70.4         | 37.5          | 50.0         | 6.39         |
+| guanaco-33b           | 66.0         | 40.6          | -            | 6.53         |
 | text-davinci-003      | 50.0         | -             | -            | -            |
-| falcon-40b-instruct   | 45.7         | -             | -            | 5.17         |
+| falcon-40b-instruct   | 45.7         | 16.9          | -            | 5.17         |
 
 We are also trying to use extensive standard benchmarks to evaluate the performance of OpenLLMs, such as MMLU, we will release the evaluation results as soon as possible!
 
