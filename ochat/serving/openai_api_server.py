@@ -1,135 +1,118 @@
-from typing import List, Optional, Dict
-from dataclasses import dataclass
+# Adapted from
+# https://github.com/vllm-project/vllm/blob/main/vllm/entrypoints/openai/api_server.py
+
 import argparse
+import asyncio
+from http import HTTPStatus
 import json
-import logging
-import os
+import time
+from typing import AsyncGenerator, Optional, Union
+from dataclasses import dataclass
+from functools import partial
 
-import shortuuid
 import fastapi
-import uvicorn
-from pydantic import BaseSettings
-from fastapi import Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import BackgroundTasks, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.responses import JSONResponse, StreamingResponse
 
-import torch
-import transformers
+import uvicorn
+
+from vllm.engine.arg_utils import AsyncEngineArgs
+from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm.logger import init_logger
+from vllm.outputs import RequestOutput
+from vllm.sampling_params import SamplingParams
+from vllm.transformers_utils import tokenizer
+from vllm.utils import random_uuid
 
 from ochat.config.model_config import MODEL_CONFIG_MAP, ModelConfig
-from ochat.serving.inference import generate_stream
 from ochat.serving import openai_api_protocol
+
+
+TIMEOUT_KEEP_ALIVE = 5  # seconds
 
 
 @dataclass
 class Model:
-    model: transformers.PreTrainedModel = None
-    tokenizer: transformers.PreTrainedTokenizer = None
+    name: str = None
 
-    model_config: ModelConfig = None
-
-    default_temperature: float = None
-    default_top_p:       float = None
-
-    max_generated_tokens:  int = None
-    stream_tokens:         int = None
+    config: ModelConfig = None
+    tokenizer: object = None
 
 
-class AppSettings(BaseSettings):
-    api_keys: List[str] = None
-
-
-app_settings = AppSettings()
+logger = init_logger(__name__)
 app = fastapi.FastAPI()
 
 model = Model()
 
 
-async def check_api_key(
-    auth: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
-) -> str:
-    if app_settings.api_keys:
-        if auth is None or (token := auth.credentials) not in app_settings.api_keys:
-            raise HTTPException(
-                status_code=401,
-                detail={
-                    "error": {
-                        "message": "",
-                        "type": "invalid_request_error",
-                        "param": None,
-                        "code": "invalid_api_key",
-                    }
-                },
-            )
-        return token
-    else:
-        # api_keys not set; allow all
-        return None
+def create_error_response(status_code: HTTPStatus,
+                          message: str) -> JSONResponse:
+    return JSONResponse(openai_api_protocol.ErrorResponse(message=message,
+                                                          type="invalid_request_error").dict(),
+                        status_code=status_code.value)
 
 
-@app.get("/v1/models", dependencies=[Depends(check_api_key)])
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):  # pylint: disable=unused-argument
+    return create_error_response(HTTPStatus.BAD_REQUEST, str(exc))
+
+
+async def check_model(request) -> Optional[JSONResponse]:
+    if request.model == model.name:
+        return
+
+    ret = create_error_response(
+        HTTPStatus.NOT_FOUND,
+        f"The model `{request.model}` does not exist.",
+    )
+    return ret
+
+
+@app.get("/v1/models")
 async def show_available_models():
+    """Show available models. Right now we only have one model."""
     return openai_api_protocol.ModelList(data=[
-        openai_api_protocol.ModelCard(id=model.model_config.name, root=model.model_config.name, permission=[openai_api_protocol.ModelPermission()])
+        openai_api_protocol.ModelCard(id=model.name,
+                                      root=model.name,
+                                      permission=[openai_api_protocol.ModelPermission()])
     ])
 
 
-async def chat_completion_streaming_generator(stream_response_generator, logging_info):
+def _tokenize(text):
+    return model.tokenizer.convert_tokens_to_ids(model.tokenizer._tokenize(text))
+
+
+def _tokenize_special(special_name):
+    return model.tokenizer.convert_tokens_to_ids(special_name)
+
+
+@app.post("/v1/chat/completions")
+async def create_chat_completion(raw_request: Request):
+    """Completion API similar to OpenAI's API.
+
+    See  https://platform.openai.com/docs/api-reference/chat/create
+    for the API specification. This API mimics the OpenAI ChatCompletion API.
+
+    NOTE: Currently we do not support the following features:
+        - function_call (Users should implement this by themselves)
+        - logit_bias (to be supported by vLLM engine)
     """
-    Event stream format:
-    https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#event_stream_format
-    """
-    id = f"chatcmpl-{shortuuid.random()}"
 
-    # First chunk with role
-    choice_data = openai_api_protocol.ChatCompletionResponseStreamChoice(
-        index=0,
-        delta=openai_api_protocol.DeltaMessage(role="assistant"),
-        finish_reason=None,
-    )
-    chunk = openai_api_protocol.ChatCompletionStreamResponse(
-        id=id, choices=[choice_data], model=model.model_config.name
-    )
-    yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+    request = openai_api_protocol.ChatCompletionRequest(**await raw_request.json())
 
-    # Subsequent chunks with delta content
-    logging_text = ""
-    logging_finish_reason = ""
+    error_check_ret = await check_model(request)
+    if error_check_ret is not None:
+        return error_check_ret
 
-    for is_generating, content in stream_response_generator:
-        if is_generating:
-            choice_data = openai_api_protocol.ChatCompletionResponseStreamChoice(
-                index=0,
-                delta=openai_api_protocol.DeltaMessage(content=content),
-                finish_reason=None,
-            )
-            logging_text += content
-        else:
-            # Finish chunk
-            choice_data = openai_api_protocol.ChatCompletionResponseStreamChoice(
-                index=0,
-                delta=openai_api_protocol.DeltaMessage(content=None),
-                finish_reason=content,
-            )
-            logging_finish_reason = content
+    if request.logit_bias is not None:
+        # TODO: support logit_bias in vLLM engine.
+        return create_error_response(HTTPStatus.BAD_REQUEST,
+                                     "logit_bias is not currently supported")
 
-        chunk = openai_api_protocol.ChatCompletionStreamResponse(
-            id=id, choices=[choice_data], model=model.model_config.name
-        )
-
-        yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
-
-    # logging
-    logging.info(json.dumps({"completion": logging_text, "finish_reason": logging_finish_reason, **logging_info}))
-
-    yield "data: [DONE]\n\n"
-
-
-@app.post("/v1/chat/completions", dependencies=[Depends(check_api_key)])
-async def create_chat_completion(request: openai_api_protocol.ChatCompletionRequest):
     # get conversation
-    role_map = {"user": "human", "assistant": model.model_config.ai_role}
+    role_map = {"user": "human", "assistant": model.config.ai_role}
 
     conversation = []
     for message in request.messages:
@@ -140,63 +123,171 @@ async def create_chat_completion(request: openai_api_protocol.ChatCompletionRequ
 
         conversation.append({"from": role_map[msg_role], "value": msg_text})
 
-    # get params
-    generation_params = dict(
-        temperature=request.temperature if request.temperature is not None else model.default_temperature,
-        top_p=request.top_p if request.top_p is not None else model.default_top_p,
-        max_generated_tokens=request.max_tokens if request.max_tokens is not None else model.max_generated_tokens
-    )
+    # append ai role
+    if not (len(conversation) and conversation[-1]["from"] == model.config.ai_role):
+        conversation.append({"from": model.config.ai_role})
 
-    stream_tokens = model.stream_tokens if request.stream else None
+    input_ids, _ = model.config.generate_conversation_template(_tokenize, _tokenize_special, conversation)
 
-    # logging
-    logging_info = {"conversation": conversation, "params": generation_params}
+    # check length
+    request.max_tokens = min(request.max_tokens, model.config.model_max_context - len(input_ids))
+    if request.max_tokens <= 0:
+        return create_error_response(
+            HTTPStatus.BAD_REQUEST,
+            f"This model's maximum context length is {model.config.model_max_context} tokens. "
+            f"However, you requested {len(input_ids)} tokens. "
+            f"Please reduce the length of the messages.",
+        )
 
-    # response
-    stream_response = generate_stream(
-        model=model.model, tokenizer=model.tokenizer, model_config=model.model_config,
-        conversation=conversation,
-        stream_period=stream_tokens,
-        **generation_params
-    )
+    # completion
+    model_name = request.model
+    request_id = f"cmpl-{random_uuid()}"
+    created_time = int(time.time())
 
-    # stream
+    try:
+        sampling_params = SamplingParams(
+            n=request.n,
+            presence_penalty=request.presence_penalty,
+            frequency_penalty=request.frequency_penalty,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            stop=[model.config.eot_token],
+            max_tokens=request.max_tokens
+        )
+    except ValueError as e:
+        return create_error_response(HTTPStatus.BAD_REQUEST, str(e))
+
+    result_generator = engine.generate(prompt=None,
+                                       prompt_token_ids=input_ids,
+                                       sampling_params=sampling_params,
+                                       request_id=request_id)
+
+    async def abort_request() -> None:
+        await engine.abort(request_id)
+
+    def create_stream_response_json(
+        index: int,
+        text: str,
+        finish_reason: Optional[str] = None,
+    ) -> str:
+        choice_data = openai_api_protocol.ChatCompletionResponseStreamChoice(
+            index=index,
+            delta=openai_api_protocol.DeltaMessage(content=text),
+            finish_reason=finish_reason,
+        )
+        response = openai_api_protocol.ChatCompletionStreamResponse(
+            id=request_id,
+            created=created_time,
+            model=model_name,
+            choices=[choice_data],
+        )
+        response_json = response.json(ensure_ascii=False)
+
+        return response_json
+
+    async def completion_stream_generator() -> AsyncGenerator[str, None]:
+        # First chunk with role
+        for i in range(request.n):
+            choice_data = openai_api_protocol.ChatCompletionResponseStreamChoice(
+                index=i,
+                delta=openai_api_protocol.DeltaMessage(role="assistant"),
+                finish_reason=None,
+            )
+            chunk = openai_api_protocol.ChatCompletionStreamResponse(id=request_id,
+                                                                     choices=[choice_data],
+                                                                     model=model_name)
+            data = chunk.json(exclude_unset=True, ensure_ascii=False)
+
+            yield f"data: {data}\n\n"
+
+        previous_texts = [""] * request.n
+        previous_num_tokens = [0] * request.n
+        async for res in result_generator:
+            res: RequestOutput
+            for output in res.outputs:
+                i = output.index
+                delta_text = output.text[len(previous_texts[i]):]
+                previous_texts[i] = output.text
+                previous_num_tokens[i] = len(output.token_ids)
+                response_json = create_stream_response_json(
+                    index=i,
+                    text=delta_text,
+                )
+                yield f"data: {response_json}\n\n"
+                if output.finish_reason is not None:
+                    response_json = create_stream_response_json(
+                        index=i,
+                        text="",
+                        finish_reason=output.finish_reason,
+                    )
+                    yield f"data: {response_json}\n\n"
+
+            yield "data: [DONE]\n\n"
+
+    # Streaming response
     if request.stream:
-        return StreamingResponse(chat_completion_streaming_generator(stream_response, logging_info),
-                                 media_type="text/event-stream")
-    
-    # normal
-    is_generating, text = next(stream_response)
-    assert is_generating
+        background_tasks = BackgroundTasks()
+        # Abort the request if the client disconnects.
+        background_tasks.add_task(abort_request)
+        return StreamingResponse(completion_stream_generator(),
+                                 media_type="text/event-stream",
+                                 background=background_tasks)
 
-    is_generating, finish_reason = next(stream_response)
-    assert not is_generating
+    # Non-streaming response
+    final_res: RequestOutput = None
+    async for res in result_generator:
+        if await raw_request.is_disconnected():
+            # Abort the request if the client disconnects.
+            await abort_request()
+            return create_error_response(HTTPStatus.BAD_REQUEST,
+                                         "Client disconnected")
+        final_res = res
+    assert final_res is not None
+    choices = []
+    for output in final_res.outputs:
+        choice_data = openai_api_protocol.ChatCompletionResponseChoice(
+            index=output.index,
+            message=openai_api_protocol.ChatMessage(role="assistant", content=output.text),
+            finish_reason=output.finish_reason,
+        )
+        choices.append(choice_data)
 
-    # logging
-    logging.info(json.dumps({"completion": text, "finish_reason": finish_reason, **logging_info}))
-
-    return openai_api_protocol.ChatCompletionResponse(
-        model=model.model_config.name,
-        choices=[openai_api_protocol.ChatCompletionResponseChoice(
-            index=0,
-            message=openai_api_protocol.ChatMessage(role="assistant", content=text),
-            finish_reason=finish_reason
-        )],
-        usage=openai_api_protocol.UsageInfo()
+    num_prompt_tokens = len(final_res.prompt_token_ids)
+    num_generated_tokens = sum(
+        len(output.token_ids) for output in final_res.outputs)
+    usage = openai_api_protocol.UsageInfo(
+        prompt_tokens=num_prompt_tokens,
+        completion_tokens=num_generated_tokens,
+        total_tokens=num_prompt_tokens + num_generated_tokens,
+    )
+    response = openai_api_protocol.ChatCompletionResponse(
+        id=request_id,
+        created=created_time,
+        model=model_name,
+        choices=choices,
+        usage=usage,
     )
 
+    if request.stream:
+        # When user requests streaming but we don't stream, we still need to
+        # return a streaming response with a single event.
+        response_json = response.json(ensure_ascii=False)
 
-def main():
-    parser = argparse.ArgumentParser(description="OpenChat ChatGPT-Compatible RESTful API server.")
+        async def fake_stream_generator() -> AsyncGenerator[str, None]:
+            yield f"data: {response_json}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(fake_stream_generator(),
+                                 media_type="text/event-stream")
+
+    return response
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="OpenChat OpenAI-Compatible RESTful API server.")
 
     # Model
     parser.add_argument("--model_type", type=str, required=True)
-    parser.add_argument("--model_path", type=str, required=True)
-    parser.add_argument("--default_temperature", type=float, default=0.7)
-    parser.add_argument("--default_top_p",       type=float, default=0.9)
-    parser.add_argument("--max_generated_tokens", type=int,   default=768)
-
-    parser.add_argument("--stream_tokens",       type=int,   default=6)
 
     # Server
     parser.add_argument("--host", type=str, default="localhost", help="host name")
@@ -206,44 +297,9 @@ def main():
     parser.add_argument("--allowed-methods", type=json.loads, default=["*"], help="allowed methods")
     parser.add_argument("--allowed-headers", type=json.loads, default=["*"], help="allowed headers")
 
-    # Logging
-    parser.add_argument("--logfile", type=str, default=None, help="Log file")
-
-    # Server API keys
-    parser.add_argument("--api-keys", type=lambda s: s.split(","), help="Optional list of comma separated API keys",)
+    parser = AsyncEngineArgs.add_cli_args(parser)
     args = parser.parse_args()
 
-    # Load model
-    model.model_config        = MODEL_CONFIG_MAP[args.model_type]
-
-    model.model     = model.model_config.model_create(args.model_path).cuda()
-    model.tokenizer = model.model_config.model_tokenizer_create(args.model_path)
-    model.model.eval()
-
-    # Config
-    model.default_temperature = args.default_temperature
-    model.default_top_p       = args.default_top_p
-    model.max_generated_tokens = args.max_generated_tokens
-
-    model.stream_tokens       = args.stream_tokens
-
-    # Test
-    test_question = "How can I improve my time management skills?"
-    print (f"Test generate: {test_question}")
-    for is_generating, t in generate_stream(model.model, model.tokenizer, model.model_config,
-                            conversation=[{"from": "human", "value": test_question}],
-                            max_generated_tokens=model.max_generated_tokens, stream_period=6,
-                            temperature=model.default_temperature, top_p=model.default_top_p):
-        print (t, end="")
-
-    # Logging setup
-    if args.logfile is not None:
-        logging.basicConfig(level=logging.INFO, filename=args.logfile, filemode="a")
-    else:
-        # To console
-        logging.basicConfig(level=logging.INFO)
-
-    # Load app
     app.add_middleware(
         CORSMiddleware,
         allow_origins=args.allowed_origins,
@@ -251,12 +307,22 @@ def main():
         allow_methods=args.allowed_methods,
         allow_headers=args.allowed_headers,
     )
-    app_settings.api_keys = args.api_keys
 
-    logging.info(f"args: {args}")
+    # Model config
+    model.name = args.model_type
+    model.config = MODEL_CONFIG_MAP[args.model_type]
+    model.tokenizer = model.config.model_tokenizer_create(args.model)
 
-    uvicorn.run(app, host=args.host, port=args.port, log_level="info")
+    # Load model
+    engine_args = AsyncEngineArgs.from_cli_args(args)
+    engine = AsyncLLMEngine.from_engine_args(engine_args)
+    engine_model_config = asyncio.run(engine.get_model_config())
 
+    # Run
+    logger.info(f"args: {args}")
 
-if __name__ == "__main__":
-    main()
+    uvicorn.run(app,
+                host=args.host,
+                port=args.port,
+                log_level="info",
+                timeout_keep_alive=TIMEOUT_KEEP_ALIVE)

@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 import math
+from functools import partial
 
 import torch
 import torch.distributed
@@ -10,29 +11,30 @@ import transformers
 import deepspeed
 import tqdm
 import wandb
+import numpy as np
 
 from torch.utils.data import DataLoader
-from transformers.trainer_pt_utils import DistributedLengthGroupedSampler, DistributedSampler
-from transformers.optimization import get_cosine_schedule_with_warmup
+from transformers.optimization import _get_cosine_schedule_with_warmup_lr_lambda
 
 from ochat.config.model_config import MODEL_CONFIG_MAP
+from ochat.training_deepspeed.ffd_sampler import FFDDistributedBatchSampler
 
 
 LOCAL_RANK      = None
 
-PAD_TOKEN_ID    = 0      # <unk> in LLaMA
+PAD_ID          = 0
 IGNORE_LABEL_ID = -100   # Defined in torch CrossEntropyLoss
 
 
-def _ceildiv(a, b):
-    return -(a // -b)
+def _find_multiple(a, b):
+    return (-(a // -b)) * b
 
 
 def _rank0_print(*args):
     global LOCAL_RANK
 
     if LOCAL_RANK == 0:
-        print(*args)
+        tqdm.tqdm.write(*args)
 
 
 def parse_args():
@@ -47,13 +49,14 @@ def parse_args():
     parser.add_argument("--save_path",  type=str, required=True)
 
     # Hyperparameters
-    parser.add_argument("--length_grouping",  default=False, action="store_true")
+    parser.add_argument("--loss_balancing",     action="store_true", default=False)
 
-    parser.add_argument("--epochs",           type=int,   default=5)
+    parser.add_argument("--batch_size_per_gpu", type=int,   default=14)
+    parser.add_argument("--epochs",             type=int,   default=5)
 
-    parser.add_argument("--lr",               type=float, default=2e-5)
-    parser.add_argument("--warmup_ratio",     type=float, default=0.03)
-    parser.add_argument("--weight_decay",     type=float, default=0.)
+    parser.add_argument("--lr",                 type=float, default=2e-5)
+    parser.add_argument("--warmup_ratio",       type=float, default=0.03)
+    parser.add_argument("--weight_decay",       type=float, default=0.)
 
     # DeepSpeed parameters
     parser = deepspeed.add_config_arguments(parser)
@@ -68,68 +71,105 @@ def create_dataset(args, split_name):
     with open(os.path.join(args.data_path, f"{args.model_type}.{split_name}.json"), "r") as f:
         data = json.load(f)
 
-    return data, len(data)
+    return data
 
 
-def batch_to_tensor(batch, dtype=torch.long):
-    batch_size = len(batch)
-    max_length = max([len(tokens) for (tokens, masks) in batch])
+def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
+    # Pad an unused item to reach multiple of 64, for faster GEMM
+    pad_cur_len = sum([len(token_list) for (token_list, mask_list, group) in batch])
+    pad_len     = _find_multiple(pad_cur_len, 64) - pad_cur_len
 
-    # create batch
-    input_ids      = torch.full((batch_size, max_length), PAD_TOKEN_ID, dtype=dtype,      pin_memory=True, device="cpu")
-    label_mask     = torch.full((batch_size, max_length), False,        dtype=torch.bool, pin_memory=True, device="cpu")
-    attention_mask = torch.full((batch_size, max_length), False,        dtype=torch.bool, pin_memory=True, device="cpu")
+    if pad_len > 0:
+        assert pad_len < 64
+        batch.append([
+            [PAD_ID] * pad_len,
+            [False] * pad_len,
+            0
+        ])
 
-    for idx, (tokens, masks) in enumerate(batch):
-        length = len(tokens)
+    # seqlen
+    batch_lengths = torch.tensor([len(token_list) for (token_list, mask_list, group) in batch], dtype=torch.int32, device="cpu")
 
-        input_ids[idx, :length]      = torch.tensor(tokens, dtype=dtype,     device="cpu")
-        label_mask[idx, :length]     = torch.tensor(masks, dtype=torch.bool, device="cpu")
-        attention_mask[idx, :length] = True
+    max_seqlen    = torch.max(batch_lengths)
+    cu_seqlens    = torch.nn.functional.pad(batch_lengths.cumsum(-1, dtype=torch.int32), (1, 0))
 
-    # create labels
-    labels = torch.where(label_mask, input_ids, IGNORE_LABEL_ID).pin_memory()
+    # nz elements
+    nz_num               = cu_seqlens[-1]
+    nz_input_ids         = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
+    nz_position_ids      = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
+    nz_shifted_label_ids = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
 
-    return dict(input_ids=input_ids, labels=labels, attention_mask=attention_mask)
+    nz_shifted_loss_weights = None
+    if group_loss_weights is not None:
+        nz_shifted_loss_weights = torch.zeros((nz_num, ), dtype=loss_dtype, pin_memory=True, device="cpu")
+
+    index = 0
+    for token_list, mask_list, group in batch:
+        length = len(token_list)
+
+        tokens       = torch.tensor(token_list, dtype=dtype,      device="cpu")
+        masks        = torch.tensor(mask_list,  dtype=torch.bool, device="cpu")
+        position_ids = torch.arange(length,     dtype=dtype,      device="cpu")
+
+        shifted_label_ids = torch.where(masks, tokens, IGNORE_LABEL_ID)
+        shifted_label_ids = torch.nn.functional.pad(shifted_label_ids[1:], (0, 1), "constant", IGNORE_LABEL_ID)
+
+        nz_input_ids[index: index + length]         = tokens
+        nz_position_ids[index: index + length]      = position_ids
+        nz_shifted_label_ids[index: index + length] = shifted_label_ids
+        
+        if group_loss_weights is not None:
+            shifted_loss_weights = masks * torch.full((length, ), group_loss_weights[group], dtype=loss_dtype, device="cpu")
+            shifted_loss_weights = torch.nn.functional.pad(shifted_loss_weights[1:], (0, 1), "constant", 0)
+
+            nz_shifted_loss_weights[index: index + length] = shifted_loss_weights
+
+        index += length
+
+    # inputs
+    return dict(max_seqlen=max_seqlen,
+                cu_seqlens=cu_seqlens,
+                nz_input_ids=nz_input_ids,
+                nz_position_ids=nz_position_ids, 
+                nz_shifted_label_ids=nz_shifted_label_ids,
+                nz_shifted_loss_weights=nz_shifted_loss_weights)
 
 
-def create_distributed_dataloader(args, data, length_grouping):
+def create_distributed_dataloader(args, data):
     # Sampler
-    if length_grouping:
-        _rank0_print ("Length grouping enabled !")
+    # Get length
+    lengths = np.array([len(tokens) for (tokens, masks, group) in data])
 
-        # Get length
-        lengths = [len(tokens) for (tokens, masks) in data]
-        # Length grouped sampler
-        sampler = DistributedLengthGroupedSampler(
-            batch_size=args.train_micro_batch_size_per_gpu,
-            dataset=data,
-            lengths=lengths,
-            drop_last=False,
-            seed=0
-        )
-    else:
-        sampler = DistributedSampler(
-            dataset=data,
-            drop_last=False,
-            seed=0
-        )
+    # Loss balancing
+    group_loss_weights = None
+    if args.loss_balancing:
+        groups = np.array([group for (tokens, masks, group) in data])
+
+        unique, unique_counts = np.unique(groups, return_counts=True)
+        total_count           = np.sum(unique_counts)
+        group_loss_weights    = {k: total_count / c for k, c in zip(unique, unique_counts)}
+
+        _rank0_print(f"Loss balancing enabled. Weights: {args.loss_balancing}")
+
+    # FFD distributed sampler
+    batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
+
+    sampler = FFDDistributedBatchSampler(
+        batch_max_length=batch_max_len,
+        lengths=lengths,
+        seed=0
+    )
+
+    collate_fn = partial(batch_to_tensor, group_loss_weights=group_loss_weights)
 
     return DataLoader(data, 
-                      batch_size=args.train_micro_batch_size_per_gpu,
-                      sampler=sampler,
+                      batch_sampler=sampler,
                       drop_last=False,
-                      collate_fn=batch_to_tensor)
+                      collate_fn=collate_fn), sampler.num_batches()
 
 
-def create_model(args, train_dataset_size):
+def create_model(args):
     global LOCAL_RANK
-
-    # Get train total steps
-    with open(args.deepspeed_config, "r") as f:
-        train_batch_size = json.load(f)["train_batch_size"]
-
-    train_total_steps = _ceildiv(train_dataset_size, train_batch_size) * args.epochs
 
     # Create model + optimizer + lr scheduler
     model = MODEL_CONFIG_MAP[args.model_type].model_create(args.model_path)
@@ -141,26 +181,27 @@ def create_model(args, train_dataset_size):
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, fused=True)
 
-    # LR Scheduler
-    lr_scheduler = get_cosine_schedule_with_warmup(optimizer,
-                                                   num_warmup_steps=math.ceil(train_total_steps * args.warmup_ratio),
-                                                   num_training_steps=train_total_steps)
-
     # DeepSpeed model
-    model_engine, _, _, lr_scheduler = deepspeed.initialize(args=args,
-                                                            model=model,
-                                                            model_parameters=model.parameters(),
-                                                            optimizer=optimizer,
-                                                            lr_scheduler=lr_scheduler)
+    model_engine, optimizer, _, _ = deepspeed.initialize(args=args,
+                                                         model=model,
+                                                         model_parameters=model.parameters(),
+                                                         optimizer=optimizer)
 
     # Put deepspeed arguments
-    args.train_batch_size               = model_engine.train_batch_size()
-    args.train_micro_batch_size_per_gpu = model_engine.train_micro_batch_size_per_gpu()
     args.device                         = model_engine.device
 
-    args.train_total_steps              = train_total_steps
+    return model_engine, optimizer
 
-    return model_engine, lr_scheduler
+
+def create_lr_scheduler(args, train_total_steps):
+    lr_scheduler = partial(
+        _get_cosine_schedule_with_warmup_lr_lambda,
+        num_warmup_steps=math.ceil(train_total_steps * args.warmup_ratio),
+        num_training_steps=train_total_steps,
+        num_cycles=0.5,
+    )
+
+    return lr_scheduler
 
 
 def train():
@@ -174,21 +215,25 @@ def train():
 
     # Data
     _rank0_print("Loading data...")
-    train_dataset, train_dataset_size = create_dataset(args, "train")
-    eval_dataset,  eval_dataset_size  = create_dataset(args, "eval")
+    train_dataset = create_dataset(args, "train")
+    eval_dataset  = create_dataset(args, "eval")
 
     # Model
     _rank0_print("Loading model...")
-    model_engine, lr_scheduler = create_model(args, train_dataset_size)
+    model_engine, optimizer = create_model(args)
 
     # Data Loader
-    train_loader = create_distributed_dataloader(args, train_dataset, args.length_grouping)
-    eval_loader  = create_distributed_dataloader(args, eval_dataset, args.length_grouping)
+    train_loader, train_num_batches = create_distributed_dataloader(args, train_dataset)
+    eval_loader,  eval_num_batches  = create_distributed_dataloader(args, eval_dataset)
+    train_total_steps               = args.epochs * train_num_batches
+
+    # LR Scheduler
+    lr_scheduler = create_lr_scheduler(args, train_total_steps)
 
     # Progress bar and logger
     progress_bar = None
     if LOCAL_RANK == 0:
-        progress_bar = tqdm.tqdm(total=args.train_total_steps)
+        progress_bar = tqdm.tqdm(total=train_total_steps)
 
         wandb.init(project=os.path.basename(args.model_path), config=args)
 
@@ -200,29 +245,36 @@ def train():
         ############ Train Epoch
         model_engine.train()
 
-        train_loader.sampler.set_epoch(epoch)
+        train_loader.batch_sampler.set_epoch(epoch)
         for batch in train_loader:
+            step += 1
+            if step > train_total_steps:  # At most train_total_steps
+                break
+
             # To device
             batch = {k: v.to(args.device) for k, v in batch.items()}
 
             # Update
-            loss = model_engine(**batch,
-                                use_cache=False, output_attentions=False, output_hidden_states=False).loss
+            loss = model_engine(**batch).loss
 
             model_engine.backward(loss)
 
-            # Log
-            if model_engine.is_gradient_accumulation_boundary() and (LOCAL_RANK == 0):
-                wandb.log({
-                    "loss": loss.item(),
-                    "lr":   lr_scheduler.get_last_lr()[0]
-                }, step=step)
+            if model_engine.is_gradient_accumulation_boundary():
+                # Set LR
+                lr_this_step = args.lr * lr_scheduler(step)
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = lr_this_step
 
-                step += 1
-                progress_bar.update()
+                # Log
+                if LOCAL_RANK == 0:
+                    wandb.log({"loss": loss.item(), "lr": lr_this_step}, step=step)
+                    progress_bar.update()
 
-            # Step optimizer
             model_engine.step()
+
+        # Log batch efficiency
+        if LOCAL_RANK == 0:
+            wandb.log({"batch_efficiency": train_loader.batch_sampler.efficiency()}, step=step)
 
         ############ Eval Epoch
         model_engine.eval()
@@ -230,15 +282,14 @@ def train():
         eval_total_loss = torch.zeros((), dtype=torch.float32, device=args.device)
         eval_total_steps = 0
 
-        eval_loader.sampler.set_epoch(epoch)
-        with torch.no_grad():
+        eval_loader.batch_sampler.set_epoch(epoch)
+        with torch.inference_mode():
             for batch in eval_loader:
                 # To device
                 batch = {k: v.to(args.device) for k, v in batch.items()}
 
                 # Eval
-                eval_loss = model_engine(**batch,
-                                         use_cache=False, output_attentions=False, output_hidden_states=False).loss
+                eval_loss = model_engine(**batch).loss
                 
                 # Accumulate eval loss
                 eval_total_loss.add_(eval_loss)
