@@ -257,7 +257,7 @@ def train():
                 break
 
             # To device
-            batch = {k: v.to(args.device) for k, v in batch.items()}
+            batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
 
             # Update
             loss = model_engine(**batch).loss
@@ -292,7 +292,7 @@ def train():
             with torch.inference_mode():
                 for batch in eval_loader:
                     # To device
-                    batch = {k: v.to(args.device) for k, v in batch.items()}
+                    batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
 
                     # Eval
                     eval_loss = model_engine(**batch).loss
