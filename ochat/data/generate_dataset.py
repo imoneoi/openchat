@@ -61,7 +61,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list):
     return results, texts
 
 
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_dir: str, num_cpus: int = os.cpu_count()):
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_file: str, num_cpus: int = os.cpu_count()):
     # launch remote workers
     ray.init(num_cpus=num_cpus)
 
@@ -80,15 +80,15 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         results.extend(batch_result)
         texts.extend(batch_text)
 
-    with open(os.path.join(out_dir, f"{model_type}.{split_name}.json"), "w") as f:
+    with open(f"{out_file}.{split_name}.json", "w") as f:
         json.dump(results, f)
-    with open(os.path.join(out_dir, f"{model_type}.{split_name}.text.json"), "w") as f:
+    with open(f"{out_file}.{split_name}.text.json", "w") as f:
         json.dump(texts, f, indent="\t")
 
     ray.shutdown()
 
 
-def generate_dataset(model_type, model_path, in_file, out_dir, seed, eval_ratio):
+def generate_dataset(model_type, model_path, in_file, out_file, seed, eval_ratio):
     # Load conversations
     with open(in_file, "r") as f:
         conversations = json.load(f)
@@ -101,8 +101,9 @@ def generate_dataset(model_type, model_path, in_file, out_dir, seed, eval_ratio)
     train_conversations = conversations[eval_num:]
     eval_conversations  = conversations[:eval_num]
 
-    generate_split(model_type, model_path, train_conversations, "train", out_dir)
-    generate_split(model_type, model_path, eval_conversations, "eval", out_dir)
+    generate_split(model_type, model_path, train_conversations, "train", out_file)
+    if eval_num > 0:
+        generate_split(model_type, model_path, eval_conversations, "eval", out_file)
 
 
 if __name__ == "__main__":
@@ -111,7 +112,7 @@ if __name__ == "__main__":
     parser.add_argument("--model-path", type=str, required=True)
 
     parser.add_argument("--in-file", type=str, required=True)
-    parser.add_argument("--out-dir", type=str, default=".")
+    parser.add_argument("--out-file", type=str,required=True)
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--eval-ratio", type=float, default=0.01)

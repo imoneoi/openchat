@@ -68,10 +68,12 @@ def parse_args():
 
 def create_dataset(args, split_name):
     # Load data
-    with open(os.path.join(args.data_path, f"{args.model_type}.{split_name}.json"), "r") as f:
-        data = json.load(f)
+    filename = f"{args.data_path}.{split_name}.json"
+    if not os.path.exists(filename):
+        return None
 
-    return data
+    with open(filename, "r") as f:
+        return json.load(f)
 
 
 def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
@@ -224,8 +226,11 @@ def train():
 
     # Data Loader
     train_loader, train_num_batches = create_distributed_dataloader(args, train_dataset)
-    eval_loader,  eval_num_batches  = create_distributed_dataloader(args, eval_dataset)
     train_total_steps               = args.epochs * train_num_batches
+
+    eval_loader = None
+    if eval_dataset is not None:
+        eval_loader, _              = create_distributed_dataloader(args, eval_dataset)
 
     # LR Scheduler
     lr_scheduler = create_lr_scheduler(args, train_total_steps)
@@ -277,30 +282,31 @@ def train():
             wandb.log({"batch_efficiency": train_loader.batch_sampler.efficiency()}, step=step)
 
         ############ Eval Epoch
-        model_engine.eval()
+        if eval_loader is not None:
+            model_engine.eval()
 
-        eval_total_loss = torch.zeros((), dtype=torch.float32, device=args.device)
-        eval_total_steps = 0
+            eval_total_loss = torch.zeros((), dtype=torch.float32, device=args.device)
+            eval_total_steps = 0
 
-        eval_loader.batch_sampler.set_epoch(epoch)
-        with torch.inference_mode():
-            for batch in eval_loader:
-                # To device
-                batch = {k: v.to(args.device) for k, v in batch.items()}
+            eval_loader.batch_sampler.set_epoch(epoch)
+            with torch.inference_mode():
+                for batch in eval_loader:
+                    # To device
+                    batch = {k: v.to(args.device) for k, v in batch.items()}
 
-                # Eval
-                eval_loss = model_engine(**batch).loss
-                
-                # Accumulate eval loss
-                eval_total_loss.add_(eval_loss)
-                eval_total_steps += 1
+                    # Eval
+                    eval_loss = model_engine(**batch).loss
+                    
+                    # Accumulate eval loss
+                    eval_total_loss.add_(eval_loss)
+                    eval_total_steps += 1
 
-        # Gather eval loss
-        eval_total_loss.div_(eval_total_steps)
-        torch.distributed.reduce(eval_total_loss, 0)
+            # Gather eval loss
+            eval_total_loss.div_(eval_total_steps)
+            torch.distributed.reduce(eval_total_loss, 0)
 
-        if LOCAL_RANK == 0:
-            wandb.log({"eval_loss": eval_total_loss.item() / torch.distributed.get_world_size()}, step=step)
+            if LOCAL_RANK == 0:
+                wandb.log({"eval_loss": eval_total_loss.item() / torch.distributed.get_world_size()}, step=step)
 
     # Save model with lean state dict
     # https://deepspeed.readthedocs.io/en/latest/model-checkpointing.html
