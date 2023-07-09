@@ -61,26 +61,26 @@ The OpenChat v1 family is to validate the importance of data quality.
 ## <a id="section2"></a> Model Evaluation
 
 We have evaluated our models using the three most popular evaluation benchmarks, including AlpacaEval, MT-bench, and Vicuna benchmarks. 
-Here we list the minimal version of benchmarks with our released models. The full version can be found on [MT-bench](https://chat.lmsys.org/?leaderboard) and [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/).
+Here we list the minimal version of benchmarks with our released models. The full version can be found on [MT-bench](https://chat.lmsys.org/?leaderboard), [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/), and [MMLU](https://declare-lab.net/instruct-eval/).
 
 ### Leaderboard
 
-|                       |**AlpacaEval (win rate %)**| **MT-bench (win_rate_adjusted %)** | **Vicuna-bench (win_rate_adjusted %)**| **MT-bench (score)** | 
-|-----------------------|--------------|---------------|--------------|--------------|
-|                       |**v.s. Davinci003**     | **v.s. ChatGPT** | **v.s. ChatGPT** |   | 
-| gpt4                  | 95.3         | 80.6          | 90.0         | 8.99         | 
-| claude                | 88.4         | 62.8          | 76.3         | 7.90         |
-| **openchat-v2-w-13b** | **87.1**     | **50.9**      | **79.4**     | **6.32**     |
-|chatgpt (gpt-3.5-turbo)| 86.1         | 50.0          | 50.0         | 7.94         |
-| **openchat-v2-13b**   | **85.0**     | **48.1**      | **80.6**     | **6.67**     |
-| **openchat-13b**      | **80.9**     |               | **73.1**     |              |
-| **openchat8192-13b**  | **79.5**     |               | **76.3**     |              |
-| wizardlm-13b          | 75.3         | -             | -            | 6.35         |
-| guanaco-65b           | 71.8         | -             | -            | 6.41         |
-| vicuna-13b            | 70.4         | 34.1          | 50.0         | 6.39         |
-| guanaco-33b           | 66.0         | -             | -            | 6.53         |
-| text-davinci-003      | 50.0         | -             | -            | -            |
-| falcon-40b-instruct   | 45.7         | -             | -            | 5.17         |
+|                       |**AlpacaEval (win rate %)**| **MT-bench (win_rate_adjusted %)** | **Vicuna-bench (win_rate_adjusted %)**| **MT-bench (score)** | **MMLU** |
+|-----------------------|--------------|---------------|--------------|--------------|--------------|
+|                       |**v.s. Davinci003**     | **v.s. ChatGPT** | **v.s. ChatGPT** |   |   | 
+| gpt4                  | 95.3         | 80.6          | 90.0         | 8.99         | 86.4         | 
+| claude                | 88.4         | 62.8          | 76.3         | 7.90         | -            |
+| **openchat-v2-w-13b** | **87.1**     | **50.9**      | **79.4**     | **6.32**     | **49.4**     |
+|chatgpt (gpt-3.5-turbo)| 86.1         | 50.0          | 50.0         | 7.94         | 70.0         |
+| **openchat-v2-13b**   | **85.0**     | **48.1**      | **80.6**     | **6.67**     | **49.8**     |
+| **openchat-13b**      | **80.9**     | -             | **73.1**     | -            | **48.5**     |
+| **openchat8192-13b**  | **79.5**     | -             | **76.3**     | -            | **45.2**     |
+| wizardlm-13b          | 75.3         | -             | -            | 6.35         | -            |      
+| guanaco-65b           | 71.8         | -             | -            | 6.41         | -            |
+| vicuna-13b            | 70.4         | 34.1          | 50.0         | 6.39         | 49.7         |
+| guanaco-33b           | 66.0         | -             | -            | 6.53         | 57.6         |
+| text-davinci-003      | 50.0         | -             | -            | -            | -            |
+| falcon-40b-instruct   | 45.7         | -             | -            | 5.17         | -            |
 
 We are also trying to use extensive standard benchmarks to evaluate the performance of OpenChat, such as MMLU, we will release the evaluation results as soon as possible!
 
