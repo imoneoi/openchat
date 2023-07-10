@@ -8,24 +8,25 @@ import numba
 
 
 @numba.njit
-def ffd(a: np.ndarray, c: int):
+def ffd_check(a: np.ndarray, c: int, n: int):
     # First-fit-decreasing bin packing
+    # Check if a[] could fit in n bins with capacity c
     # https://en.wikipedia.org/wiki/First-fit-decreasing_bin_packing
 
     a = np.sort(a)[::-1]
-    bins = []
+    bins = np.full((n, ), c, dtype=a.dtype)
     for size in a:
-        add_new = True
-        for idx in range(len(bins)):
+        not_found = True
+        for idx in range(n):
             if bins[idx] >= size:
                 bins[idx] -= size
-                add_new = False
+                not_found = False
                 break
 
-        if add_new:
-            bins.append(c - size)
+        if not_found:
+            return False
 
-    return len(bins)
+    return True
 
 
 @numba.njit
@@ -57,7 +58,7 @@ def ffd_with_result(a: np.ndarray, c: int, start_index: int):
 def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int, n: int):
     # Dynamic batch allocator, similar to Multifit
     # https://en.wikipedia.org/wiki/Multifit_algorithm
-    # ~96.4% efficiency on OpenChat training set (2048 ctx len)
+    # ~99.5% efficiency on OpenChat training set (12 * 2048 ctx len)
 
     s = 0
     start_index = 0
@@ -70,7 +71,7 @@ def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int,
 
         while r - l > 1:
             m = (l + r) // 2
-            if ffd(lengths[start_index: start_index + m], c) <= n:
+            if ffd_check(lengths[start_index: start_index + m], c, n):
                 l = m
             else:
                 r = m
@@ -86,11 +87,11 @@ def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int,
         # add local rank
         result.append(batch[rank])
 
-    return result, s / max(1, len(result) * c * n)  # Avoid division by zero
+    return result, s, len(result) * c * n
 
 
-class FFDDistributedBatchSampler(Sampler):
-    """Unpadded length sampling using FFD (First-fit-decreasing bin packing).
+class MultipackDistributedBatchSampler(Sampler):
+    """Unpadded length sampling using Multipack.
        Approximate (at most ~1.22x) the optimal solution of the identical-machines scheduling problem, which is NP-hard."""
     
     def __init__(
@@ -122,8 +123,8 @@ class FFDDistributedBatchSampler(Sampler):
         self.epoch = 0
 
         # statistics
-        self.total_epochs = 0
-        self.total_efficiency = 0
+        self.eff_total_used = 0
+        self.eff_total_slots = 0
 
     def set_epoch(self, epoch: int):
         self.epoch = epoch
@@ -134,18 +135,18 @@ class FFDDistributedBatchSampler(Sampler):
         lengths = self.lengths[indices]
         lengths_cumsum = np.cumsum(lengths)
 
-        batches, efficiency = allocate(lengths=lengths,
-                           lengths_cumsum=lengths_cumsum,
-                           rank=self.rank,
-                           c=self.batch_max_length,
-                           n=self.num_replicas)
+        batches, total_used, total_slots = allocate(lengths=lengths,
+                                                    lengths_cumsum=lengths_cumsum,
+                                                    rank=self.rank,
+                                                    c=self.batch_max_length,
+                                                    n=self.num_replicas)
         
         batches = [indices[batch] for batch in batches]
 
         # statistics
         if set_stats:
-            self.total_epochs += 1
-            self.total_efficiency += efficiency
+            self.eff_total_used += total_used
+            self.eff_total_slots += total_slots
         
         return batches
     
@@ -158,4 +159,4 @@ class FFDDistributedBatchSampler(Sampler):
         return len(batches)
 
     def efficiency(self):
-        return self.total_efficiency / self.total_epochs
+        return self.eff_total_used / self.eff_total_slots

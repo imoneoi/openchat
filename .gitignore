@@ -13,6 +13,7 @@ logs/
 # All datasets
 dataset/
 dataset_processed/
+dataset_processed_*/
 tokenizer/
 
 # All evaluation results

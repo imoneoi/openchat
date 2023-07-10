@@ -1,6 +1,5 @@
 import argparse
 import os
-import json
 import math
 from functools import partial
 
@@ -8,6 +7,7 @@ import torch
 import torch.distributed
 
 import transformers
+import datasets
 import deepspeed
 import tqdm
 import wandb
@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from transformers.optimization import _get_cosine_schedule_with_warmup_lr_lambda
 
 from ochat.config.model_config import MODEL_CONFIG_MAP
-from ochat.training_deepspeed.ffd_sampler import FFDDistributedBatchSampler
+from ochat.training_deepspeed.ffd_sampler import MultipackDistributedBatchSampler
 
 
 LOCAL_RANK      = None
@@ -68,17 +68,16 @@ def parse_args():
 
 def create_dataset(args, split_name):
     # Load data
-    filename = f"{args.data_path}.{split_name}.json"
-    if not os.path.exists(filename):
+    filename = f"{args.data_path}_{split_name}"
+    if not os.path.isdir(filename):
         return None
 
-    with open(filename, "r") as f:
-        return json.load(f)
+    return datasets.load_dataset(filename, split="train", keep_in_memory=True)
 
 
 def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
     # Pad an unused item to reach multiple of 64, for faster GEMM
-    pad_cur_len = sum([len(token_list) for (token_list, mask_list, group) in batch])
+    pad_cur_len = sum([item["length"] for item in batch])
     pad_len     = _find_multiple(pad_cur_len, 64) - pad_cur_len
 
     if pad_len > 0:
@@ -90,7 +89,7 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
         ])
 
     # seqlen
-    batch_lengths = torch.tensor([len(token_list) for (token_list, mask_list, group) in batch], dtype=torch.int32, device="cpu")
+    batch_lengths = torch.tensor([item["length"] for item in batch], dtype=torch.int32, device="cpu")
 
     max_seqlen    = torch.max(batch_lengths)
     cu_seqlens    = torch.nn.functional.pad(batch_lengths.cumsum(-1, dtype=torch.int32), (1, 0))
@@ -106,12 +105,13 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
         nz_shifted_loss_weights = torch.zeros((nz_num, ), dtype=loss_dtype, pin_memory=True, device="cpu")
 
     index = 0
-    for token_list, mask_list, group in batch:
-        length = len(token_list)
+    for item in batch:
+        length = item["length"]
+        group  = item["group"]
 
-        tokens       = torch.tensor(token_list, dtype=dtype,      device="cpu")
-        masks        = torch.tensor(mask_list,  dtype=torch.bool, device="cpu")
-        position_ids = torch.arange(length,     dtype=dtype,      device="cpu")
+        tokens       = torch.tensor(item["tokens"], dtype=dtype,      device="cpu")
+        masks        = torch.tensor(item["masks"],  dtype=torch.bool, device="cpu")
+        position_ids = torch.arange(length,         dtype=dtype,      device="cpu")
 
         shifted_label_ids = torch.where(masks, tokens, IGNORE_LABEL_ID)
         shifted_label_ids = torch.nn.functional.pad(shifted_label_ids[1:], (0, 1), "constant", IGNORE_LABEL_ID)
@@ -140,12 +140,12 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
 def create_distributed_dataloader(args, data):
     # Sampler
     # Get length
-    lengths = np.array([len(tokens) for (tokens, masks, group) in data])
+    lengths = np.array(data["length"])
 
     # Loss balancing
     group_loss_weights = None
     if args.loss_balancing:
-        groups = np.array([group for (tokens, masks, group) in data])
+        groups = np.array(data["group"])
 
         unique, unique_counts = np.unique(groups, return_counts=True)
         total_count           = np.sum(unique_counts)
@@ -156,7 +156,7 @@ def create_distributed_dataloader(args, data):
     # FFD distributed sampler
     batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
 
-    sampler = FFDDistributedBatchSampler(
+    sampler = MultipackDistributedBatchSampler(
         batch_max_length=batch_max_len,
         lengths=lengths,
         seed=0
