@@ -54,10 +54,11 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list):
             tokens = tokens[:max_context]
             masks  = masks[:max_context]
 
-        results["tokens"].append(tokens)
-        results["masks"].append(masks)
-        results["group"].append(group)
-        results["length"].append(len(tokens))
+        if sum(masks) > 0:
+            results["tokens"].append(tokens)
+            results["masks"].append(masks)
+            results["group"].append(group)
+            results["length"].append(len(tokens))
 
     return results
 
