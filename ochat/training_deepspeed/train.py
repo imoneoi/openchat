@@ -82,11 +82,12 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
 
     if pad_len > 0:
         assert pad_len < 64
-        batch.append([
-            [PAD_ID] * pad_len,
-            [False] * pad_len,
-            0
-        ])
+        batch.append({
+            "tokens": [PAD_ID] * pad_len,
+            "masks": [False] * pad_len,
+            "group": 0,
+            "length": pad_len
+        })
 
     # seqlen
     batch_lengths = torch.tensor([item["length"] for item in batch], dtype=torch.int32, device="cpu")
@@ -308,14 +309,16 @@ def train():
             if LOCAL_RANK == 0:
                 wandb.log({"eval_loss": eval_total_loss.item() / torch.distributed.get_world_size()}, step=step)
 
-    # Save model with lean state dict
-    # https://deepspeed.readthedocs.io/en/latest/model-checkpointing.html
+        ############ Save Checkpoint
+        # Save model with lean state dict
+        # https://deepspeed.readthedocs.io/en/latest/model-checkpointing.html
+        save_path = os.path.join(args.save_path, f"ep_{epoch}")
 
-    lean_state_dict = deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict())
-    model_engine.module.save_pretrained(args.save_path, state_dict=lean_state_dict)
+        model_engine.module.save_pretrained(save_path,
+                                            state_dict=deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict()))
 
-    # Also save tokenizer from base model
-    transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False).save_pretrained(args.save_path)
+        # Also save tokenizer from base model
+        transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False).save_pretrained(save_path)
 
 
 if __name__ == "__main__":
