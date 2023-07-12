@@ -231,11 +231,11 @@ The embeddings are created using `openai_embeddings.py` to calculate embeddings 
 
 OpenChat V2 leverages padding-free training and [Multipack Sampler](https://github.com/imoneoi/multipack_sampler), achieving a 3x speedup compared to the last release. Now the V2 series can be trained in 6 hours and the V1 series in 1 hour.
 
-The hyperparameters used in training the models are the same across all models:
+The hyperparameters used in training the models are listed as follows:
 
-| Global Batch Size | Learning rate | Epochs | Length Grouping | Warmup Ratio | Weight decay |
-| --- | --- | --- | --- | --- | --- |
-| 128 | 2e-5 | 5 | True | 0.03 | 0 |
+| Per-GPU Batch Size | Learning rate | Epochs | Warmup Ratio | Weight decay |
+| --- | --- | --- | --- | --- |
+| 14 | 2e-5 | V1: 5, V2: 3 | 0.03 | 0 |
 
 To train using 8xA100 80GB:
 
@@ -246,7 +246,7 @@ deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
     --model_type MODEL_TYPE \
     --model_path BASE_MODEL_PATH \
     --save_path TARGET_FOLDER \
-    --epochs 5 \
+    --epochs EPOCHS \
     --data_path DATASET_PATH \
     --deepspeed \
     --deepspeed_config ochat/training_deepspeed/deepspeed_config.json
