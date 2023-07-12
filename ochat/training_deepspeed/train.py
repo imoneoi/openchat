@@ -94,14 +94,11 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
     cu_seqlens    = torch.nn.functional.pad(batch_lengths.cumsum(-1, dtype=torch.int32), (1, 0))
 
     # nz elements
-    nz_num               = cu_seqlens[-1]
-    nz_input_ids         = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
-    nz_position_ids      = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
-    nz_shifted_label_ids = torch.zeros((nz_num, ), dtype=dtype, pin_memory=True, device="cpu")
-
-    nz_shifted_loss_weights = None
-    if group_loss_weights is not None:
-        nz_shifted_loss_weights = torch.zeros((nz_num, ), dtype=loss_dtype, pin_memory=True, device="cpu")
+    nz_num                  = cu_seqlens[-1]
+    nz_input_ids            = torch.zeros((nz_num, ), dtype=dtype,      pin_memory=True, device="cpu")
+    nz_position_ids         = torch.zeros((nz_num, ), dtype=dtype,      pin_memory=True, device="cpu")
+    nz_shifted_label_ids    = torch.zeros((nz_num, ), dtype=dtype,      pin_memory=True, device="cpu")
+    nz_shifted_loss_weights = torch.zeros((nz_num, ), dtype=loss_dtype, pin_memory=True, device="cpu")
 
     index = 0
     for token_list, mask_list, length, group in zip(batch["tokens"], batch["masks"], batch["length"], batch["group"]):
@@ -109,18 +106,20 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
         masks        = torch.tensor(mask_list,  dtype=torch.bool, device="cpu")
         position_ids = torch.arange(length,     dtype=dtype,      device="cpu")
 
+        # Input IDs & shifted labels
         shifted_label_ids = torch.where(masks, tokens, IGNORE_LABEL_ID)
         shifted_label_ids = torch.nn.functional.pad(shifted_label_ids[1:], (0, 1), "constant", IGNORE_LABEL_ID)
 
         nz_input_ids[index: index + length]         = tokens
         nz_position_ids[index: index + length]      = position_ids
         nz_shifted_label_ids[index: index + length] = shifted_label_ids
-        
-        if group_loss_weights is not None:
-            shifted_loss_weights = masks * torch.full((length, ), group_loss_weights[group], dtype=loss_dtype, device="cpu")
-            shifted_loss_weights = torch.nn.functional.pad(shifted_loss_weights[1:], (0, 1), "constant", 0)
 
-            nz_shifted_loss_weights[index: index + length] = shifted_loss_weights
+        # Loss weights
+        loss_weight = 1 / sum(mask_list[1:])
+        if group_loss_weights is not None:
+            loss_weight *= group_loss_weights[group]
+
+        nz_shifted_loss_weights[index: index + length] = torch.full((length, ), loss_weight, dtype=loss_dtype, device="cpu")
 
         index += length
 
@@ -252,7 +251,7 @@ def train():
                 break
 
             # To device
-            batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
+            batch = {k: v.to(args.device) for k, v in batch.items()}
 
             # Update
             loss = (1 / all_numseq) * model_engine(**batch).loss
@@ -287,7 +286,7 @@ def train():
             with torch.inference_mode():
                 for batch, all_numseq in eval_loader:
                     # To device
-                    batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
+                    batch = {k: v.to(args.device) for k, v in batch.items()}
 
                     # Eval
                     eval_loss = (1 / all_numseq) * model_engine(**batch).loss
