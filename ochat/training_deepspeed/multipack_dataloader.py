@@ -1,7 +1,6 @@
-from typing import Optional, List
+from typing import Any, Optional, List, Callable
 
 import torch.distributed as dist
-from torch.utils.data import Sampler
 
 import numpy as np
 import numba
@@ -51,7 +50,7 @@ def ffd_with_result(a: np.ndarray, c: int, start_index: int):
             bins.append(c - size)
             bins_result.append([indices[a_id] + start_index])
 
-    return bins_result
+    return bins_result, len(a)
 
 
 @numba.njit
@@ -63,6 +62,7 @@ def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int,
     s = 0
     start_index = 0
     result = []
+    result_totseqs = []
 
     while True:
         # binary search [l, r)
@@ -77,7 +77,7 @@ def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int,
                 r = m
 
         # use length l
-        batch = ffd_with_result(lengths[start_index: start_index + l], c, start_index)
+        batch, tot_seqs = ffd_with_result(lengths[start_index: start_index + l], c, start_index)
         if len(batch) < n:
             break
 
@@ -86,22 +86,37 @@ def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int,
 
         # add local rank
         result.append(batch[rank])
+        # add total seqs for all ranks
+        result_totseqs.append(tot_seqs)
 
-    return result, s, len(result) * c * n
+    return result, result_totseqs, s, len(result) * c * n
 
 
-class MultipackDistributedBatchSampler(Sampler):
-    """Unpadded length sampling using Multipack.
+class MultipackDistributedDataloader:
+    """Unpadded data loading using Multipack.
        Approximate (at most ~1.22x) the optimal solution of the identical-machines scheduling problem, which is NP-hard."""
     
     def __init__(
         self,
-        batch_max_length: int,
+        dataset: Any,
         lengths: List[int],
+
+        batch_max_length: int,
+        collate_fn: Callable,
+
         num_replicas: Optional[int] = None,
         rank: Optional[int] = None,
+
         seed: int = 0,
     ):
+        # Dataset
+        self.dataset = dataset
+        self.lengths = lengths
+        assert isinstance(self.lengths, np.ndarray)
+
+        self.batch_max_length = batch_max_length
+        self.collate_fn = collate_fn
+
         # Get rank
         if num_replicas is None:
             if not dist.is_available():
@@ -114,12 +129,11 @@ class MultipackDistributedBatchSampler(Sampler):
 
         self.num_replicas = num_replicas
         self.rank = rank
+
+        # Seed
         self.seed = seed
 
-        self.batch_max_length = batch_max_length
-        self.lengths = lengths
-        assert isinstance(self.lengths, np.ndarray)
-
+        # Epoch
         self.epoch = 0
 
         # statistics
@@ -135,11 +149,11 @@ class MultipackDistributedBatchSampler(Sampler):
         lengths = self.lengths[indices]
         lengths_cumsum = np.cumsum(lengths)
 
-        batches, total_used, total_slots = allocate(lengths=lengths,
-                                                    lengths_cumsum=lengths_cumsum,
-                                                    rank=self.rank,
-                                                    c=self.batch_max_length,
-                                                    n=self.num_replicas)
+        batches, totseqs, total_used, total_slots = allocate(lengths=lengths,
+                                                             lengths_cumsum=lengths_cumsum,
+                                                             rank=self.rank,
+                                                             c=self.batch_max_length,
+                                                             n=self.num_replicas)
         
         batches = [indices[batch] for batch in batches]
 
@@ -147,15 +161,17 @@ class MultipackDistributedBatchSampler(Sampler):
         if set_stats:
             self.eff_total_used += total_used
             self.eff_total_slots += total_slots
-        
-        return batches
+
+        return batches, totseqs
     
     def __iter__(self):
-        batches = self.generate_batches(set_stats=True)
-        return iter(batches)
+        all_batches, all_totseqs = self.generate_batches(set_stats=True)
+
+        for batch, totseq in zip(all_batches, all_totseqs):
+            yield self.collate_fn(self.dataset[batch]), totseq
 
     def num_batches(self):
-        batches = self.generate_batches()
+        batches, _ = self.generate_batches()
         return len(batches)
 
     def efficiency(self):

@@ -13,11 +13,10 @@ import tqdm
 import wandb
 import numpy as np
 
-from torch.utils.data import DataLoader
 from transformers.optimization import _get_cosine_schedule_with_warmup_lr_lambda
 
 from ochat.config.model_config import MODEL_CONFIG_MAP
-from ochat.training_deepspeed.ffd_sampler import MultipackDistributedBatchSampler
+from ochat.training_deepspeed.multipack_dataloader import MultipackDistributedDataloader
 
 
 LOCAL_RANK      = None
@@ -77,20 +76,19 @@ def create_dataset(args, split_name):
 
 def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
     # Pad an unused item to reach multiple of 64, for faster GEMM
-    pad_cur_len = sum([item["length"] for item in batch])
+    pad_cur_len = sum([item for item in batch["length"]])
     pad_len     = _find_multiple(pad_cur_len, 64) - pad_cur_len
 
     if pad_len > 0:
         assert pad_len < 64
-        batch.append({
-            "tokens": [PAD_ID] * pad_len,
-            "masks": [False] * pad_len,
-            "group": 0,
-            "length": pad_len
-        })
+
+        batch["tokens"].append([PAD_ID] * pad_len)
+        batch["masks"].append([False] * pad_len)
+        batch["group"].append(0)
+        batch["length"].append(pad_len)
 
     # seqlen
-    batch_lengths = torch.tensor([item["length"] for item in batch], dtype=torch.int32, device="cpu")
+    batch_lengths = torch.tensor([item for item in batch["length"]], dtype=torch.int32, device="cpu")
 
     max_seqlen    = torch.max(batch_lengths)
     cu_seqlens    = torch.nn.functional.pad(batch_lengths.cumsum(-1, dtype=torch.int32), (1, 0))
@@ -106,13 +104,10 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
         nz_shifted_loss_weights = torch.zeros((nz_num, ), dtype=loss_dtype, pin_memory=True, device="cpu")
 
     index = 0
-    for item in batch:
-        length = item["length"]
-        group  = item["group"]
-
-        tokens       = torch.tensor(item["tokens"], dtype=dtype,      device="cpu")
-        masks        = torch.tensor(item["masks"],  dtype=torch.bool, device="cpu")
-        position_ids = torch.arange(length,         dtype=dtype,      device="cpu")
+    for token_list, mask_list, length, group in zip(batch["tokens"], batch["masks"], batch["length"], batch["group"]):
+        tokens       = torch.tensor(token_list, dtype=dtype,      device="cpu")
+        masks        = torch.tensor(mask_list,  dtype=torch.bool, device="cpu")
+        position_ids = torch.arange(length,     dtype=dtype,      device="cpu")
 
         shifted_label_ids = torch.where(masks, tokens, IGNORE_LABEL_ID)
         shifted_label_ids = torch.nn.functional.pad(shifted_label_ids[1:], (0, 1), "constant", IGNORE_LABEL_ID)
@@ -154,21 +149,20 @@ def create_distributed_dataloader(args, data):
 
         _rank0_print(f"Loss balancing enabled. Weights: {args.loss_balancing}")
 
-    # FFD distributed sampler
+    # Multipack dataloader
     batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
-
-    sampler = MultipackDistributedBatchSampler(
-        batch_max_length=batch_max_len,
-        lengths=lengths,
-        seed=0
-    )
 
     collate_fn = partial(batch_to_tensor, group_loss_weights=group_loss_weights)
 
-    return DataLoader(data, 
-                      batch_sampler=sampler,
-                      drop_last=False,
-                      collate_fn=collate_fn), sampler.num_batches()
+    return MultipackDistributedDataloader(
+        dataset=data,
+        lengths=lengths,
+
+        batch_max_length=batch_max_len,
+        collate_fn=collate_fn,
+
+        seed=0
+    )
 
 
 def create_model(args):
@@ -251,8 +245,8 @@ def train():
         ############ Train Epoch
         model_engine.train()
 
-        train_loader.batch_sampler.set_epoch(epoch)
-        for batch in train_loader:
+        train_loader.set_epoch(epoch)
+        for batch, all_numseq in train_loader:
             step += 1
             if step > train_total_steps:  # At most train_total_steps
                 break
@@ -261,7 +255,7 @@ def train():
             batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
 
             # Update
-            loss = model_engine(**batch).loss
+            loss = (1 / all_numseq) * model_engine(**batch).loss
 
             model_engine.backward(loss)
 
@@ -289,14 +283,14 @@ def train():
             eval_total_loss = torch.zeros((), dtype=torch.float32, device=args.device)
             eval_total_steps = 0
 
-            eval_loader.batch_sampler.set_epoch(epoch)
+            eval_loader.set_epoch(epoch)
             with torch.inference_mode():
-                for batch in eval_loader:
+                for batch, all_numseq in eval_loader:
                     # To device
                     batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
 
                     # Eval
-                    eval_loss = model_engine(**batch).loss
+                    eval_loss = (1 / all_numseq) * model_engine(**batch).loss
                     
                     # Accumulate eval loss
                     eval_total_loss.add_(eval_loss)

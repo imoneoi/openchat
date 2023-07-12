@@ -41,10 +41,7 @@ logger = logging.get_logger(__name__)
 
 @torch.jit.script
 def weighted_cross_entropy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
-    factor = weights.sum()
-    factor = torch.where(factor == 0, 0, torch.reciprocal(factor))  # Avoid NaNs
-
-    return factor * (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
+    return (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
 
 
 class UnpaddedLlamaRMSNorm(nn.Module):
@@ -393,7 +390,7 @@ class UnpaddedLlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
             if nz_shifted_loss_weights is not None:
                 loss = weighted_cross_entropy(logits, nz_shifted_label_ids, nz_shifted_loss_weights)
             else:
-                loss = CrossEntropyLoss()(logits, nz_shifted_label_ids)
+                loss = CrossEntropyLoss(reduction="sum")(logits, nz_shifted_label_ids)
 
         return CausalLMOutputWithPast(
             loss=loss,
