@@ -1,6 +1,6 @@
 # OpenChat: Advancing Open-source Language Models with Imperfect Data</h1>
 
-<div style="text-align: center">
+<div align="center">
   <img src="assets/logo_new.png" style="width: 65%">
 </div>
 
