@@ -248,14 +248,15 @@ NUM_GPUS=8
 
 deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
     --model_type MODEL_TYPE \
-    --model_path BASE_MODEL_PATH \
+    --model_path imone/LLaMA_13B_with_EOT_token \
     --save_path TARGET_FOLDER \
     --epochs EPOCHS \
     --data_path DATASET_PATH \
     --deepspeed \
     --deepspeed_config ochat/training_deepspeed/deepspeed_config.json
-
 ```
+
+Please use [LLaMA with end-of-turn token weights](https://huggingface.co/imone/LLaMA_13B_with_EOT_token) as the base model and tokenizer, as described in [Model modifications](#section6) section.
 
 ## <a id="section8"></a> Evaluation
 
