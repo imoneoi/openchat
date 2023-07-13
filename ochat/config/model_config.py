@@ -94,30 +94,7 @@ def _v2_group(props):
 
 
 MODEL_CONFIG_MAP = {
-    "openchat_3": ModelConfig(
-        name="OpenChat 3",
-
-        # Prompt
-        role_prefix=_v2_conditional_prefix,
-        ai_role="gpt",
-        eot_token="<|end_of_turn|>",
-        bos_token="<s>",
-
-        # Label
-        group_fn=_v2_group,
-
-        # Tokenize
-        model_max_context=2048,
-        model_create=partial(ochat.models.UnpaddedLlamaForCausalLM.from_pretrained,
-                             low_cpu_mem_usage=True,
-                             torch_dtype=torch.bfloat16),
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False,
-                                       use_auth_token=True),
-    ),
-
-    ############ Older models
-    # OpenChat V2
+    # OpenChat V2 / V3
     "openchat_v2": ModelConfig(
         name="OpenChat_v2",
 
