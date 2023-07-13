@@ -115,7 +115,9 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
         nz_shifted_label_ids[index: index + length] = shifted_label_ids
 
         # Loss weights
-        loss_weight = 1 / sum(mask_list[1:])
+        mask_count = sum(mask_list[1:])
+        loss_weight = 1 / mask_count if mask_count > 0 else 0  # Avoid division by zero for paddings
+
         if group_loss_weights is not None:
             loss_weight *= group_loss_weights[group]
 
@@ -219,8 +221,8 @@ def train():
     model_engine, optimizer = create_model(args)
 
     # Data Loader
-    train_loader, train_num_batches = create_distributed_dataloader(args, train_dataset)
-    train_total_steps               = args.epochs * train_num_batches
+    train_loader      = create_distributed_dataloader(args, train_dataset)
+    train_total_steps = args.epochs * train_loader.num_batches()
 
     eval_loader = None
     if eval_dataset is not None:
