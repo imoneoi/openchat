@@ -119,7 +119,7 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
         if group_loss_weights is not None:
             loss_weight *= group_loss_weights[group]
 
-        nz_shifted_loss_weights[index: index + length] = torch.full((length, ), loss_weight, dtype=loss_dtype, device="cpu")
+        nz_shifted_loss_weights[index: index + length] = loss_weight
 
         index += length
 
