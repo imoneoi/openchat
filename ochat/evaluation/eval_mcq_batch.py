@@ -46,8 +46,16 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list):
         tokens, _, _ = model_config.generate_conversation_template(_tokenize, _tokenize_special, system_prompt="", message_list=[
             {"from": "human", "value": item['question']},
             {"from": model_config.ai_role}
-        ])
+        ], message_props={"is_gpt4": False})
+        # Alpaca
         # tokens = [_tokenize_special("<s>")] + _tokenize(f"### Instruction:\n{item['question']}\n\n### Response:")
+        # Vicuna
+        #tokens = [_tokenize_special("<s>")] + \
+        #         _tokenize(f"A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: {item['question']} ASSISTANT:")
+        # Plain
+        # tokens = [_tokenize_special("<s>")] + _tokenize(item['question'])
+        # Orca paper
+        # tokens = [_tokenize_special("<s>")] + _tokenize(f"### System:\n### Human:\n{item['question']}\n### Assistant:")
 
         # Truncate to specified tokens
         max_context = model_config.model_max_context
