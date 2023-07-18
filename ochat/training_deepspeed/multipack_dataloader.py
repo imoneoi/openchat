@@ -50,11 +50,11 @@ def ffd_with_result(a: np.ndarray, c: int, start_index: int):
             bins.append(c - size)
             bins_result.append([indices[a_id] + start_index])
 
-    return bins_result, len(a)
+    return bins_result
 
 
 @numba.njit
-def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int, n: int):
+def allocate(lengths: np.ndarray, numseqs: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int, n: int):
     # Dynamic batch allocator, similar to Multifit
     # https://en.wikipedia.org/wiki/Multifit_algorithm
     # ~99.5% efficiency on OpenChat training set (12 * 2048 ctx len)
@@ -77,7 +77,7 @@ def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int,
                 r = m
 
         # use length l
-        batch, tot_seqs = ffd_with_result(lengths[start_index: start_index + l], c, start_index)
+        batch = ffd_with_result(lengths[start_index: start_index + l], c, start_index)
         if len(batch) < n:
             break
 
@@ -87,7 +87,11 @@ def allocate(lengths: np.ndarray, lengths_cumsum: np.ndarray, rank: int, c: int,
         # add local rank
         result.append(batch[rank])
         # add total seqs for all ranks
-        result_totseqs.append(tot_seqs)
+        totseq = 0
+        for indices in batch:
+            for idx in indices:
+                totseq += numseqs[idx]
+        result_totseqs.append(totseq)
 
     return result, result_totseqs, s, len(result) * c * n
 
@@ -99,7 +103,8 @@ class MultipackDistributedDataloader:
     def __init__(
         self,
         dataset: Any,
-        lengths: List[int],
+        lengths: np.ndarray,
+        numseqs: np.ndarray,
 
         batch_max_length: int,
         collate_fn: Callable,
@@ -112,6 +117,7 @@ class MultipackDistributedDataloader:
         # Dataset
         self.dataset = dataset
         self.lengths = lengths
+        self.numseqs = numseqs
         assert isinstance(self.lengths, np.ndarray)
 
         self.batch_max_length = batch_max_length
@@ -146,32 +152,35 @@ class MultipackDistributedDataloader:
     def generate_batches(self, set_stats=False):
         indices = np.random.default_rng(seed=self.seed + self.epoch).permutation(len(self.lengths))
 
-        lengths = self.lengths[indices]
+        lengths        = self.lengths[indices]
+        numseqs        = self.numseqs[indices]
         lengths_cumsum = np.cumsum(lengths)
 
         batches, totseqs, total_used, total_slots = allocate(lengths=lengths,
+                                                             numseqs=numseqs,
                                                              lengths_cumsum=lengths_cumsum,
                                                              rank=self.rank,
                                                              c=self.batch_max_length,
                                                              n=self.num_replicas)
         
-        batches = [indices[batch] for batch in batches]
+        curseqs = [np.sum(numseqs[batch]) for batch in batches]
+        batches = [indices[batch]         for batch in batches]
 
         # statistics
         if set_stats:
             self.eff_total_used += total_used
             self.eff_total_slots += total_slots
 
-        return batches, totseqs
+        return batches, totseqs, curseqs
     
     def __iter__(self):
-        all_batches, all_totseqs = self.generate_batches(set_stats=True)
+        all_batches, all_totseqs, all_curseqs = self.generate_batches(set_stats=True)
 
-        for batch, totseq in zip(all_batches, all_totseqs):
-            yield self.collate_fn(self.dataset[batch]), totseq, len(batch)
+        for batch, totseq, curseq in zip(all_batches, all_totseqs, all_curseqs):
+            yield self.collate_fn(self.dataset[batch]), totseq, curseq
 
     def num_batches(self):
-        batches, _ = self.generate_batches()
+        batches, _, _ = self.generate_batches()
         return len(batches)
 
     def efficiency(self):

@@ -78,56 +78,74 @@ def create_dataset(args, split_name):
     return datasets.load_dataset(filename, split="train", keep_in_memory=True)
 
 
-def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
+def batch_to_tensor(batch, num_groups, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
     # Pad an unused item to reach multiple of 64, for faster GEMM
-    pad_cur_len = sum([item for item in batch["length"]])
-    pad_len     = _find_multiple(pad_cur_len, 64) - pad_cur_len
+    total_seqlen = sum([item for item in batch["total_length"]])
+    pad_len      = _find_multiple(total_seqlen, 64) - total_seqlen
 
     if pad_len > 0:
         assert pad_len < 64
 
-        batch["tokens"].append([PAD_ID] * pad_len)
-        batch["masks"].append([False] * pad_len)
-        batch["group"].append(0)
-        batch["length"].append(pad_len)
+        # total length
+        batch["total_length"].append(pad_len)
 
-    # seqlen
-    batch_lengths = torch.tensor([item for item in batch["length"]], dtype=torch.int32, device="cpu")
+        # populate pad tokens & masks
+        for group in range(num_groups - 1):
+            batch[f"{group}_tokens"].append([])
+            batch[f"{group}_masks"].append([])
 
-    max_seqlen    = torch.max(batch_lengths)
-    cu_seqlens    = torch.nn.functional.pad(batch_lengths.cumsum(-1, dtype=torch.int32), (1, 0))
+        batch[f"{num_groups - 1}_tokens"].append([PAD_ID] * pad_len)
+        batch[f"{num_groups - 1}_masks"].append([False] * pad_len)
 
     # nz elements
-    nz_num                  = cu_seqlens[-1]
+    nz_num                  = total_seqlen + pad_len
     nz_input_ids            = torch.zeros((nz_num, ), dtype=dtype,      pin_memory=True, device="cpu")
     nz_position_ids         = torch.zeros((nz_num, ), dtype=dtype,      pin_memory=True, device="cpu")
     nz_shifted_label_ids    = torch.zeros((nz_num, ), dtype=dtype,      pin_memory=True, device="cpu")
     nz_shifted_loss_weights = torch.zeros((nz_num, ), dtype=loss_dtype, pin_memory=True, device="cpu")
 
+    seqlens                 = []
+
     index = 0
-    for token_list, mask_list, length, group in zip(batch["tokens"], batch["masks"], batch["length"], batch["group"]):
-        tokens       = torch.tensor(token_list, dtype=dtype,      device="cpu")
-        masks        = torch.tensor(mask_list,  dtype=torch.bool, device="cpu")
-        position_ids = torch.arange(length,     dtype=dtype,      device="cpu")
+    for group in range(num_groups):
+        for token_list, mask_list in zip(batch[f"{group}_tokens"], batch[f"{group}_masks"]):
+            # calc length & skip empty
+            length = len(token_list)
+            if not length:
+                continue
 
-        # Input IDs & shifted labels
-        shifted_label_ids = torch.where(masks, tokens, IGNORE_LABEL_ID)
-        shifted_label_ids = torch.nn.functional.pad(shifted_label_ids[1:], (0, 1), "constant", IGNORE_LABEL_ID)
+            # buffers
+            tokens       = torch.tensor(token_list, dtype=dtype,      device="cpu")
+            masks        = torch.tensor(mask_list,  dtype=torch.bool, device="cpu")
+            position_ids = torch.arange(length,     dtype=dtype,      device="cpu")
 
-        nz_input_ids[index: index + length]         = tokens
-        nz_position_ids[index: index + length]      = position_ids
-        nz_shifted_label_ids[index: index + length] = shifted_label_ids
+            # Input IDs & shifted labels
+            shifted_label_ids = torch.where(masks, tokens, IGNORE_LABEL_ID)
+            shifted_label_ids = torch.nn.functional.pad(shifted_label_ids[1:], (0, 1), "constant", IGNORE_LABEL_ID)
 
-        # Loss weights
-        mask_count = sum(mask_list[1:])
-        loss_weight = 1 / mask_count if mask_count > 0 else 0  # Avoid division by zero for paddings
+            nz_input_ids[index: index + length]         = tokens
+            nz_position_ids[index: index + length]      = position_ids
+            nz_shifted_label_ids[index: index + length] = shifted_label_ids
 
-        if group_loss_weights is not None:
-            loss_weight *= group_loss_weights[group]
+            # Loss weights
+            mask_count = sum(mask_list[1:])
+            loss_weight = 1 / mask_count if mask_count > 0 else 0  # Avoid division by zero for paddings
 
-        nz_shifted_loss_weights[index: index + length] = loss_weight
+            if group_loss_weights is not None:
+                loss_weight *= group_loss_weights[group]
 
-        index += length
+            nz_shifted_loss_weights[index: index + length] = loss_weight
+
+            # increment index
+            seqlens.append(length)
+
+            index += length
+
+    # cu seqlens
+    seqlens = torch.tensor(seqlens, dtype=torch.int32, device="cpu")
+
+    max_seqlen    = torch.max(seqlens)
+    cu_seqlens    = torch.nn.functional.pad(seqlens.cumsum(-1, dtype=torch.int32), (1, 0))
 
     # inputs
     return dict(max_seqlen=max_seqlen,
@@ -141,27 +159,28 @@ def batch_to_tensor(batch, group_loss_weights, dtype=torch.long, loss_dtype=torc
 def create_distributed_dataloader(args, data):
     # Sampler
     # Get length
-    lengths = np.array(data["length"])
+    lengths = np.array(data["total_length"])
+    num_seqs = np.array(data["num_seqs"])
+    num_groups = data.num_groups
 
     # Loss balancing
     group_loss_weights = None
     if args.loss_balancing:
-        groups = np.array(data["group"])
+        group_loss_weights = data.group_loss_weights
 
-        unique, unique_counts = np.unique(groups, return_counts=True)
-        total_count           = np.sum(unique_counts)
-        group_loss_weights    = {k: total_count / c for k, c in zip(unique, unique_counts)}
-
-        _rank0_print(f"Loss balancing enabled. Weights: {args.loss_balancing}")
+        _rank0_print(f"Loss balancing enabled. Weights: {group_loss_weights}")
 
     # Multipack dataloader
     batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
 
-    collate_fn = partial(batch_to_tensor, group_loss_weights=group_loss_weights)
+    collate_fn = partial(batch_to_tensor,
+                         num_groups=num_groups,
+                         group_loss_weights=group_loss_weights)
 
     return MultipackDistributedDataloader(
         dataset=data,
         lengths=lengths,
+        num_seqs=num_seqs,
 
         batch_max_length=batch_max_len,
         collate_fn=collate_fn,

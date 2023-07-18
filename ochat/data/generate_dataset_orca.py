@@ -8,6 +8,12 @@ from pyarrow import parquet
 import datasets
 
 
+GROUPS = {
+    "answer_gpt35": {"id": 0, "props": {"is_gpt4": False}},
+    "answer_gpt4":  {"id": 1, "props": {"is_gpt4": True}}
+}
+
+
 def _split(a, n):
     # Split list a to n chunks
     # https://stackoverflow.com/questions/2130016/splitting-a-list-into-n-parts-of-approximately-equal-length
@@ -15,14 +21,8 @@ def _split(a, n):
     return [a[i*k+min(i, m): (i+1)*k+min(i+1, m)] for i in range(n)]
 
 
-def conversation_properties(model):
-    return {
-        "is_gpt4": model == "gpt4"
-    }
-
-
 @ray.remote
-def convert_conversation_batch(model_type: str, model_path: str, batch: list):
+def convert_conversation_batch(model_type: str, model_path: str, batch: list, field_names: list):
     from ochat.config.model_config import MODEL_CONFIG_MAP
 
     # Tokenization
@@ -37,56 +37,85 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list):
         return tokenizer.convert_tokens_to_ids(special_name)
     
     # Generate data
-    results = {"tokens": [], "masks": [], "group": [], "length": []}
+    results = {k: [] for k in field_names}
     for item in batch:
-        conversation = [
-            {"from": "human", "value": item["question"]},
-            {"from": "gpt",   "value": item["response"]}
-        ]
-        props = conversation_properties(item["model"])
+        # Convert item
+        item_converted = {"total_length": 0, "num_seqs": 0}
 
-        # Generate template
-        tokens, masks, group = model_config.generate_conversation_template(_tokenize, _tokenize_special, item["system_prompt"], conversation, props)
+        for group_name, group_info in GROUPS.items():
+            group_id = group_info["id"]
+            props    = group_info["props"]
+            answer   = item[group_name]
 
-        # Truncate to specified tokens
-        max_context = model_config.model_max_context
-        if max_context is not None:
-            tokens = tokens[:max_context]
-            masks  = masks[:max_context]
+            if not len(answer):
+                item_converted[f"{group_id}_tokens"] = []
+                item_converted[f"{group_id}_masks"] = []
+                continue
 
-        if sum(masks) > 0:
-            results["tokens"].append(tokens)
-            results["masks"].append(masks)
-            results["group"].append(group)
-            results["length"].append(len(tokens))
+            conversation = [
+                {"from": "human", "value": item["question"]},
+                {"from": "gpt",   "value": answer}
+            ]
+
+            # Generate template
+            tokens, masks, _     = model_config.generate_conversation_template(_tokenize, _tokenize_special,
+                                                                               system_prompt=item["system_prompt"],
+                                                                               message_list=conversation,
+                                                                               message_props=props)
+
+            # Truncate to specified tokens
+            max_context = model_config.model_max_context
+            if max_context is not None:
+                tokens = tokens[:max_context]
+                masks  = masks[:max_context]
+
+            if sum(masks) > 0:
+                item_converted[f"{group_id}_tokens"] = tokens
+                item_converted[f"{group_id}_masks"] = masks
+
+                item_converted["total_length"] += len(tokens)
+                item_converted["num_seqs"] += 1
+
+        # Append to result
+        if item_converted["num_seqs"] >= 1:
+            for k in field_names:
+                results[k].append(item_converted[k])
 
     return results
 
 
 def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, num_cpus: int = os.cpu_count()):
+    # schema
+    schema = [
+        pyarrow.field("total_length", pyarrow.int32()),
+        pyarrow.field("num_seqs", pyarrow.int32()),
+    ]
+    for group in range(len(GROUPS)):
+        schema.extend([
+            pyarrow.field(f"{group}_tokens", pyarrow.list_(pyarrow.int32())),
+            pyarrow.field(f"{group}_masks",  pyarrow.list_(pyarrow.bool_())),
+        ])
+
+    schema = pyarrow.schema(schema, metadata={"num_groups": str(len(GROUPS))})
+
     # launch remote workers
     ray.init(num_cpus=num_cpus)
 
     handles = [convert_conversation_batch.remote(
         model_type=model_type,
         model_path=model_path,
-        batch=batch
+        batch=batch,
+        field_names=schema.names
     ) for batch in _split(conversations, num_cpus)]
 
     # aggegrate results
-    results = {"tokens": [], "masks": [], "group": [], "length": []}
+    results = {k: [] for k in schema.names}
     for handle in handles:
         batch_result = ray.get(handle)
 
         for k, v in batch_result.items():
             results[k].extend(v)
 
-    schema = pyarrow.schema([
-        pyarrow.field("tokens", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field("masks", pyarrow.list_(pyarrow.bool_())),
-        pyarrow.field("group", pyarrow.int32()),
-        pyarrow.field("length", pyarrow.int32()),
-    ])
     parquet.write_table(pyarrow.Table.from_pydict(results, schema=schema), f"{out_prefix}.{split_name}.parquet")
 
     ray.shutdown()

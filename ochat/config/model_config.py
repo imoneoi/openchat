@@ -17,6 +17,8 @@ class ModelConfig:
     eot_token: str
     bos_token: Optional[str] = None
 
+    condition_fn: Optional[Callable] = None
+
     # Label
     group_fn: Optional[Callable] = None
 
@@ -35,6 +37,12 @@ class ModelConfig:
             t = tokenize_special_fn(self.bos_token)
             tokens.append(t)
             masks.append(False)
+
+        # Condition
+        if self.condition_fn is not None:
+            t = tokenize_fn(self.condition_fn(message_props)) + [tokenize_special_fn(self.eot_token)]
+            tokens.extend(t)
+            masks.extend([False] * len(t))
 
         # System
         if system_prompt:
@@ -86,15 +94,53 @@ def _v2_conditional_prefix(from_role, props):
     raise NotImplementedError(f"Unknown role {from_role}")
 
 
-def _v2_group(props):
+def _v2_v3_group(props):
     if props is None:
         return 1
 
     return 1 if props["is_gpt4"] else 0
 
 
+def _v3_condition(props):
+    gpt4_condition = "Assistant GPT4"
+    gpt3_condition = "Assistant GPT3"
+
+    if props is None:
+        return gpt4_condition
+
+    return gpt4_condition if props["is_gpt4"] else gpt3_condition
+
+
 MODEL_CONFIG_MAP = {
-    # OpenChat V2 / V3
+    # OpenChat V3.1
+    "openchat_v3.1": ModelConfig(
+        name="OpenChat V3.1",
+
+        # Prompt
+        role_prefix={
+            "human": "User:",
+            "gpt": "Assistant:"
+        },
+        ai_role="gpt",
+        eot_token="<|end_of_turn|>",
+        bos_token="<s>",
+
+        condition_fn=_v3_condition,
+
+        # Label
+        group_fn=_v2_v3_group,
+
+        # Tokenize
+        model_max_context=2048,
+        model_create=partial(ochat.models.UnpaddedLlamaForCausalLM.from_pretrained,
+                             low_cpu_mem_usage=True,
+                             torch_dtype=torch.bfloat16),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False,
+                                       use_auth_token=True),
+    ),
+
+    # OpenChat V2
     "openchat_v2": ModelConfig(
         name="OpenChat_v2",
 
@@ -105,7 +151,7 @@ MODEL_CONFIG_MAP = {
         bos_token="<s>",
 
         # Label
-        group_fn=_v2_group,
+        group_fn=_v2_v3_group,
 
         # Tokenize
         model_max_context=2048,
