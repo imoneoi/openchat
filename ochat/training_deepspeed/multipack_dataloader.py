@@ -168,7 +168,7 @@ class MultipackDistributedDataloader:
         all_batches, all_totseqs = self.generate_batches(set_stats=True)
 
         for batch, totseq in zip(all_batches, all_totseqs):
-            yield self.collate_fn(self.dataset[batch]), totseq
+            yield self.collate_fn(self.dataset[batch]), totseq, len(batch)
 
     def num_batches(self):
         batches, _ = self.generate_batches()

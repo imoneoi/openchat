@@ -13,8 +13,6 @@ import tqdm
 import wandb
 import numpy as np
 
-from transformers.optimization import _get_cosine_schedule_with_warmup_lr_lambda
-
 from ochat.config.model_config import MODEL_CONFIG_MAP
 from ochat.training_deepspeed.multipack_dataloader import MultipackDistributedDataloader
 
@@ -53,9 +51,15 @@ def parse_args():
     parser.add_argument("--batch_size_per_gpu", type=int,   default=14)
     parser.add_argument("--epochs",             type=int,   default=5)
 
-    parser.add_argument("--lr",                 type=float, default=2e-5)
-    parser.add_argument("--warmup_ratio",       type=float, default=0.03)
-    parser.add_argument("--weight_decay",       type=float, default=0.)
+    # Estimated using LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
+    parser.add_argument("--lr",                 type=float, default=4e-5)
+    parser.add_argument("--lr_min_ratio",       type=float, default=0.1)
+    parser.add_argument("--lr_warmup_steps",    type=int,   default=2000)
+
+    parser.add_argument("--weight_decay",       type=float, default=0.1)
+
+    parser.add_argument("--beta1",              type=float, default=0.9)
+    parser.add_argument("--beta2",              type=float, default=0.95)
 
     # DeepSpeed parameters
     parser = deepspeed.add_config_arguments(parser)
@@ -177,7 +181,11 @@ def create_model(args):
     model.gradient_checkpointing_enable()
 
     # Optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, fused=True)
+    optimizer = torch.optim.AdamW(model.parameters(),
+                                  lr=args.lr,
+                                  weight_decay=args.weight_decay,
+                                  betas=(args.beta1, args.beta2),
+                                  fused=True)
 
     # DeepSpeed model
     model_engine, optimizer, _, _ = deepspeed.initialize(args=args,
@@ -191,12 +199,23 @@ def create_model(args):
     return model_engine, optimizer
 
 
+def cosine_schedule_with_warmup_lr_lambda(
+    current_step: int, *, num_warmup_steps: int, num_training_steps: int, min_ratio: float = 0.0, num_cycles: float = 0.5
+):
+    if current_step < num_warmup_steps:
+        return float(current_step) / float(max(1, num_warmup_steps))
+
+    progress = float(current_step - num_warmup_steps) / float(max(1, num_training_steps - num_warmup_steps))
+    return min_ratio + max(0.0, (1 - min_ratio) * 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
+
+
 def create_lr_scheduler(args, train_total_steps):
     lr_scheduler = partial(
-        _get_cosine_schedule_with_warmup_lr_lambda,
-        num_warmup_steps=math.ceil(train_total_steps * args.warmup_ratio),
+        cosine_schedule_with_warmup_lr_lambda,
+
+        num_warmup_steps=args.lr_warmup_steps,
         num_training_steps=train_total_steps,
-        num_cycles=0.5,
+        min_ratio=args.lr_min_ratio
     )
 
     return lr_scheduler
@@ -247,13 +266,13 @@ def train():
         model_engine.train()
 
         train_loader.set_epoch(epoch)
-        for batch, all_numseq in train_loader:
+        for batch, all_numseq, cur_numseq in train_loader:
             step += 1
             if step > train_total_steps:  # At most train_total_steps
                 break
 
             # To device
-            batch = {k: v.to(args.device) for k, v in batch.items()}
+            batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
 
             # Update
             loss = (1 / all_numseq) * model_engine(**batch).loss
@@ -268,14 +287,14 @@ def train():
 
                 # Log
                 if LOCAL_RANK == 0:
-                    wandb.log({"loss": loss.item(), "lr": lr_this_step}, step=step)
+                    wandb.log({"loss": loss.item() * (all_numseq / cur_numseq), "lr": lr_this_step}, step=step)
                     progress_bar.update()
 
             model_engine.step()
 
         # Log batch efficiency
         if LOCAL_RANK == 0:
-            wandb.log({"batch_efficiency": train_loader.batch_sampler.efficiency()}, step=step)
+            wandb.log({"batch_efficiency": train_loader.efficiency()}, step=step)
 
         ############ Eval Epoch
         if eval_loader is not None:
@@ -286,9 +305,9 @@ def train():
 
             eval_loader.set_epoch(epoch)
             with torch.inference_mode():
-                for batch, all_numseq in eval_loader:
+                for batch, all_numseq, cur_numseq in eval_loader:
                     # To device
-                    batch = {k: v.to(args.device) for k, v in batch.items()}
+                    batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
 
                     # Eval
                     eval_loss = (1 / all_numseq) * model_engine(**batch).loss
@@ -297,12 +316,12 @@ def train():
                     eval_total_loss.add_(eval_loss)
                     eval_total_steps += 1
 
-            # Gather eval loss
+            # Gather eval loss (reduce sum)
             eval_total_loss.div_(eval_total_steps)
             torch.distributed.reduce(eval_total_loss, 0)
 
             if LOCAL_RANK == 0:
-                wandb.log({"eval_loss": eval_total_loss.item() / torch.distributed.get_world_size()}, step=step)
+                wandb.log({"eval_loss": eval_total_loss.item()}, step=step)
 
         ############ Save Checkpoint
         # Save model with lean state dict
