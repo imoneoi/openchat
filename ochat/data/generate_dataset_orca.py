@@ -5,7 +5,6 @@ import random
 import ray
 import pyarrow
 from pyarrow import parquet
-import datasets
 
 
 GROUPS = {
@@ -48,8 +47,6 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, fi
             answer   = item[group_name]
 
             if not len(answer):
-                item_converted[f"{group_id}_tokens"] = []
-                item_converted[f"{group_id}_masks"] = []
                 continue
 
             conversation = [
@@ -79,7 +76,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, fi
         # Append to result
         if item_converted["num_seqs"] >= 1:
             for k in field_names:
-                results[k].append(item_converted[k])
+                results[k].append(item_converted.get(k, []))
 
     return results
 

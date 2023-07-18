@@ -102,8 +102,8 @@ def _v2_v3_group(props):
 
 
 def _v3_condition(props):
-    gpt4_condition = "Assistant GPT4"
-    gpt3_condition = "Assistant GPT3"
+    gpt4_condition = "Assistant is GPT4"
+    gpt3_condition = "Assistant is GPT3"
 
     if props is None:
         return gpt4_condition
