@@ -97,7 +97,8 @@ git clone git@github.com:imoneoi/openchat.git
 ```
 
 ```bash
-pip install --no-build-isolation flash-attn
+pip install packaging ninja
+pip install --no-build-isolation "flash-attn<2"
 pip install -r requirements.txt
 ```
 
@@ -108,8 +109,8 @@ conda install python
 conda install cudatoolkit-dev -c conda-forge
 pip3 install torch torchvision torchaudio
 
-pip install packaging
-pip install --no-build-isolation flash-attn
+pip install packaging ninja
+pip install --no-build-isolation "flash-attn<2"
 
 pip install -r requirements.txt
 ```
