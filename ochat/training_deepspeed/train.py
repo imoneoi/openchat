@@ -160,8 +160,8 @@ def create_distributed_dataloader(args, data):
     # Sampler
     # Get length
     lengths = np.array(data["total_length"])
-    num_seqs = np.array(data["num_seqs"])
-    num_groups = data.num_groups
+    numseqs = np.array(data["num_seqs"])
+    num_groups = 2  # FIXME: Metadata not working...
 
     # Loss balancing
     group_loss_weights = None
@@ -180,7 +180,7 @@ def create_distributed_dataloader(args, data):
     return MultipackDistributedDataloader(
         dataset=data,
         lengths=lengths,
-        num_seqs=num_seqs,
+        numseqs=numseqs,
 
         batch_max_length=batch_max_len,
         collate_fn=collate_fn,
