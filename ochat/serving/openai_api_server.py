@@ -40,6 +40,8 @@ class Model:
     config: ModelConfig = None
     tokenizer: object = None
 
+    stream_period: int = None
+
 
 logger = init_logger(__name__)
 app = fastapi.FastAPI()
@@ -127,7 +129,7 @@ async def create_chat_completion(raw_request: Request):
     if not (len(conversation) and conversation[-1]["from"] == model.config.ai_role):
         conversation.append({"from": model.config.ai_role})
 
-    input_ids, _ = model.config.generate_conversation_template(_tokenize, _tokenize_special, conversation)
+    input_ids, _, _ = model.config.generate_conversation_template(_tokenize, _tokenize_special, conversation)
 
     # check length
     request.max_tokens = min(request.max_tokens, model.config.model_max_context - len(input_ids))
@@ -177,13 +179,11 @@ async def create_chat_completion(raw_request: Request):
         )
         response = openai_api_protocol.ChatCompletionStreamResponse(
             id=request_id,
-            created=created_time,
-            model=model_name,
             choices=[choice_data],
+            model=model_name,
         )
-        response_json = response.json(ensure_ascii=False)
 
-        return response_json
+        return response.json(exclude_unset=True, ensure_ascii=False)
 
     async def completion_stream_generator() -> AsyncGenerator[str, None]:
         # First chunk with role
@@ -196,33 +196,29 @@ async def create_chat_completion(raw_request: Request):
             chunk = openai_api_protocol.ChatCompletionStreamResponse(id=request_id,
                                                                      choices=[choice_data],
                                                                      model=model_name)
-            data = chunk.json(exclude_unset=True, ensure_ascii=False)
 
-            yield f"data: {data}\n\n"
+            yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
 
         previous_texts = [""] * request.n
         previous_num_tokens = [0] * request.n
-        async for res in result_generator:
-            res: RequestOutput
-            for output in res.outputs:
-                i = output.index
-                delta_text = output.text[len(previous_texts[i]):]
-                previous_texts[i] = output.text
-                previous_num_tokens[i] = len(output.token_ids)
-                response_json = create_stream_response_json(
-                    index=i,
-                    text=delta_text,
-                )
-                yield f"data: {response_json}\n\n"
-                if output.finish_reason is not None:
-                    response_json = create_stream_response_json(
-                        index=i,
-                        text="",
-                        finish_reason=output.finish_reason,
-                    )
-                    yield f"data: {response_json}\n\n"
 
-            yield "data: [DONE]\n\n"
+        stream_index = 0
+        async for res in result_generator:
+            stream_index += 1
+
+            for output in res.outputs:
+                # stream on end or every stream_period
+                if (stream_index % model.stream_period == 0) or (output.finish_reason is not None):
+                    i = output.index
+                    delta_text = output.text[len(previous_texts[i]):]
+                    previous_texts[i] = output.text
+                    previous_num_tokens[i] = len(output.token_ids)
+
+                    yield f"data: {create_stream_response_json(index=i, text=delta_text)}\n\n"
+                    if output.finish_reason is not None:
+                        yield f"data: {create_stream_response_json(index=i, text='', finish_reason=output.finish_reason)}\n\n"
+
+        yield "data: [DONE]\n\n"
 
     # Streaming response
     if request.stream:
@@ -289,6 +285,8 @@ if __name__ == "__main__":
     # Model
     parser.add_argument("--model_type", type=str, required=True)
 
+    parser.add_argument("--stream_period", type=int, default=6)
+
     # Server
     parser.add_argument("--host", type=str, default="localhost", help="host name")
     parser.add_argument("--port", type=int, default=18888, help="port number")
@@ -312,6 +310,8 @@ if __name__ == "__main__":
     model.name = args.model_type
     model.config = MODEL_CONFIG_MAP[args.model_type]
     model.tokenizer = model.config.model_tokenizer_create(args.model)
+
+    model.stream_period = args.stream_period
 
     # Load model
     engine_args = AsyncEngineArgs.from_cli_args(args)

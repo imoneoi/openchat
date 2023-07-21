@@ -17,10 +17,10 @@ services:
 
     # model type
     environment:
-      MODEL_TYPE: opencoder # [NOTE] Specify your model type
+      MODEL_TYPE: openchat_v2 # [NOTE] Specify your model type
     # model path mount
     volumes:
-      - /home/one/one/trained_models_opencoder/opencoderplus_5ep:/model:ro # [NOTE] Specify your model path
+      - /data/one/trained_models_openchat/openchat_v2w_en/:/model:ro # [NOTE] Specify your model path
       - ./ochat:/ochat:ro
       - ./logs:/logs:rw
 

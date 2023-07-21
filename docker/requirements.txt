@@ -2,9 +2,10 @@
 sentencepiece
 transformers
 accelerate
-flash-attn
+flash-attn<2
 # Serving
 fastapi
 pydantic
 shortuuid
 uvicorn
+vllm
