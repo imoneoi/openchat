@@ -12,26 +12,37 @@ def view_results(result_file: str):
 
     report = {}
     for name in sorted(eval_results["accuracy"].keys()):
-        eval_set  = os.path.dirname(name)
-        eval_name = Path(name).stem
+        name_split = name.split("___", 1)
+        if len(name_split) == 2:
+            config_set, task_filename = name_split
+        else:
+            config_set = "default"
+            task_filename = name
 
-        if eval_set not in report:
-            report[eval_set] = {"name": [], "accuracy": [], "unmatched": []}
+        eval_set  = os.path.dirname(task_filename)
+        eval_name = Path(task_filename).stem
+
+        report.setdefault(config_set, {})
+        report[config_set].setdefault(eval_set, {"name": [], "accuracy": [], "unmatched": []})
         
-        report[eval_set]["name"].append(eval_name)
-        report[eval_set]["accuracy"].append(eval_results["accuracy"][name])
-        report[eval_set]["unmatched"].append(eval_results["unmatched"][name])
+        report[config_set][eval_set]["name"].append(eval_name)
+        report[config_set][eval_set]["accuracy"].append(eval_results["accuracy"][name])
+        report[config_set][eval_set]["unmatched"].append(eval_results["unmatched"][name])
 
-    for eval_set, result_df in report.items():
-        result_df = pd.DataFrame.from_dict(result_df)
-        result_df.loc[len(result_df)] = {
-            "name": "Average",
-            "accuracy": result_df["accuracy"].mean(),
-            "unmatched": result_df["unmatched"].mean()
-        }
+    for config_set, eval_sets_report in report.items():
+        print(f"\n{config_set}\n==========")
 
-        print(f"{eval_set}\n\n")
-        print(result_df.to_string(index=False))
+        # eval set
+        for eval_set, result_df in eval_sets_report.items():
+            result_df = pd.DataFrame.from_dict(result_df)
+            result_df.loc[len(result_df)] = {
+                "name": "Average",
+                "accuracy": result_df["accuracy"].mean(),
+                "unmatched": result_df["unmatched"].mean()
+            }
+
+            print(f"\n## {eval_set}\n")
+            print(result_df.to_markdown(index=False, floatfmt=".3f"))
 
 
 def main():

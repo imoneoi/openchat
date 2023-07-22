@@ -1,3 +1,0 @@
-{"reviewer_id": "gpt-3.5-default", "prompt_id": 1, "kwargs": {"model": "gpt-3.5-turbo", "temperature": 0.2, "max_tokens": 1024}, "description": "GPT-3.5 for general questions", "category": "general"}
-{"reviewer_id": "gpt-3.5-coding", "prompt_id": 2, "kwargs": {"model": "gpt-3.5-turbo", "temperature": 0.2, "max_tokens": 1024}, "description": "GPT-3.5 for coding questions", "category": "coding"}
-{"reviewer_id": "gpt-3.5-math", "prompt_id": 3, "kwargs": {"model": "gpt-3.5-turbo", "temperature": 0.2, "max_tokens": 1024}, "description": "GPT-3.5 for math questions", "category": "math"}
