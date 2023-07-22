@@ -12,11 +12,14 @@ umap
 # Training
 wandb
 numba
+deepspeed
+datasets
+orjson
 # Training + Serving
 sentencepiece
 transformers
 accelerate
-flash-attn
+flash-attn<2
 # Serving
 fastapi
 pydantic
