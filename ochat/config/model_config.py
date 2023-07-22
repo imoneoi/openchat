@@ -21,6 +21,7 @@ class ModelConfig:
 
     # Label
     group_fn: Optional[Callable] = None
+    num_groups: int = 1
 
     # Model
     model_max_context: Optional[int] = None
@@ -129,9 +130,38 @@ MODEL_CONFIG_MAP = {
 
         # Label
         group_fn=_v2_v3_group,
+        num_groups=2,
 
         # Tokenize
         model_max_context=2048,
+        model_create=partial(ochat.models.UnpaddedLlamaForCausalLM.from_pretrained,
+                             low_cpu_mem_usage=True,
+                             torch_dtype=torch.bfloat16),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False,
+                                       use_auth_token=True),
+    ),
+
+    "openchat_v3.1_llama2": ModelConfig(
+        name="OpenChat V3.1",
+
+        # Prompt
+        role_prefix={
+            "human": "User:",
+            "gpt": "Assistant:"
+        },
+        ai_role="gpt",
+        eot_token="<|end_of_turn|>",
+        bos_token="<s>",
+
+        condition_fn=_v3_condition,
+
+        # Label
+        group_fn=_v2_v3_group,
+        num_groups=2,
+
+        # Tokenize
+        model_max_context=4096,
         model_create=partial(ochat.models.UnpaddedLlamaForCausalLM.from_pretrained,
                              low_cpu_mem_usage=True,
                              torch_dtype=torch.bfloat16),
@@ -152,6 +182,7 @@ MODEL_CONFIG_MAP = {
 
         # Label
         group_fn=_v2_v3_group,
+        num_groups=2,
 
         # Tokenize
         model_max_context=2048,

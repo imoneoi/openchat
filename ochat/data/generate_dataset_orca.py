@@ -1,6 +1,7 @@
 import argparse
 import os
 import random
+import json
 
 import ray
 import pyarrow
@@ -93,7 +94,7 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
             pyarrow.field(f"{group}_masks",  pyarrow.list_(pyarrow.bool_())),
         ])
 
-    schema = pyarrow.schema(schema, metadata={"num_groups": str(len(GROUPS))})
+    schema = pyarrow.schema(schema)
 
     # launch remote workers
     ray.init(num_cpus=num_cpus)
@@ -112,6 +113,18 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
 
         for k, v in batch_result.items():
             results[k].extend(v)
+
+    # Group loss weight
+    group_freq = [sum([len(item) > 0 for item in results[f"{group}_tokens"]]) for group in range(len(GROUPS))]
+    group_loss_weights = [(len(results["total_length"]) / freq if freq > 0 else 0) for freq in group_freq]
+
+    # metadata & write
+    metadata = {
+        "model_type": model_type,
+        "group_loss_weights": group_loss_weights,
+        "num_groups": len(GROUPS),
+    }
+    schema = schema.with_metadata({"metadata_json": json.dumps(metadata)})
 
     parquet.write_table(pyarrow.Table.from_pydict(results, schema=schema), f"{out_prefix}.{split_name}.parquet")
 

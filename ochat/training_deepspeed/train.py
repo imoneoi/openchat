@@ -7,7 +7,6 @@ import torch
 import torch.distributed
 
 import transformers
-import datasets
 import deepspeed
 import tqdm
 import wandb
@@ -15,6 +14,7 @@ import numpy as np
 
 from ochat.config.model_config import MODEL_CONFIG_MAP
 from ochat.training_deepspeed.multipack_dataloader import MultipackDistributedDataloader
+from ochat.training_deepspeed.parquet_dataset import ParquetDataset
 
 
 LOCAL_RANK      = None
@@ -71,11 +71,11 @@ def parse_args():
 
 def create_dataset(args, split_name):
     # Load data
-    filename = f"{args.data_path}_{split_name}"
+    filename = f"{args.data_path}_{split_name}/data.parquet"
     if not os.path.isdir(filename):
         return None
 
-    return datasets.load_dataset(filename, split="train", keep_in_memory=True)
+    return ParquetDataset(filename)
 
 
 def batch_to_tensor(batch, num_groups, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
@@ -157,16 +157,20 @@ def batch_to_tensor(batch, num_groups, group_loss_weights, dtype=torch.long, los
 
 
 def create_distributed_dataloader(args, data):
+    # Check data
+    assert data.metadata.model_type == args.model_type, \
+        f"The dataset is for {data.metadata.model_type}, but you specified {args.model_type} for training."
+
     # Sampler
     # Get length
     lengths = np.array(data["total_length"])
     numseqs = np.array(data["num_seqs"])
-    num_groups = 2  # FIXME: Metadata not working...
+    num_groups = data.metadata.num_groups
 
     # Loss balancing
     group_loss_weights = None
     if args.loss_balancing:
-        group_loss_weights = data.group_loss_weights
+        group_loss_weights = data.metadata.group_loss_weights
 
         _rank0_print(f"Loss balancing enabled. Weights: {group_loss_weights}")
 
