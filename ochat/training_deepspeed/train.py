@@ -48,7 +48,7 @@ def parse_args():
     # Hyperparameters
     parser.add_argument("--loss_balancing",     action="store_true", default=False)
 
-    parser.add_argument("--batch_size_per_gpu", type=int,   default=14)
+    parser.add_argument("--batch_size_per_gpu", type=int,   default=16)
     parser.add_argument("--epochs",             type=int,   default=5)
 
     # Estimated using LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
@@ -60,6 +60,7 @@ def parse_args():
 
     parser.add_argument("--beta1",              type=float, default=0.9)
     parser.add_argument("--beta2",              type=float, default=0.95)
+    parser.add_argument("--eps",                type=float, default=1e-8)
 
     # DeepSpeed parameters
     parser = deepspeed.add_config_arguments(parser)
@@ -71,8 +72,9 @@ def parse_args():
 
 def create_dataset(args, split_name):
     # Load data
-    filename = f"{args.data_path}_{split_name}/data.parquet"
-    if not os.path.isdir(filename):
+    filename = f"{args.data_path}.{split_name}.parquet"
+    if not os.path.isfile(filename):
+        print (f"Skipping loading {split_name}")
         return None
 
     return ParquetDataset(filename)
@@ -158,19 +160,20 @@ def batch_to_tensor(batch, num_groups, group_loss_weights, dtype=torch.long, los
 
 def create_distributed_dataloader(args, data):
     # Check data
-    assert data.metadata.model_type == args.model_type, \
-        f"The dataset is for {data.metadata.model_type}, but you specified {args.model_type} for training."
+    assert data.metadata["model_type"] == args.model_type, \
+        f"The dataset is for {data.metadata['model_type']}, but you specified {args.model_type} for training."
 
     # Sampler
     # Get length
     lengths = np.array(data["total_length"])
     numseqs = np.array(data["num_seqs"])
-    num_groups = data.metadata.num_groups
+    num_groups = data.metadata["num_groups"]
 
     # Loss balancing
     group_loss_weights = None
     if args.loss_balancing:
-        group_loss_weights = data.metadata.group_loss_weights
+        group_loss_weights = data.metadata["group_loss_weights"]
+        numseqs = np.array(data["total_loss_weight"])
 
         _rank0_print(f"Loss balancing enabled. Weights: {group_loss_weights}")
 
@@ -208,6 +211,7 @@ def create_model(args):
                                   lr=args.lr,
                                   weight_decay=args.weight_decay,
                                   betas=(args.beta1, args.beta2),
+                                  eps=args.eps,
                                   fused=True)
 
     # DeepSpeed model
