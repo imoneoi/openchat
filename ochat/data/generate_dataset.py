@@ -74,6 +74,22 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, fi
     return results
 
 
+def calculate_weights(results: dict, num_groups: int):
+    n = len(results["total_length"])
+
+    # Group loss weight
+    group_freq = [sum([bool(item) for item in results[f"{group}_tokens"]])
+                  for group in range(num_groups)]
+    group_loss_weights = [n / freq if freq > 0 else 0
+                          for freq in group_freq]
+
+    # Total loss weight
+    total_loss_weight = [sum([(group_loss_weights[group] if results[f"{group}_tokens"][idx] else 0.) for group in range(num_groups)])
+                         for idx in range(n)]
+
+    return group_loss_weights, total_loss_weight
+
+
 def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, num_cpus: int = os.cpu_count()):
     from ochat.config.model_config import MODEL_CONFIG_MAP
 
@@ -110,9 +126,9 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         for k, v in batch_result.items():
             results[k].extend(v)
 
-    # Group loss weight
-    group_freq = [sum([len(item) > 0 for item in results[f"{group}_tokens"]]) for group in range(num_groups)]
-    group_loss_weights = [(len(results["total_length"]) / freq if freq > 0 else 0) for freq in group_freq]
+    # weights
+    group_loss_weights, results["total_loss_weight"] = calculate_weights(results, num_groups)
+    schema = schema.append(pyarrow.field(f"total_loss_weight", pyarrow.float32()))
 
     # metadata & write
     metadata = {

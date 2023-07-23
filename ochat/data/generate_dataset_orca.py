@@ -82,6 +82,22 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, fi
     return results
 
 
+def calculate_weights(results: dict):
+    n = len(results["total_length"])
+
+    # Group loss weight
+    group_freq = [sum([bool(item) for item in results[f"{group}_tokens"]])
+                  for group in range(len(GROUPS))]
+    group_loss_weights = [n / freq if freq > 0 else 0
+                          for freq in group_freq]
+
+    # Total loss weight
+    total_loss_weight = [sum([bool(results[f"{group}_tokens"][idx]) for group in range(len(GROUPS))])
+                         for idx in range(n)]
+
+    return group_loss_weights, total_loss_weight
+
+
 def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, num_cpus: int = os.cpu_count()):
     # schema
     schema = [
@@ -114,9 +130,9 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         for k, v in batch_result.items():
             results[k].extend(v)
 
-    # Group loss weight
-    group_freq = [sum([len(item) > 0 for item in results[f"{group}_tokens"]]) for group in range(len(GROUPS))]
-    group_loss_weights = [(len(results["total_length"]) / freq if freq > 0 else 0) for freq in group_freq]
+    # weights
+    group_loss_weights, results["total_loss_weight"] = calculate_weights(results)
+    schema = schema.append(pyarrow.field(f"total_loss_weight", pyarrow.float32()))
 
     # metadata & write
     metadata = {
