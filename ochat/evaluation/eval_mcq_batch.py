@@ -9,6 +9,27 @@ import ray
 import orjson
 
 
+PROMPT_TEMPLATES = {
+    # Plain text
+    "plain": lambda question, model_config, tokenize_fn, tokenize_special_fn: 
+        [tokenize_special_fn("<s>")] + tokenize_fn(question),
+
+    # GPT-4 condition
+    "cond_gpt4": lambda question, model_config, tokenize_fn, tokenize_special_fn: 
+        model_config.generate_conversation_template(tokenize_fn, tokenize_special_fn, system_prompt="", message_list=[
+            {"from": "human", "value": question},
+            {"from": model_config.ai_role}
+        ])[0],
+
+    # GPT-3.5 condition
+    "cond_gpt35": lambda question, model_config, tokenize_fn, tokenize_special_fn: 
+        model_config.generate_conversation_template(tokenize_fn, tokenize_special_fn, system_prompt="", message_list=[
+            {"from": "human", "value": question},
+            {"from": model_config.ai_role}
+        ], message_props={"is_gpt4": False})[0],
+}
+
+
 def _split(a, n):
     # Split list a to n chunks
     # https://stackoverflow.com/questions/2130016/splitting-a-list-into-n-parts-of-approximately-equal-length
@@ -16,9 +37,9 @@ def _split(a, n):
     return [a[i*k+min(i, m): (i+1)*k+min(i+1, m)] for i in range(n)]
 
 
-def _match_answer(response: str):
+def _match_answer(response: str, letter_set: list):
     for c in response:
-        if c.isupper():
+        if c in letter_set:
             return c
 
     return ""
@@ -42,35 +63,27 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list):
     # Generate data
     results = []
     for item in batch:
-        # Generate template
-        tokens, _, _ = model_config.generate_conversation_template(_tokenize, _tokenize_special, system_prompt="", message_list=[
-            {"from": "human", "value": item['question']},
-            {"from": model_config.ai_role}
-        ], message_props={"is_gpt4": False})
-        # Alpaca
-        # tokens = [_tokenize_special("<s>")] + _tokenize(f"### Instruction:\n{item['question']}\n\n### Response:")
-        # Vicuna
-        #tokens = [_tokenize_special("<s>")] + \
-        #         _tokenize(f"A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: {item['question']} ASSISTANT:")
-        # Plain
-        # tokens = [_tokenize_special("<s>")] + _tokenize(item['question'])
-        # Orca paper
-        # tokens = [_tokenize_special("<s>")] + _tokenize(f"### System:\n### Human:\n{item['question']}\n### Assistant:")
+        for prompt_template_name, prompt_template_fn in PROMPT_TEMPLATES.items():
+            # Generate template
+            tokens = prompt_template_fn(item["question"],
+                                        model_config=model_config,
+                                        tokenize_fn=_tokenize,
+                                        tokenize_special_fn=_tokenize_special)
 
-        # Truncate to specified tokens
-        max_context = model_config.model_max_context
-        if max_context is not None:
-            tokens = tokens[-max_context:]
+            # Truncate to specified tokens
+            max_context = model_config.model_max_context
+            if max_context is not None:
+                tokens = tokens[-max_context:]
 
-        results.append({
-            "tokens": tokens,
-            "text": tokenizer.decode(tokens, spaces_between_special_tokens=False),
+            results.append({
+                "tokens": tokens,
+                "text": tokenizer.decode(tokens, spaces_between_special_tokens=False),
 
-            "label": item["label"],
-            "options": item["options"],
+                "label": item["label"],
+                "options": item["options"],
 
-            "task_name": item["task_name"]
-        })
+                "task_name": f"{prompt_template_name}___{item['task_name']}"
+            })
 
     return results
 
@@ -110,7 +123,9 @@ def run_mcq(
 
     # vLLM inference
     engine = LLM(model_path)
-    sampling_params = SamplingParams(temperature=0, stop=MODEL_CONFIG_MAP[model_type].eot_token)
+    sampling_params = SamplingParams(temperature=0,
+                                     max_tokens=MODEL_CONFIG_MAP[model_type].model_max_context,
+                                     stop=[MODEL_CONFIG_MAP[model_type].eot_token])
     responses = engine.generate(prompt_token_ids=[q["tokens"] for q in converted_questions],
                                 sampling_params=sampling_params)
 
@@ -127,7 +142,7 @@ def run_mcq(
             "prompt": q["text"],
             "response": response,
 
-            "answer": _match_answer(response),
+            "answer": _match_answer(response, set(q["options"])),
             "label": q["label"],
             "options": q["options"]
         })
@@ -136,7 +151,7 @@ def run_mcq(
     accuracy = {}
     unmatched = {}
     for task_name, qs in results.items():
-        accuracy[task_name]  = sum([q["answer"] == q["label"]       for q in qs]) / len(qs)
+        accuracy[task_name]  = sum([q["answer"] in q["label"]       for q in qs]) / len(qs)
         unmatched[task_name] = sum([q["answer"] not in q["options"] for q in qs]) / len(qs)
 
     with open(output_path, "wb") as f:
