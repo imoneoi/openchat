@@ -143,7 +143,7 @@ MODEL_CONFIG_MAP = {
     ),
 
     "openchat_v3.1_llama2": ModelConfig(
-        name="OpenChat V3.1",
+        name="OpenChat V3.1 Llama 2",
 
         # Prompt
         role_prefix={
@@ -195,6 +195,28 @@ MODEL_CONFIG_MAP = {
     ),
 
     # OpenChat
+    "openchat_llama2": ModelConfig(
+        name="OpenChat Llama 2",
+
+        # Prompt
+        role_prefix={
+            "human": "User:",
+            "gpt": "Assistant:"
+        },
+        ai_role="gpt",
+        eot_token="<|end_of_turn|>",
+        bos_token="<s>",
+
+        # Tokenize
+        model_max_context=4096,
+        model_create=partial(ochat.models.UnpaddedLlamaForCausalLM.from_pretrained,
+                             low_cpu_mem_usage=True,
+                             torch_dtype=torch.bfloat16),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False,
+                                       use_auth_token=True),
+    ),
+
     "openchat": ModelConfig(
         name="OpenChat",
 
