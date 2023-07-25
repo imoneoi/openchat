@@ -10,8 +10,8 @@ old/
 # Logs
 logs/
 
-# MCQ eval
-mcq_eval_result/
+# eval
+eval_results/
 
 # All datasets
 dataset/
