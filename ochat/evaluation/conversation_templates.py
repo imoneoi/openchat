@@ -13,7 +13,7 @@ def openchat_template(question, model_config, tokenize_fn, tokenize_special_fn, 
     return model_config.generate_conversation_template(tokenize_fn, tokenize_special_fn, system_prompt, [
         {"from": "human", "value": question},
         {"from": model_config.ai_role}
-    ])[0]
+    ], message_props)[0]
 
 
 CONVERSATION_TEMPLATES = {
