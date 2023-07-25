@@ -129,7 +129,7 @@ async def create_chat_completion(raw_request: Request):
     if not (len(conversation) and conversation[-1]["from"] == model.config.ai_role):
         conversation.append({"from": model.config.ai_role})
 
-    input_ids, _, _ = model.config.generate_conversation_template(_tokenize, _tokenize_special, conversation)
+    input_ids, _, _ = model.config.generate_conversation_template(_tokenize, _tokenize_special, system_prompt="", message_list=conversation)
 
     # check length
     request.max_tokens = min(request.max_tokens, model.config.model_max_context - len(input_ids))
@@ -211,12 +211,13 @@ async def create_chat_completion(raw_request: Request):
                 if (stream_index % model.stream_period == 0) or (output.finish_reason is not None):
                     i = output.index
                     delta_text = output.text[len(previous_texts[i]):]
-                    previous_texts[i] = output.text
-                    previous_num_tokens[i] = len(output.token_ids)
+                    if "\ufffd" not in delta_text:
+                        previous_texts[i] = output.text
+                        previous_num_tokens[i] = len(output.token_ids)
 
-                    yield f"data: {create_stream_response_json(index=i, text=delta_text)}\n\n"
-                    if output.finish_reason is not None:
-                        yield f"data: {create_stream_response_json(index=i, text='', finish_reason=output.finish_reason)}\n\n"
+                        yield f"data: {create_stream_response_json(index=i, text=delta_text)}\n\n"
+                        if output.finish_reason is not None:
+                            yield f"data: {create_stream_response_json(index=i, text='', finish_reason=output.finish_reason)}\n\n"
 
         yield "data: [DONE]\n\n"
 
