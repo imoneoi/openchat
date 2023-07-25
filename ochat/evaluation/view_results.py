@@ -27,8 +27,9 @@ def view_results(result_path: str):
             } for q in template_questions])
 
     df = pd.DataFrame.from_records(eval_results)
-    df = df.groupby(["model", "template", "task_type", "task_name"]).mean()
-    print (df)
+
+    print (df[["model", "template", "task_type", "accuracy", "unmatched"]].groupby(["model", "template", "task_type"]).mean().to_markdown())
+    print (df.groupby(["model", "template", "task_type", "task_name"]).mean().to_csv())
 
     report = {}
     # for name in sorted(eval_results["accuracy"].keys()):
