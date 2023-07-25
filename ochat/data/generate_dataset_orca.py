@@ -92,7 +92,7 @@ def calculate_weights(results: dict):
                           for freq in group_freq]
 
     # Total loss weight
-    total_loss_weight = [sum([bool(results[f"{group}_tokens"][idx]) for group in range(len(GROUPS))])
+    total_loss_weight = [sum([(group_loss_weights[group] if results[f"{group}_tokens"][idx] else 0.) for group in range(len(GROUPS))])
                          for idx in range(n)]
 
     return group_loss_weights, total_loss_weight
