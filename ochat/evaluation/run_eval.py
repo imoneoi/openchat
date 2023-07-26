@@ -87,7 +87,8 @@ async def get_model_answers(
     # Init vLLM engine
     model_config = MODEL_CONFIG_MAP[model_type]
 
-    engine = LLM(model_path)
+    engine = LLM(model_path,
+                 max_num_batched_tokens=model_config.model_max_context)
     sampling_params = SamplingParams(temperature=0,
                                      max_tokens=model_config.model_max_context,
                                      stop=[model_config.eot_token])
