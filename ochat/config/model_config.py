@@ -95,6 +95,20 @@ def _v2_conditional_prefix(from_role, props):
     raise NotImplementedError(f"Unknown role {from_role}")
 
 
+def _v3_2_conditional_prefix(from_role, props):
+    gpt3_prefixes = {
+        "human": "GPT3 User:",
+        "gpt": "GPT3 Assistant:"
+    }
+    gpt4_prefixes = {
+        "human": "GPT4 User:",
+        "gpt": "GPT4 Assistant:"
+    }
+    prefixes = gpt4_prefixes if props is None or props["is_gpt4"] else gpt3_prefixes
+
+    return prefixes[from_role]
+
+
 def _v2_v3_group(props):
     if props is None:
         return 1
@@ -113,6 +127,30 @@ def _v3_condition(props):
 
 
 MODEL_CONFIG_MAP = {
+    # OpenChat V3.2
+    "openchat_v3.2": ModelConfig(
+        name="OpenChat V3.2",
+
+        # Prompt
+        role_prefix=_v3_2_conditional_prefix,
+        ai_role="gpt",
+        eot_token="<|end_of_turn|>",
+        bos_token="<s>",
+
+        # Label
+        group_fn=_v2_v3_group,
+        num_groups=2,
+
+        # Tokenize
+        model_max_context=4096,
+        model_create=partial(ochat.models.UnpaddedLlamaForCausalLM.from_pretrained,
+                             low_cpu_mem_usage=True,
+                             torch_dtype=torch.bfloat16),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False,
+                                       use_auth_token=True),
+    ),
+
     # OpenChat V3.1
     "openchat_v3.1": ModelConfig(
         name="OpenChat V3.1",
