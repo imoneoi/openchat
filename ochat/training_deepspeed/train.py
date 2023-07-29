@@ -44,9 +44,11 @@ def parse_args():
     parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--data_path",  type=str, required=True)
     parser.add_argument("--save_path",  type=str, required=True)
+    parser.add_argument("--save_every", type=int, default=None)
 
     # Hyperparameters
-    parser.add_argument("--loss_balancing",     action="store_true", default=False)
+    parser.add_argument("--loss_balancing",      action="store_true", default=False)
+    parser.add_argument("--no_weighted_average", action="store_true", default=False)
 
     parser.add_argument("--batch_size_per_gpu", type=int,   default=16)
     parser.add_argument("--epochs",             type=int,   default=5)
@@ -74,7 +76,7 @@ def create_dataset(args, split_name):
     # Load data
     filename = f"{args.data_path}.{split_name}.parquet"
     if not os.path.isfile(filename):
-        print (f"Skipping loading {split_name}")
+        _rank0_print (f"Skipping loading {split_name}")
         return None
 
     return ParquetDataset(filename)
@@ -173,9 +175,12 @@ def create_distributed_dataloader(args, data):
     group_loss_weights = None
     if args.loss_balancing:
         group_loss_weights = data.metadata["group_loss_weights"]
-        numseqs = np.array(data["total_loss_weight"])
+        if args.no_weighted_average:
+            numseqs *= num_groups
+        else:
+            numseqs = np.array(data["total_loss_weight"])
 
-        _rank0_print(f"Loss balancing enabled. Weights: {group_loss_weights}")
+        _rank0_print(f"Loss balancing enabled. Weights: {group_loss_weights}. No weighted average: {args.no_weighted_average}")
 
     # Multipack dataloader
     batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
@@ -353,13 +358,17 @@ def train():
         ############ Save Checkpoint
         # Save model with lean state dict
         # https://deepspeed.readthedocs.io/en/latest/model-checkpointing.html
-        save_path = os.path.join(args.save_path, f"ep_{epoch}")
+        if (epoch + 1 == args.epochs) or (args.save_every and ((epoch + 1) % args.save_every == 0)):
+            torch.distributed.barrier()
 
-        model_engine.module.save_pretrained(save_path,
-                                            state_dict=deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict()))
+            if LOCAL_RANK == 0:
+                save_path = os.path.join(args.save_path, f"ep_{epoch}")
 
-        # Also save tokenizer from base model
-        transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False).save_pretrained(save_path)
+                model_engine.module.save_pretrained(save_path,
+                                                    state_dict=deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict()))
+
+                # Also save tokenizer from base model
+                transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False).save_pretrained(save_path)
 
 
 if __name__ == "__main__":

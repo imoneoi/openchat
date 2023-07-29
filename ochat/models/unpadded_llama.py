@@ -63,7 +63,7 @@ class UnpaddedLlamaRMSNorm(nn.Module):
 
 
 class UnpaddedLlamaRotaryEmbedding(torch.nn.Module):
-    def __init__(self, dim, max_position_embeddings=2048, extend_context_to=None, base=10000, device=None):
+    def __init__(self, dim, max_position_embeddings=2048, extend_context_to=None, base=10000.0, device=None):
         super().__init__()
 
         # Extension and calculate factor
@@ -79,7 +79,7 @@ class UnpaddedLlamaRotaryEmbedding(torch.nn.Module):
 
         # RoPE
         inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
-        self.register_buffer("inv_freq", inv_freq)
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
 
         # Build here to make `torch.jit.trace` work.
         self.max_seq_len_cached = max(max_position_embeddings, extend_context_to)
@@ -334,9 +334,9 @@ class UnpaddedLlamaModel(UnpaddedLlamaPreTrainedModel):
         return nz_hidden_states
 
 
-class UnpaddedLlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
-    _tied_weights_keys = ["lm_head.weight"]
-    # FIXME: LLaMA does not tie embeddings?
+class LlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
+    # Ignore rotary emb inv_freq on load, as they will be calculated on creation
+    _keys_to_ignore_on_load_unexpected = [r"model\.layers\.\d+\.self_attn\.rotary_emb\.inv_freq"]
 
     def __init__(self, config, extend_context_to=None):
         super().__init__(config)
@@ -398,7 +398,7 @@ class UnpaddedLlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
         )
 
 
-class LlamaForCausalLM(UnpaddedLlamaForCausalLM):
+class PaddedLlamaForCausalLM(LlamaForCausalLM):
     """Compat layer for padded inputs"""
 
     def forward(

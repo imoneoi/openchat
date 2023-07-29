@@ -1,1 +1,1 @@
-from ochat.models.unpadded_llama import UnpaddedLlamaForCausalLM
+from ochat.models.unpadded_llama import LlamaForCausalLM
