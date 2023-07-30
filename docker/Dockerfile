@@ -13,4 +13,4 @@ RUN mkdir /logs
 EXPOSE 18888
 
 WORKDIR /
-ENTRYPOINT ["sh", "-c", "python3 -m ochat.serving.openai_api_server --model_type ${MODEL_TYPE} --model /model --host 0.0.0.0 --port 18888 --engine-use-ray --worker-use-ray"]
+ENTRYPOINT ["sh", "-c", "python3 -m ochat.serving.openai_api_server --model_type ${MODEL_TYPE} --model /model --host 0.0.0.0 --port 18888 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120 --disable-log-requests --disable-log-stats --log-file /logs/openchat.log"]

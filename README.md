@@ -27,9 +27,11 @@ OpenChat is a series of open-source language models based on supervised fine-tun
 
 Our primary and generally recommended model is the V3.1, which offers strong instruction following and conversation capabilities. Additionally, V3.2 is a further optimized version for multi-round conversation scenarios using multi-round conditioning. All models listed below are best in English and have limited multilingual abilities, and are available under the [Llama 2 Community License](https://ai.meta.com/resources/models-and-libraries/llama-downloads/).
 
-To use these models, we highly recommend using the OpenChat OpenAI-compatible API server by running the serving command from the table below. The server is optimized for high-throughput deployment using [vLLM](https://github.com/vllm-project/vllm) and can run on a GPU with at least 48GB RAM, or two consumer GPUs with tensor parallel. To enable tensor parallel, append `--tensor-parallel-size 2` to the serving command.
+To use these models, we highly recommend installing the OpenChat package by following the [installation](#installation) guide and using the OpenChat OpenAI-compatible API server by running the serving command from the table below. The server is optimized for high-throughput deployment using [vLLM](https://github.com/vllm-project/vllm) and can run on a GPU with at least 48GB RAM or two consumer GPUs with tensor parallelism. To enable tensor parallelism, append `--tensor-parallel-size 2` to the serving command.
 
 When started, the server listens at `localhost:18888` for requests and is compatible with the [OpenAI ChatCompletion API specifications](https://platform.openai.com/docs/api-reference/chat). See the example request below for reference. Additionally, you can access the [OpenChat Web UI](#web-ui) for a user-friendly experience.
+
+To deploy the server as an online service, use `--api-keys sk-KEY1 sk-KEY2 ...` to specify allowed API keys and `--disable-log-requests --disable-log-stats --log-file openchat.log` for logging only to a file. We recommend using a [HTTPS gateway](https://fastapi.tiangolo.com/es/deployment/concepts/#security-https) in front of the server for security purposes.
 
 <details>
   <summary>Example request (click to expand)</summary>
@@ -47,8 +49,8 @@ curl http://localhost:18888/v1/chat/completions \
 
 | Model         | Size | Context | Weights                                                                 | Serving                                                                                                    |
 |---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.1 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.1) | `python -m ochat.serving.openai_api_server --model_type openchat_v3.1_llama2 --model openchat/openchat_v3.1 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120`      |
-| OpenChat 3.2   | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2)     | `python -m ochat.serving.openai_api_server --model_type openchat_v3.2 --model openchat/openchat_v3.2 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120`        |
+| OpenChat 3.1 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.1) | `python -m ochat.serving.openai_api_server --model-type openchat_v3.1_llama2 --model openchat/openchat_v3.1 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120`      |
+| OpenChat 3.2   | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2)     | `python -m ochat.serving.openai_api_server --model-type openchat_v3.2 --model openchat/openchat_v3.2 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120`        |
 
 For inference with Huggingface Transformers (slow and not recommended), follow the conversation template provided below:
 
@@ -110,16 +112,13 @@ We will release the evaluation results as soon as they become available, so stay
 
 ## <a id="installation"></a> Installation
 
-To use OpenChat, you need to have CUDA and PyTorch installed. You can clone this repository and install the dependencies via pip:
+To use OpenChat, you need to install CUDA and PyTorch, then install FlashAttention 1. After that you can install OpenChat via pip:
 
 ```bash
-git clone git@github.com:imoneoi/openchat.git
-```
+pip3 install packaging ninja
+pip3 install --no-build-isolation "flash-attn<2"
 
-```bash
-pip install packaging ninja
-pip install --no-build-isolation "flash-attn<2"
-pip install -r requirements.txt
+pip3 install ochat
 ```
 
 FlashAttention may have compatibility issues. If you encounter these problems, you can try to create a new `conda` environment following the instructions below.
@@ -132,11 +131,27 @@ conda install python
 conda install cudatoolkit-dev -c conda-forge
 pip3 install torch torchvision torchaudio
 
-pip install packaging ninja
-pip install --no-build-isolation "flash-attn<2"
+pip3 install packaging ninja
+pip3 install --no-build-isolation "flash-attn<2"
 
-pip install -r requirements.txt
+pip3 install ochat
 ```
+
+<details>
+  <summary>In addition to pypi, you can also install from source (click to expand)</summary>
+
+```bash
+git clone https://github.com/imoneoi/openchat
+cd openchat
+
+pip3 install packaging ninja
+pip3 install --no-build-isolation "flash-attn<2"
+
+pip3 install --upgrade pip  # enable PEP 660 support
+pip3 install -e .
+```
+</details>
+
 
 ## <a id="web-ui"></a> Web UI
 
@@ -201,7 +216,7 @@ OpenChat V3.1:
 NUM_GPUS=8
 
 deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
-    --model_type openchat_v3.1_llama2 \
+    --model-type openchat_v3.1_llama2 \
     --model_path imone/LLaMA2_13B_with_EOT_token \
     --data_path openchat_sharegpt_v3/sharegpt_v3.1_llama2 \
     --save_path PATH_TO_SAVE_MODEL \
@@ -220,7 +235,7 @@ OpenChat V3.2:
 NUM_GPUS=8
 
 deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
-    --model_type openchat_v3.2 \
+    --model-type openchat_v3.2 \
     --model_path imone/LLaMA2_13B_with_EOT_token \
     --data_path openchat_sharegpt_v3/sharegpt_v3.2 \
     --save_path PATH_TO_SAVE_MODEL \
@@ -304,8 +319,8 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 
 | Model         | Size | Context | Weights                                                                 | Serve                                                                                                      |
 |---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| openchat-v2-w | 13B  | 2K      | [Huggingface](https://huggingface.co/openchat/openchat_v2_w) | `python -m ochat.serving.openai_api_server --model_type openchat_v2 --model openchat/openchat_v2_w --engine-use-ray --worker-use-ray`      |
-| openchat-v2   | 13B  | 2K      | [Huggingface](https://huggingface.co/openchat/openchat_v2)     | `python -m ochat.serving.openai_api_server --model_type openchat_v2 --model openchat/openchat_v2 --engine-use-ray --worker-use-ray`        |
+| openchat-v2-w | 13B  | 2K      | [Huggingface](https://huggingface.co/openchat/openchat_v2_w) | `python -m ochat.serving.openai_api_server --model-type openchat_v2 --model openchat/openchat_v2_w --engine-use-ray --worker-use-ray`      |
+| openchat-v2   | 13B  | 2K      | [Huggingface](https://huggingface.co/openchat/openchat_v2)     | `python -m ochat.serving.openai_api_server --model-type openchat_v2 --model openchat/openchat_v2 --engine-use-ray --worker-use-ray`        |
 </details>
 
 <details>
@@ -313,9 +328,9 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 
 | Model         | Size | Context | Weights                                                                 | Serve                                                                                                      |
 |---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| openchat      | 13B  | 2K      | [Huggingface](https://huggingface.co/openchat/openchat)           | `python -m ochat.serving.openai_api_server --model_type openchat --model openchat/openchat --engine-use-ray --worker-use-ray`           |
-| openchat8192  | 13B  | 8K      | [Huggingface](https://huggingface.co/openchat/openchat_8192) | `python -m ochat.serving.openai_api_server --model_type openchat_8192 --model openchat/openchat_8192 --engine-use-ray --worker-use-ray` |
-| opencoderplus | 15B  | 8K      | [Huggingface](https://huggingface.co/openchat/opencoderplus) | `python -m ochat.serving.openai_api_server --model_type opencoder --model openchat/opencoderplus --engine-use-ray --worker-use-ray`     |
+| openchat      | 13B  | 2K      | [Huggingface](https://huggingface.co/openchat/openchat)           | `python -m ochat.serving.openai_api_server --model-type openchat --model openchat/openchat --engine-use-ray --worker-use-ray`           |
+| openchat8192  | 13B  | 8K      | [Huggingface](https://huggingface.co/openchat/openchat_8192) | `python -m ochat.serving.openai_api_server --model-type openchat_8192 --model openchat/openchat_8192 --engine-use-ray --worker-use-ray` |
+| opencoderplus | 15B  | 8K      | [Huggingface](https://huggingface.co/openchat/opencoderplus) | `python -m ochat.serving.openai_api_server --model-type opencoder --model openchat/opencoderplus --engine-use-ray --worker-use-ray`     |
 
 </details>
 
