@@ -6,9 +6,8 @@ import asyncio
 from http import HTTPStatus
 import json
 import time
-from typing import AsyncGenerator, Optional, Union
+from typing import AsyncGenerator, Optional
 from dataclasses import dataclass
-from functools import partial
 
 import fastapi
 from fastapi import BackgroundTasks, Request
@@ -23,30 +22,29 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.logger import init_logger
 from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
-from vllm.transformers_utils import tokenizer
 from vllm.utils import random_uuid
 
-from ochat.config.model_config import MODEL_CONFIG_MAP, ModelConfig
-from ochat.serving import openai_api_protocol
+from ochat.config.model_config import MODEL_CONFIG_MAP
+from ochat.serving import openai_api_protocol, async_tokenizer
 
 
 TIMEOUT_KEEP_ALIVE = 5  # seconds
 
 
 @dataclass
-class Model:
+class ModelConfig:
     name: str = None
 
-    config: ModelConfig = None
-    tokenizer: object = None
-
+    eot_token: str = None
+    max_length: int = None
     stream_period: int = None
 
 
 logger = init_logger(__name__)
 app = fastapi.FastAPI()
 
-model = Model()
+model = ModelConfig()
+tokenizer = None
 
 
 def create_error_response(status_code: HTTPStatus,
@@ -62,14 +60,13 @@ async def validation_exception_handler(request, exc):  # pylint: disable=unused-
 
 
 async def check_model(request) -> Optional[JSONResponse]:
-    if request.model == model.name:
+    if request.model.startswith(model.name):
         return
 
-    ret = create_error_response(
+    return create_error_response(
         HTTPStatus.NOT_FOUND,
         f"The model `{request.model}` does not exist.",
     )
-    return ret
 
 
 @app.get("/v1/models")
@@ -80,14 +77,6 @@ async def show_available_models():
                                       root=model.name,
                                       permission=[openai_api_protocol.ModelPermission()])
     ])
-
-
-def _tokenize(text):
-    return model.tokenizer.convert_tokens_to_ids(model.tokenizer._tokenize(text))
-
-
-def _tokenize_special(special_name):
-    return model.tokenizer.convert_tokens_to_ids(special_name)
 
 
 @app.post("/v1/chat/completions")
@@ -113,30 +102,15 @@ async def create_chat_completion(raw_request: Request):
         return create_error_response(HTTPStatus.BAD_REQUEST,
                                      "logit_bias is not currently supported")
 
-    # get conversation
-    role_map = {"user": "human", "assistant": model.config.ai_role}
-
-    conversation = []
-    for message in request.messages:
-        msg_role, msg_text = message["role"], message["content"]
-        if msg_role == "system":
-            # FIXME: Ignoring system prompt.
-            continue
-
-        conversation.append({"from": role_map[msg_role], "value": msg_text})
-
-    # append ai role
-    if not (len(conversation) and conversation[-1]["from"] == model.config.ai_role):
-        conversation.append({"from": model.config.ai_role})
-
-    input_ids, _, _ = model.config.generate_conversation_template(_tokenize, _tokenize_special, system_prompt="", message_list=conversation)
+    # input ids
+    input_ids = await tokenizer.tokenize.remote(request.messages)
 
     # check length
-    request.max_tokens = min(request.max_tokens, model.config.model_max_context - len(input_ids))
+    request.max_tokens = min(request.max_tokens, model.max_length - len(input_ids))
     if request.max_tokens <= 0:
         return create_error_response(
             HTTPStatus.BAD_REQUEST,
-            f"This model's maximum context length is {model.config.model_max_context} tokens. "
+            f"This model's maximum context length is {model.max_length} tokens. "
             f"However, you requested {len(input_ids)} tokens. "
             f"Please reduce the length of the messages.",
         )
@@ -153,7 +127,7 @@ async def create_chat_completion(raw_request: Request):
             frequency_penalty=request.frequency_penalty,
             temperature=request.temperature,
             top_p=request.top_p,
-            stop=[model.config.eot_token],
+            stop=[model.eot_token],
             max_tokens=request.max_tokens
         )
     except ValueError as e:
@@ -307,17 +281,19 @@ if __name__ == "__main__":
         allow_headers=args.allowed_headers,
     )
 
-    # Model config
-    model.name = args.model_type
-    model.config = MODEL_CONFIG_MAP[args.model_type]
-    model.tokenizer = model.config.model_tokenizer_create(args.model)
-
-    model.stream_period = args.stream_period
-
     # Load model
     engine_args = AsyncEngineArgs.from_cli_args(args)
     engine = AsyncLLMEngine.from_engine_args(engine_args)
     engine_model_config = asyncio.run(engine.get_model_config())
+
+    # Load tokenizer
+    tokenizer = async_tokenizer.AsyncTokenizer.remote(args.model_type, args.model)
+
+    # Model config
+    model.name = args.model_type
+    model.eot_token = MODEL_CONFIG_MAP[args.model_type].eot_token
+    model.max_length = MODEL_CONFIG_MAP[args.model_type].model_max_context
+    model.stream_period = args.stream_period
 
     # Run
     logger.info(f"args: {args}")
