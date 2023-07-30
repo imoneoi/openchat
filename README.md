@@ -6,7 +6,7 @@
 
 OpenChat is a series of open-source language models based on supervised fine-tuning (SFT). We leverage the ~80k ShareGPT conversations with a conditioning strategy and weighted loss to achieve remarkable performance despite our simple methods. Our final vision is to develop a high-performance, open-source, and commercially available large language model, and we are continuously making progress.
 
-**🔥 Rank #1 of 13B open-source models | 89.5% win-rate v.s. Davinci003 on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) | 7.01 score on [MT-bench](https://chat.lmsys.org/?leaderboard)**
+**🔥 Rank #1 of 13B open-source models | 89.5% win-rate on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) | 7.01 score on [MT-bench](https://chat.lmsys.org/?leaderboard)**
 
 **💲 FREE for commercial use under [Llama 2 Community License](https://ai.meta.com/resources/models-and-libraries/llama-downloads/)**
 
@@ -87,16 +87,16 @@ We have evaluated our models using the two most popular evaluation benchmarks **
 
 To ensure consistency, we used the same routine as ChatGPT / GPT-4 to run these benchmarks. We started the OpenAI API-compatible server and set the `openai.api_base` to `http://localhost:18888/v1` in the benchmark program.
 
-| **Model**        | **Size** | **Context** | **💲Free** | **AlpacaEval (win rate %)** | **MT-bench (score)** | **MT-bench (win rate adjusted %)** |
-|------------------|----------|-------------|-----------|-----------------------------|----------------------|------------------------------------|
-|                  |          |             |           | **v.s. text-davinci-003**   |                      | **v.s. ChatGPT**                   |
-| GPT-4            | 1.8T*    | 8K          | ❌         | 95.3                        | 8.99                 | 82.5                               |
-| ChatGPT          | 175B*    | 4K          | ❌         | 89.4                        | 7.94                 | 50.0                               |
-| Llama-2-70B-Chat | 70B      | 4K          | ✅         | 92.7                        | 6.86                 |                                    |
-| **OpenChat 3.1** | 13B      | 4K          | ✅         | **89.5**                    | **6.65**             | **50.0**                           |
-| **OpenChat 3.2** | 13B      | 4K          | ✅         | **89.1**                    | **7.01**             | **51.6**                           |
-| Llama-2-13B-Chat | 13B      | 4K          | ✅         | 81.0                        | 6.65                 |                                    |
-| Vicuna 1.3       | 13B      | 2K          | ❌         | 82.1                        | 6.00                 | 37.5                               |
+| **Model**        | **Size** | **Context** | **💲Free** | **AlpacaEval (win rate %)** | **MT-bench (win rate adjusted %)** | **MT-bench (score)** |
+|------------------|----------|-------------|------------|-----------------------------|------------------------------------|----------------------|
+|                  |          |             |            | **v.s. text-davinci-003**   | **v.s. ChatGPT**                   |                      |
+| GPT-4            | 1.8T*    | 8K          |  ❌        | 95.3                        | 82.5                               | 8.99                 |
+| ChatGPT          | 175B*    | 4K          |  ❌        | 89.4                        | 50.0                               | 7.94                 |
+| Llama-2-70B-Chat | 70B      | 4K          |  ✅        | 92.7                        |                                    | 6.86                 |
+| **OpenChat 3.1** | 13B      | 4K          |  ✅        | **89.5**                    | **50.0**                           | **6.65**             |
+| **OpenChat 3.2** | 13B      | 4K          |  ✅        | **89.1**                    | **51.6**                           | **7.01**             |
+| Llama-2-13B-Chat | 13B      | 4K          |  ✅        | 81.0                        |                                    | 6.65                 |
+| Vicuna 1.3       | 13B      | 2K          |  ❌        | 82.1                        | 37.5                               | 6.00                 |
 
 *: Estimated model size
 
