@@ -27,11 +27,13 @@ OpenChat is a series of open-source language models based on supervised fine-tun
 
 Our primary and generally recommended model is the V3.1, which offers strong instruction following and conversation capabilities. Additionally, V3.2 is a further optimized version for multi-round conversation scenarios using multi-round conditioning. All models listed below are best in English and have limited multilingual abilities, and are available under the [Llama 2 Community License](https://ai.meta.com/resources/models-and-libraries/llama-downloads/).
 
-To use these models, we highly recommend installing the OpenChat package by following the [installation](#installation) guide and using the OpenChat OpenAI-compatible API server by running the serving command from the table below. The server is optimized for high-throughput deployment using [vLLM](https://github.com/vllm-project/vllm) and can run on a GPU with at least 48GB RAM or two consumer GPUs with tensor parallelism. To enable tensor parallelism, append `--tensor-parallel-size 2` to the serving command.
+To use these models, we highly recommend installing the OpenChat package by following the [installation guide](#installation) and using the OpenChat OpenAI-compatible API server by running the serving command from the table below. The server is optimized for high-throughput deployment using [vLLM](https://github.com/vllm-project/vllm) and can run on a GPU with at least 48GB RAM or two consumer GPUs with tensor parallelism. To enable tensor parallelism, append `--tensor-parallel-size 2` to the serving command.
 
 When started, the server listens at `localhost:18888` for requests and is compatible with the [OpenAI ChatCompletion API specifications](https://platform.openai.com/docs/api-reference/chat). See the example request below for reference. Additionally, you can access the [OpenChat Web UI](#web-ui) for a user-friendly experience.
 
 To deploy the server as an online service, use `--api-keys sk-KEY1 sk-KEY2 ...` to specify allowed API keys and `--disable-log-requests --disable-log-stats --log-file openchat.log` for logging only to a file. We recommend using a [HTTPS gateway](https://fastapi.tiangolo.com/es/deployment/concepts/#security-https) in front of the server for security purposes.
+
+*Note:* If IPv6 address errors occur, which is a [vLLM issue](https://github.com/vllm-project/vllm/issues/570), please run `export NCCL_IGNORE_DISABLED_P2P=1` before starting the server.
 
 <details>
   <summary>Example request (click to expand)</summary>
@@ -124,11 +126,11 @@ pip3 install ochat
 FlashAttention may have compatibility issues. If you encounter these problems, you can try to create a new `conda` environment following the instructions below.
 
 ```bash
-conda create --name openchat
+conda create -y --name openchat
 conda activate openchat
 
-conda install python
-conda install cudatoolkit-dev -c conda-forge
+conda install -y python
+conda install -y cudatoolkit-dev -c conda-forge
 pip3 install torch torchvision torchaudio
 
 pip3 install packaging ninja
