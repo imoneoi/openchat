@@ -151,35 +151,6 @@ MODEL_CONFIG_MAP = {
                                        use_auth_token=True),
     ),
 
-    # OpenChat V3.1
-    "openchat_v3.1": ModelConfig(
-        name="OpenChat V3.1",
-
-        # Prompt
-        role_prefix={
-            "human": "User:",
-            "gpt": "Assistant:"
-        },
-        ai_role="gpt",
-        eot_token="<|end_of_turn|>",
-        bos_token="<s>",
-
-        condition_fn=_v3_condition,
-
-        # Label
-        group_fn=_v2_v3_group,
-        num_groups=2,
-
-        # Tokenize
-        model_max_context=2048,
-        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
-                             low_cpu_mem_usage=True,
-                             torch_dtype=torch.bfloat16),
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False,
-                                       use_auth_token=True),
-    ),
-
     "openchat_v3.1_llama2": ModelConfig(
         name="OpenChat V3.1 Llama 2",
 
