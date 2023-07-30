@@ -292,8 +292,6 @@ if __name__ == "__main__":
     parser.add_argument("--stream-period", type=int, default=6, help="Number of tokens per stream event")
     parser.add_argument("--api-keys", type=str, nargs="*", default=[], help="Allowed API Keys. Leave blank to not verify")
 
-    parser.add_argument("--stream_period", type=int, default=6)
-
     # Server
     parser.add_argument("--host", type=str, default="localhost", help="Host name")
     parser.add_argument("--port", type=int, default=18888, help="Port number")
@@ -328,8 +326,6 @@ if __name__ == "__main__":
             maxBytes=args.log_max_mb * 1048576,
             backupCount=args.log_max_count)
         )
-
-    model.stream_period = args.stream_period
 
     # Load model
     engine_args = AsyncEngineArgs.from_cli_args(args)
