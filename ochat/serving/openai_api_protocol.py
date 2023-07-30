@@ -104,3 +104,9 @@ class ChatCompletionStreamResponse(BaseModel):
     created: int = Field(default_factory=lambda: int(time.time()))
     model: str
     choices: List[ChatCompletionResponseStreamChoice]
+
+
+class LoggingRecord(BaseModel):
+    time: int
+    request: ChatCompletionRequest
+    outputs: List[str]

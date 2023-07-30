@@ -6,6 +6,8 @@ import asyncio
 from http import HTTPStatus
 import json
 import time
+import logging
+from logging.handlers import RotatingFileHandler
 from typing import AsyncGenerator, Optional
 from dataclasses import dataclass
 
@@ -14,12 +16,12 @@ from fastapi import BackgroundTasks, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 
 import uvicorn
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.logger import init_logger
 from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
@@ -39,8 +41,10 @@ class ModelConfig:
     max_length: int = None
     stream_period: int = None
 
+    api_keys: list = None
 
-logger = init_logger(__name__)
+
+logger = None
 app = fastapi.FastAPI()
 
 model = ModelConfig()
@@ -59,6 +63,35 @@ async def validation_exception_handler(request, exc):  # pylint: disable=unused-
     return create_error_response(HTTPStatus.BAD_REQUEST, str(exc))
 
 
+async def check_api_key(
+    auth: Optional[HTTPAuthorizationCredentials] = fastapi.Depends(HTTPBearer(auto_error=False)),
+) -> str:
+    if not model.api_keys:
+        return
+
+    if auth is None or auth.credentials not in model.api_keys:
+        raise fastapi.HTTPException(
+            status_code=401,
+            detail={
+                "error": {
+                    "message": "",
+                    "type": "invalid_request_error",
+                    "param": None,
+                    "code": "invalid_api_key",
+                }
+            },
+        )
+
+
+def log_request(created_time: int, request: openai_api_protocol.ChatCompletionRequest, output: RequestOutput):
+    if logger is not None:
+        logger.info(openai_api_protocol.LoggingRecord(
+            time=created_time,
+            request=request,
+            outputs=[o.text for o in output.outputs]
+        ).json(exclude_unset=True, ensure_ascii=False))
+
+
 async def check_model(request) -> Optional[JSONResponse]:
     if request.model.startswith(model.name):
         return
@@ -69,7 +102,7 @@ async def check_model(request) -> Optional[JSONResponse]:
     )
 
 
-@app.get("/v1/models")
+@app.get("/v1/models", dependencies=[fastapi.Depends(check_api_key)])
 async def show_available_models():
     """Show available models. Right now we only have one model."""
     return openai_api_protocol.ModelList(data=[
@@ -79,7 +112,7 @@ async def show_available_models():
     ])
 
 
-@app.post("/v1/chat/completions")
+@app.post("/v1/chat/completions", dependencies=[fastapi.Depends(check_api_key)])
 async def create_chat_completion(raw_request: Request):
     """Completion API similar to OpenAI's API.
 
@@ -177,8 +210,10 @@ async def create_chat_completion(raw_request: Request):
         previous_num_tokens = [0] * request.n
 
         stream_index = 0
+        final_res = None
         async for res in result_generator:
             stream_index += 1
+            final_res = res
 
             for output in res.outputs:
                 # stream on end or every stream_period
@@ -194,6 +229,9 @@ async def create_chat_completion(raw_request: Request):
                             yield f"data: {create_stream_response_json(index=i, text='', finish_reason=output.finish_reason)}\n\n"
 
         yield "data: [DONE]\n\n"
+
+        # Log request
+        log_request(created_time, request, final_res)
 
     # Streaming response
     if request.stream:
@@ -239,17 +277,8 @@ async def create_chat_completion(raw_request: Request):
         usage=usage,
     )
 
-    if request.stream:
-        # When user requests streaming but we don't stream, we still need to
-        # return a streaming response with a single event.
-        response_json = response.json(ensure_ascii=False)
-
-        async def fake_stream_generator() -> AsyncGenerator[str, None]:
-            yield f"data: {response_json}\n\n"
-            yield "data: [DONE]\n\n"
-
-        return StreamingResponse(fake_stream_generator(),
-                                 media_type="text/event-stream")
+    # Log request
+    log_request(created_time, request, final_res)
 
     return response
 
@@ -258,21 +287,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OpenChat OpenAI-Compatible RESTful API server.")
 
     # Model
-    parser.add_argument("--model_type", type=str, required=True)
+    parser.add_argument("--model-type", type=str, required=True, help="Type of model")
 
-    parser.add_argument("--stream_period", type=int, default=6)
+    parser.add_argument("--stream-period", type=int, default=6, help="Number of tokens per stream event")
+    parser.add_argument("--api-keys", type=str, nargs="*", default=[], help="Allowed API Keys. Leave blank to not verify")
 
     # Server
-    parser.add_argument("--host", type=str, default="localhost", help="host name")
-    parser.add_argument("--port", type=int, default=18888, help="port number")
-    parser.add_argument("--allow-credentials", action="store_true", help="allow credentials")
-    parser.add_argument("--allowed-origins", type=json.loads, default=["*"], help="allowed origins")
-    parser.add_argument("--allowed-methods", type=json.loads, default=["*"], help="allowed methods")
-    parser.add_argument("--allowed-headers", type=json.loads, default=["*"], help="allowed headers")
+    parser.add_argument("--host", type=str, default="localhost", help="Host name")
+    parser.add_argument("--port", type=int, default=18888, help="Port number")
+    parser.add_argument("--allow-credentials", action="store_true", help="Allow credentials")
+    parser.add_argument("--allowed-origins", type=json.loads, default=["*"], help="Allowed origins")
+    parser.add_argument("--allowed-methods", type=json.loads, default=["*"], help="Allowed methods")
+    parser.add_argument("--allowed-headers", type=json.loads, default=["*"], help="Allowed headers")
+
+    # Logging
+    parser.add_argument("--log-file", type=str, default=None, help="Log file. Leave blank to disable logging")
+    parser.add_argument("--log-max-mb", type=int, default=128, help="Max log size in MB")
+    parser.add_argument("--log-max-count", type=int, default=10, help="Max log file versions to keep")
 
     parser = AsyncEngineArgs.add_cli_args(parser)
     args = parser.parse_args()
 
+    # App and logging
     app.add_middleware(
         CORSMiddleware,
         allow_origins=args.allowed_origins,
@@ -280,6 +316,16 @@ if __name__ == "__main__":
         allow_methods=args.allowed_methods,
         allow_headers=args.allowed_headers,
     )
+
+    if args.log_file:
+        logger = logging.getLogger(__name__)
+
+        logger.setLevel(logging.INFO)
+        logger.addHandler(RotatingFileHandler(
+            args.log_file,
+            maxBytes=args.log_max_mb * 1048576,
+            backupCount=args.log_max_count)
+        )
 
     # Load model
     engine_args = AsyncEngineArgs.from_cli_args(args)
@@ -293,13 +339,14 @@ if __name__ == "__main__":
     model.name = args.model_type
     model.eot_token = MODEL_CONFIG_MAP[args.model_type].eot_token
     model.max_length = MODEL_CONFIG_MAP[args.model_type].model_max_context
+
     model.stream_period = args.stream_period
+    model.api_keys = args.api_keys
 
     # Run
-    logger.info(f"args: {args}")
-
     uvicorn.run(app,
                 host=args.host,
                 port=args.port,
                 log_level="info",
+                access_log=False,
                 timeout_keep_alive=TIMEOUT_KEEP_ALIVE)
