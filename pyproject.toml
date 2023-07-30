@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ochat"
+version = "3.1.0"
+description = "An efficient framework for training and serving top-tier, open-source conversational LLMs."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "beautifulsoup4", 
+    "markdownify", 
+    "openai", 
+    "tenacity", 
+    "tiktoken", 
+    "tqdm", 
+    "wandb", 
+    "numba", 
+    "deepspeed", 
+    "datasets", 
+    "orjson", 
+    "torch", 
+    "ray", 
+    "sentencepiece", 
+    "transformers", 
+    "accelerate", 
+    "flash-attn<2", 
+    "protobuf<3.21", 
+    "fastapi", 
+    "pydantic", 
+    "shortuuid", 
+    "uvicorn", 
+    "vllm"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/imoneoi/openchat"
+"Bug Tracker" = "https://github.com/imoneoi/openchat/issues"
+
+[tool.setuptools.packages.find]
+exclude = ["assets*", "ochat/experimental*"]
+
+[tool.wheel]
+exclude = ["assets*", "ochat/experimental*"]

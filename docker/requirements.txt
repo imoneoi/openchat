@@ -3,6 +3,7 @@ sentencepiece
 transformers
 accelerate
 flash-attn<2
+protobuf<3.21
 # Serving
 fastapi
 pydantic
