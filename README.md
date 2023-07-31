@@ -42,7 +42,7 @@ If you want to deploy the server as an online service, you can use `--api-keys s
 curl http://localhost:18888/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openchat_v3.1_llama2",
+    "model": "openchat_v3.2",
     "messages": [{"role": "user", "content": "You are a large language model named OpenChat. Write a poem to describe yourself"}]
   }'
 ```
@@ -59,18 +59,6 @@ For inference with Huggingface Transformers (slow and not recommended), follow t
 <details>
   <summary>Conversation templates (click to expand)</summary>
 
-V3.1
-
-```python
-# Single-turn V3.1
-tokenize("Assistant is GPT4<|end_of_turn|>User: Hello<|end_of_turn|>Assistant:")
-# Result: [1, 4007, 22137, 338, 402, 7982, 29946, 32000, 4911, 29901, 15043, 32000, 4007, 22137, 29901]
-
-# Multi-turn V3.1
-tokenize("Assistant is GPT4<|end_of_turn|>User: Hello<|end_of_turn|>Assistant: Hi<|end_of_turn|>User: How are you today?<|end_of_turn|>Assistant:")
-# Result: [1, 4007, 22137, 338, 402, 7982, 29946, 32000, 4911, 29901, 15043, 32000, 4007, 22137, 29901, 6324, 32000, 4911, 29901, 1128, 526, 366, 9826, 29973, 32000, 4007, 22137, 29901]
-```
-
 V3.2
 
 ```python
@@ -81,6 +69,18 @@ tokenize("GPT4 User: Hello<|end_of_turn|>GPT4 Assistant:")
 # Multi-turn V3.2
 tokenize("GPT4 User: Hello<|end_of_turn|>GPT4 Assistant: Hi<|end_of_turn|>GPT4 User: How are you today?<|end_of_turn|>GPT4 Assistant:")
 # Result: [1, 402, 7982, 29946, 4911, 29901, 15043, 32000, 402, 7982, 29946, 4007, 22137, 29901, 6324, 32000, 402, 7982, 29946, 4911, 29901, 1128, 526, 366, 9826, 29973, 32000, 402, 7982, 29946, 4007, 22137, 29901]
+```
+
+V3.1
+
+```python
+# Single-turn V3.1
+tokenize("Assistant is GPT4<|end_of_turn|>User: Hello<|end_of_turn|>Assistant:")
+# Result: [1, 4007, 22137, 338, 402, 7982, 29946, 32000, 4911, 29901, 15043, 32000, 4007, 22137, 29901]
+
+# Multi-turn V3.1
+tokenize("Assistant is GPT4<|end_of_turn|>User: Hello<|end_of_turn|>Assistant: Hi<|end_of_turn|>User: How are you today?<|end_of_turn|>Assistant:")
+# Result: [1, 4007, 22137, 338, 402, 7982, 29946, 32000, 4911, 29901, 15043, 32000, 4007, 22137, 29901, 6324, 32000, 4911, 29901, 1128, 526, 366, 9826, 29973, 32000, 4007, 22137, 29901]
 ```
 
 </details>
