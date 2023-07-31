@@ -74,6 +74,43 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, fi
     return results
 
 
+def subsample_results(results: dict, subsample: list, num_groups: int):
+    assert len(subsample) == num_groups
+
+    # mask groups
+    for group, fraction in enumerate(subsample):
+        group_tokens = results[f"{group}_tokens"]
+        group_masks = results[f"{group}_masks"]
+
+        # construct indices set
+        indices = [idx for idx, item in enumerate(group_tokens) if item]
+
+        random.shuffle(indices)
+        n = round(fraction * len(indices))
+        print (f"Group {group} subsampled {n} from {len(indices)}")
+
+        indices = set(indices[:n])
+
+        # mask out 
+        for idx in range(len(group_tokens)):
+            if idx not in indices:
+                group_tokens[idx] = []
+                group_masks[idx] = []
+
+    # remove empty instances
+    new_results = {k: [] for k in results.keys()}
+    for idx in range(len(results["total_length"])):
+        num_nonempty = sum([bool(results[f"{group}_tokens"][idx]) for group in range(num_groups)])
+
+        if num_nonempty:
+            for k in results.keys():
+                new_results[k].append(results[k][idx])
+
+    print(f"Total subsampled: {len(new_results['total_length'])}")
+
+    return new_results
+
+
 def calculate_weights(results: dict, num_groups: int):
     n = len(results["total_length"])
 
@@ -90,7 +127,7 @@ def calculate_weights(results: dict, num_groups: int):
     return group_loss_weights, total_loss_weight
 
 
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, num_cpus: int = os.cpu_count()):
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, subsample: list, num_cpus: int = os.cpu_count()):
     from ochat.config.model_config import MODEL_CONFIG_MAP
 
     # schema
@@ -126,6 +163,10 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         for k, v in batch_result.items():
             results[k].extend(v)
 
+    # subsample
+    if subsample:
+        results = subsample_results(results, subsample, num_groups)
+
     # weights
     group_loss_weights, results["total_loss_weight"] = calculate_weights(results, num_groups)
     schema = schema.append(pyarrow.field(f"total_loss_weight", pyarrow.float32()))
@@ -143,7 +184,7 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
     ray.shutdown()
 
 
-def generate_dataset(model_type, model_path, in_file, out_prefix, seed, eval_ratio):
+def generate_dataset(model_type, model_path, in_file, out_prefix, seed, eval_ratio, subsample):
     # Load conversations
     with open(in_file, "r") as f:
         conversations = orjson.loads(f.read())
@@ -156,9 +197,9 @@ def generate_dataset(model_type, model_path, in_file, out_prefix, seed, eval_rat
     train_conversations = conversations[eval_num:]
     eval_conversations  = conversations[:eval_num]
 
-    generate_split(model_type, model_path, train_conversations, "train", out_prefix)
+    generate_split(model_type, model_path, train_conversations, "train", out_prefix, subsample)
     if eval_num > 0:
-        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix)
+        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix, subsample)
 
 
 if __name__ == "__main__":
@@ -171,6 +212,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--eval-ratio", type=float, default=0.0)
+    parser.add_argument("--subsample", nargs="*", type=float, default=None)
     args = parser.parse_args()
 
     generate_dataset(**vars(args))
