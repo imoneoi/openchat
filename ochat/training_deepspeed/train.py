@@ -23,8 +23,8 @@ PAD_ID          = 0
 IGNORE_LABEL_ID = -100   # Defined in torch CrossEntropyLoss
 
 
-def _find_multiple(a, b):
-    return (-(a // -b)) * b
+def _ceildiv(a, b):
+    return -(a // -b)
 
 
 def _rank0_print(*args):
@@ -51,7 +51,8 @@ def parse_args():
     parser.add_argument("--no_weighted_average", action="store_true", default=False)
 
     parser.add_argument("--batch_size_per_gpu", type=int,   default=16)
-    parser.add_argument("--epochs",             type=int,   default=5)
+    parser.add_argument("--epochs",             type=int,   default=None)
+    parser.add_argument("--steps",              type=int,   default=None)
 
     # Estimated using LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
     parser.add_argument("--lr",                 type=float, default=4e-5)
@@ -85,7 +86,7 @@ def create_dataset(args, split_name):
 def batch_to_tensor(batch, num_groups, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
     # Pad an unused item to reach multiple of 64, for faster GEMM
     total_seqlen = sum([item for item in batch["total_length"]])
-    pad_len      = _find_multiple(total_seqlen, 64) - total_seqlen
+    pad_len      = _ceildiv(total_seqlen, 64) * 64 - total_seqlen
 
     if pad_len > 0:
         assert pad_len < 64
@@ -273,11 +274,16 @@ def train():
 
     # Data Loader
     train_loader      = create_distributed_dataloader(args, train_dataset)
-    train_total_steps = args.epochs * train_loader.num_batches()
-
-    eval_loader = None
+    eval_loader       = None
     if eval_dataset is not None:
-        eval_loader, _              = create_distributed_dataloader(args, eval_dataset)
+        eval_loader, _ = create_distributed_dataloader(args, eval_dataset)
+
+    # Num steps
+    if args.steps is None:
+        train_total_steps = args.epochs * train_loader.num_batches()
+    else:
+        train_total_steps = args.steps
+        args.epochs = _ceildiv(train_total_steps, train_loader.num_batches())
 
     # LR Scheduler
     lr_scheduler = create_lr_scheduler(args, train_total_steps)
