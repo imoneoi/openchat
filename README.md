@@ -276,8 +276,8 @@ Our OpenChat V3 models are licensed under the [Llama 2 Community License](https:
 
 💌 We are a student team from Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
 
-* Wang Guan (Project Leader; imonenext@gmail.com)
-* Cheng Sijie (LeslieCheng0701@outlook.com)
+* Wang Guan (Project Leader) [imonenext at gmail dot com]
+* Cheng Sijie [LeslieCheng0701 at outlook dot com]
 
 We look forward to hearing from you and collaborating on this exciting project!
 

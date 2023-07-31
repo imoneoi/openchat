@@ -1,13 +1,13 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ochat"
-version = "3.1.0"
 description = "An efficient framework for training and serving top-tier, open-source conversational LLMs."
 readme = "README.md"
 requires-python = ">=3.8"
+dynamic = ["version"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache Software License",
@@ -47,3 +47,5 @@ exclude = ["assets*", "ochat/experimental*"]
 
 [tool.wheel]
 exclude = ["assets*", "ochat/experimental*"]
+
+[tool.setuptools_scm]
