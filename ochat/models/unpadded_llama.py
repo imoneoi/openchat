@@ -32,8 +32,11 @@ from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import logging
 from transformers.models.llama.configuration_llama import LlamaConfig
 
-from flash_attn.flash_attn_interface import flash_attn_unpadded_func
-from flash_attn.bert_padding import pad_input
+try:
+    from flash_attn.flash_attn_interface import flash_attn_unpadded_func
+    from flash_attn.bert_padding import pad_input
+except ImportError:
+    print ("FlashAttention not found. Install it if you need to train models.")
 
 
 logger = logging.get_logger(__name__)

@@ -29,7 +29,6 @@ dependencies = [
     "sentencepiece", 
     "transformers", 
     "accelerate", 
-    "flash-attn<2", 
     "protobuf<3.21", 
     "fastapi", 
     "pydantic", 
