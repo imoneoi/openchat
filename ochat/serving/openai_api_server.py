@@ -160,7 +160,7 @@ async def create_chat_completion(raw_request: Request):
             frequency_penalty=request.frequency_penalty,
             temperature=request.temperature,
             top_p=request.top_p,
-            stop=[model.eot_token],
+            stop=request.stop,
             max_tokens=request.max_tokens
         )
     except ValueError as e:
