@@ -4,6 +4,12 @@
   <img src="assets/logo_new.png" style="width: 65%">
 </div>
 
+<p align="center">
+  <a href="https://openchat.team">Online Demo</a> •
+  <a href="https://discord.gg/ajNgYD3K">Discord</a> •
+  <a href="https://huggingface.co/openchat">Huggingface</a>
+</p>
+
 OpenChat is a series of open-source language models based on supervised fine-tuning (SFT). We leverage the ~80k ShareGPT conversations with a conditioning strategy and weighted loss to achieve remarkable performance despite our simple methods. Our final vision is to develop a high-performance, open-source, and commercially available large language model, and we are continuously making progress.
 
 **🔥 Rank #1 of 13B open-source models | 89.5% win-rate on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) | 7.01 score on [MT-bench](https://chat.lmsys.org/?leaderboard)**
@@ -16,12 +22,13 @@ OpenChat is a series of open-source language models based on supervised fine-tun
 
 ## News
 
-- [2023/07/30] We released the [OpenChat V3 model series](#models) based on Llama 2. Now free for commercial use!
+- [2023/08/04] We have launched an [Online Demo](https://openchat.team) featuring the latest version, OpenChat 3.2.
+
+- [2023/07/30] We are thrilled to introduce the [OpenChat V3 model series](#models), based on Llama 2, and now available for free for commercial use!
 
 - [2023/07/07] We released the [OpenChat V2 model series](#legacy-models).
 
 - [2023/07/01] We released the [OpenChat V1 model series](#legacy-models).
-
 
 ## <a id="models"></a> Models
 
