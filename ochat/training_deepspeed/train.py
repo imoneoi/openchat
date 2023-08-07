@@ -277,7 +277,7 @@ def train():
 
     eval_loader = None
     if eval_dataset is not None:
-        eval_loader, _              = create_distributed_dataloader(args, eval_dataset)
+        eval_loader = create_distributed_dataloader(args, eval_dataset)
 
     # LR Scheduler
     lr_scheduler = create_lr_scheduler(args, train_total_steps)
