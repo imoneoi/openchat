@@ -29,9 +29,6 @@ class ModelConfig:
     model_create: Optional[Callable] = None
     model_tokenizer_create: Optional[Callable] = None
 
-    # Additional info
-    extra_info: Optional[dict] = None
-
     # Get template
     def generate_conversation_template(self, tokenize_fn, tokenize_special_fn, system_prompt, message_list, message_props=None):
         tokens = []
@@ -132,21 +129,6 @@ MODEL_CONFIG_MAP = {
         bos_token="<s>",
         default_system_prompt="Provide a correct solution to the user's problem.",
 
-        # Config
-        extra_info={
-            "discernia_tokens": {
-                "correct": "<|correct|>",
-                "neutral": "<|neutral|>",
-                "wrong":   "<|wrong|>",
-
-                "end_of_step": "<|end_of_step|>"
-            },
-            "discernia_prompts": {
-                True:  "Provide a correct solution to the user's problem.",
-                False: "Provide a wrong solution to the user's problem."
-            }
-        },
-
         # Tokenize
         model_max_context=4096,
         model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
@@ -155,7 +137,6 @@ MODEL_CONFIG_MAP = {
                              use_auth_token=True),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
-                                       legacy=False,  # Use fixed tokenizer
                                        use_auth_token=True),
     ),
 

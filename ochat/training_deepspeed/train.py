@@ -6,11 +6,11 @@ from functools import partial
 import torch
 import torch.distributed
 
-import transformers
 import deepspeed
 import tqdm
 import wandb
 import numpy as np
+import pyarrow
 
 from ochat.config.model_config import MODEL_CONFIG_MAP
 from ochat.training_deepspeed.multipack_dataloader import MultipackDistributedDataloader
@@ -20,7 +20,7 @@ from ochat.training_deepspeed.parquet_dataset import ParquetDataset
 LOCAL_RANK      = None
 
 PAD_ID          = 0
-IGNORE_LABEL_ID = -100   # Defined in torch CrossEntropyLoss
+IGNORE_LABEL_ID = -100
 
 
 def _find_multiple(a, b):
@@ -47,9 +47,6 @@ def parse_args():
     parser.add_argument("--save_every", type=int, default=None)
 
     # Hyperparameters
-    parser.add_argument("--loss_balancing",      action="store_true", default=False)
-    parser.add_argument("--no_weighted_average", action="store_true", default=False)
-
     parser.add_argument("--batch_size_per_gpu", type=int,   default=16)
     parser.add_argument("--epochs",             type=int,   default=5)
 
@@ -82,82 +79,39 @@ def create_dataset(args, split_name):
     return ParquetDataset(filename)
 
 
-def batch_to_tensor(batch, num_groups, group_loss_weights, dtype=torch.long, loss_dtype=torch.bfloat16):
+def batch_to_tensor(batch, int_dtype=torch.long, loss_dtype=torch.bfloat16):
     # Pad an unused item to reach multiple of 64, for faster GEMM
-    total_seqlen = sum([item for item in batch["total_length"]])
+    total_seqlen = pyarrow.compute.sum(batch.column("total_length")).as_py()
     pad_len      = _find_multiple(total_seqlen, 64) - total_seqlen
 
     if pad_len > 0:
         assert pad_len < 64
 
         # total length
-        batch["total_length"].append(pad_len)
+        batch = pyarrow.concat_tables((batch, pyarrow.Table.from_pydict({
+            "seqlens": [[pad_len]],
+            "nz_input_ids": [[PAD_ID] * pad_len],
+            "nz_position_ids": [[0] * pad_len],
+            "nz_shifted_label_ids": [[IGNORE_LABEL_ID] * pad_len],
+            "nz_shifted_loss_weights": [[0.0] * pad_len],
+        }, schema=batch.schema)))
 
-        # populate pad tokens & masks
-        for group in range(num_groups - 1):
-            batch[f"{group}_tokens"].append([])
-            batch[f"{group}_masks"].append([])
+    # concatenate
+    batch_tensor = {}
+    keys = {
+        "seqlens": int_dtype, "nz_input_ids": int_dtype, "nz_position_ids": int_dtype, "nz_shifted_label_ids": int_dtype,
+        "nz_shifted_loss_weights": loss_dtype
+    }
 
-        batch[f"{num_groups - 1}_tokens"].append([PAD_ID] * pad_len)
-        batch[f"{num_groups - 1}_masks"].append([False] * pad_len)
-
-    # nz elements
-    nz_num                  = total_seqlen + pad_len
-    nz_input_ids            = torch.zeros((nz_num, ), dtype=dtype,      pin_memory=True, device="cpu")
-    nz_position_ids         = torch.zeros((nz_num, ), dtype=dtype,      pin_memory=True, device="cpu")
-    nz_shifted_label_ids    = torch.zeros((nz_num, ), dtype=dtype,      pin_memory=True, device="cpu")
-    nz_shifted_loss_weights = torch.zeros((nz_num, ), dtype=loss_dtype, pin_memory=True, device="cpu")
-
-    seqlens                 = []
-
-    index = 0
-    for group in range(num_groups):
-        for token_list, mask_list in zip(batch[f"{group}_tokens"], batch[f"{group}_masks"]):
-            # calc length & skip empty
-            length = len(token_list)
-            if not length:
-                continue
-
-            # buffers
-            tokens       = torch.tensor(token_list, dtype=dtype,      device="cpu")
-            masks        = torch.tensor(mask_list,  dtype=torch.bool, device="cpu")
-            position_ids = torch.arange(length,     dtype=dtype,      device="cpu")
-
-            # Input IDs & shifted labels
-            shifted_label_ids = torch.where(masks, tokens, IGNORE_LABEL_ID)
-            shifted_label_ids = torch.nn.functional.pad(shifted_label_ids[1:], (0, 1), "constant", IGNORE_LABEL_ID)
-
-            nz_input_ids[index: index + length]         = tokens
-            nz_position_ids[index: index + length]      = position_ids
-            nz_shifted_label_ids[index: index + length] = shifted_label_ids
-
-            # Loss weights
-            mask_count = sum(mask_list[1:])
-            loss_weight = 1 / mask_count if mask_count > 0 else 0  # Avoid division by zero for paddings
-
-            if group_loss_weights is not None:
-                loss_weight *= group_loss_weights[group]
-
-            nz_shifted_loss_weights[index: index + length] = loss_weight
-
-            # increment index
-            seqlens.append(length)
-
-            index += length
+    for k, dtype in keys.items():
+        batch_tensor[k] = torch.from_numpy(np.concatenate(batch.column(k).to_numpy(), dtype=dtype))
 
     # cu seqlens
-    seqlens = torch.tensor(seqlens, dtype=torch.int32, device="cpu")
-
-    max_seqlen    = torch.max(seqlens)
-    cu_seqlens    = torch.nn.functional.pad(seqlens.cumsum(-1, dtype=torch.int32), (1, 0))
+    batch_tensor["max_seqlen"] = torch.max(batch_tensor["seqlens"])
+    batch_tensor["cu_seqlens"] = torch.nn.functional.pad(batch_tensor["seqlens"].cumsum(-1, dtype=torch.int32), (1, 0))
 
     # inputs
-    return dict(max_seqlen=max_seqlen,
-                cu_seqlens=cu_seqlens,
-                nz_input_ids=nz_input_ids,
-                nz_position_ids=nz_position_ids, 
-                nz_shifted_label_ids=nz_shifted_label_ids,
-                nz_shifted_loss_weights=nz_shifted_loss_weights)
+    return batch_tensor
 
 
 def create_distributed_dataloader(args, data):
@@ -165,37 +119,16 @@ def create_distributed_dataloader(args, data):
     assert data.metadata["model_type"] == args.model_type, \
         f"The dataset is for {data.metadata['model_type']}, but you specified {args.model_type} for training."
 
-    # Sampler
-    # Get length
-    lengths = np.array(data["total_length"])
-    numseqs = np.array(data["num_seqs"])
-    num_groups = data.metadata["num_groups"]
-
-    # Loss balancing
-    group_loss_weights = None
-    if args.loss_balancing:
-        group_loss_weights = data.metadata["group_loss_weights"]
-        if args.no_weighted_average:
-            numseqs *= num_groups
-        else:
-            numseqs = np.array(data["total_loss_weight"])
-
-        _rank0_print(f"Loss balancing enabled. Weights: {group_loss_weights}. No weighted average: {args.no_weighted_average}")
-
     # Multipack dataloader
     batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
 
-    collate_fn = partial(batch_to_tensor,
-                         num_groups=num_groups,
-                         group_loss_weights=group_loss_weights)
-
     return MultipackDistributedDataloader(
         dataset=data,
-        lengths=lengths,
-        numseqs=numseqs,
+        lengths=data["total_length"],
+        numseqs=data["num_seqs"],
 
         batch_max_length=batch_max_len,
-        collate_fn=collate_fn,
+        collate_fn=batch_to_tensor,
 
         seed=0
     )
@@ -368,7 +301,7 @@ def train():
                                                     state_dict=deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict()))
 
                 # Also save tokenizer from base model
-                transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False).save_pretrained(save_path)
+                MODEL_CONFIG_MAP[args.model_type].model_tokenizer_create(args.model_path).save_pretrained(save_path)
 
 
 if __name__ == "__main__":

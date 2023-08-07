@@ -18,6 +18,6 @@ class ParquetDataset:
 
     def __getitem__(self, indices):
         if isinstance(indices, str):
-            return self.dataset.column(indices).to_pylist()
+            return self.dataset.column(indices).to_numpy()
         
-        return self.dataset.take(indices).to_pydict()
+        return self.dataset.take(indices)
