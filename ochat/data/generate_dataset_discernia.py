@@ -49,6 +49,7 @@ def add_token_group(output, max_context, max_group_len, tokens_list, masks_list,
         # length
         length = len(tokens)
         assert len(masks) == length
+        assert len(weights) == length
 
         if sum(masks) == 0:
             continue
@@ -61,7 +62,7 @@ def add_token_group(output, max_context, max_group_len, tokens_list, masks_list,
             results = deepcopy(EMPTY_RESULTS)
 
         # labels
-        labels = [t if m else IGNORE_TOKEN_ID for t, m in zip(tokens, masks)]
+        labels = [(t if m else IGNORE_TOKEN_ID) for t, m in zip(tokens, masks)]
 
         # populate results
         results["total_length"] += length
@@ -73,6 +74,9 @@ def add_token_group(output, max_context, max_group_len, tokens_list, masks_list,
 
         results["nz_shifted_label_ids"].extend(labels[1:]     + [IGNORE_TOKEN_ID])
         results["nz_shifted_loss_weights"].extend(weights[1:] + [0.0])
+
+        for m, w in zip(masks, weights):
+            assert m == (w != 0)
 
     # Prepend to output
     if results["total_length"] > 0:
@@ -186,7 +190,7 @@ def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_n
                     print (f"Answer not found in final step {chosen_step['text']}")
 
             hist_steps.extend(t)
-            hist_weights.extend([1 / len(t)] * len(t))
+            hist_weights.extend([1. / len(t)] * len(t))
             hist_numseq += 1
 
         # main trunk
@@ -220,7 +224,7 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         pyarrow.field(f"nz_input_ids", pyarrow.list_(pyarrow.int32())),
         pyarrow.field(f"nz_position_ids", pyarrow.list_(pyarrow.int32())),
         pyarrow.field(f"nz_shifted_label_ids", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field(f"nz_shifted_loss_weights", pyarrow.list_(pyarrow.int32()))
+        pyarrow.field(f"nz_shifted_loss_weights", pyarrow.list_(pyarrow.float32()))
     ]
 
     schema = pyarrow.schema(schema, metadata={"metadata_json": orjson.dumps(metadata)})
