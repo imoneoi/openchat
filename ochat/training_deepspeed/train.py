@@ -89,6 +89,9 @@ def batch_to_tensor(batch, int_dtype=torch.long, loss_dtype=torch.bfloat16):
 
         # total length
         batch = pyarrow.concat_tables((batch, pyarrow.Table.from_pydict({
+            "total_length": [pad_len],
+            "num_seqs": [0],
+
             "seqlens": [[pad_len]],
             "nz_input_ids": [[PAD_ID] * pad_len],
             "nz_position_ids": [[0] * pad_len],
@@ -104,11 +107,12 @@ def batch_to_tensor(batch, int_dtype=torch.long, loss_dtype=torch.bfloat16):
     }
 
     for k, dtype in keys.items():
-        batch_tensor[k] = torch.from_numpy(np.concatenate(batch.column(k).to_numpy(), dtype=dtype))
+        batch_tensor[k] = torch.from_numpy(np.concatenate(batch.column(k).to_numpy())).to(dtype)
 
     # cu seqlens
     batch_tensor["max_seqlen"] = torch.max(batch_tensor["seqlens"])
     batch_tensor["cu_seqlens"] = torch.nn.functional.pad(batch_tensor["seqlens"].cumsum(-1, dtype=torch.int32), (1, 0))
+    del batch_tensor["seqlens"]
 
     # inputs
     return batch_tensor
