@@ -104,7 +104,7 @@ def batch_to_tensor(batch, int_dtype=torch.long, loss_dtype=torch.bfloat16):
     }
 
     for k, dtype in keys.items():
-        batch_tensor[k] = torch.from_numpy(np.concatenate(batch.column(k).to_numpy(), dtype=dtype))
+        batch_tensor[k] = torch.from_numpy(np.concatenate(batch.column(k).to_numpy())).to(dtype)
 
     # cu seqlens
     batch_tensor["max_seqlen"] = torch.max(batch_tensor["seqlens"])
