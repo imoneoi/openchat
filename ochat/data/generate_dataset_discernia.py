@@ -100,17 +100,11 @@ def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_n
         return [tokenizer.convert_tokens_to_ids(special_name)]
 
     # Constants
-    END_OF_STEP = "<|end_of_step|>"
-    RATING_MAP = {
-        -1: "<|wrong|>",
-        0:  "<|neutral|>",
-        1:  "<|correct|>"
-    }
     PREFIX_MAP = {
-        True:  _tokenize_special(model_config.bos_token) + _tokenize("Provide a correct solution to the user's problem.") + _tokenize_special(model_config.eot_token),
-        False: _tokenize_special(model_config.bos_token) + _tokenize("Provide a wrong solution to the user's problem.")   + _tokenize_special(model_config.eot_token),
+        True:  _tokenize_special(model_config.bos_token) + _tokenize("Write a correct step to solve the problem.") + _tokenize_special(model_config.eot_token),
+        False: _tokenize_special(model_config.bos_token) + _tokenize("Write a wrong step to solve the problem.")   + _tokenize_special(model_config.eot_token),
     }
-    STEP_FN = lambda rating, text: _tokenize_special(RATING_MAP[rating]) + _tokenize(text) + _tokenize_special(END_OF_STEP)
+    STEP_FN = lambda text: _tokenize(text + "\n")
 
     # Generate data
     outputs = {k: [] for k in field_names}
@@ -122,7 +116,7 @@ def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_n
             continue
 
         # tokenize problem
-        problem_tokens = _tokenize(model_config.role_prefix["human"]) + _tokenize(c["question"]["problem"]) + _tokenize_special(model_config.eot_token)
+        problem_tokens = _tokenize(c["question"]["problem"]) + _tokenize_special(model_config.eot_token)
 
         # find number of steps
         if "pre_generated_steps" in c["question"]:
@@ -136,11 +130,7 @@ def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_n
         weights_list = []
         numseq_list = []
 
-        hist_all_neutral = True
-        hist_all_correct = True
         hist_steps   = []
-        hist_weights = []
-        hist_numseq  = 0
         for step_idx, step_data in enumerate(c["label"]["steps"]):
             # find chosen step
             chosen_step = None
@@ -159,59 +149,36 @@ def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_n
             if chosen_step["rating"] is None and (chosen_step["source"] == "human"):
                 chosen_step["rating"] = 0
 
-            # side leaves
+            # All leaves
             for alt_step in step_data["completions"]:
-                if alt_step == chosen_step:
-                    continue  # Side leaves only
-
                 if alt_step["rating"] is None:
                     continue  # Skip no rating
-                if hist_all_neutral and (alt_step["rating"] == 0):
-                    continue  # Skip all neutral
 
-                t_hist = PREFIX_MAP[hist_all_correct and (alt_step["rating"] >= 0)] + problem_tokens + hist_steps
-                t_now  = STEP_FN(alt_step["rating"], alt_step["text"])
+                is_correct = alt_step["rating"] >= 0
+
+                t_hist = PREFIX_MAP[is_correct] + problem_tokens + hist_steps
+                t_now  = STEP_FN(alt_step["text"])
+
+                if (step_idx == num_steps - 1) and ("# Answer" in alt_step["text"]):
+                    t_now += _tokenize_special(model_config.eot_token)
 
                 tokens_list.append(t_hist + t_now)
                 masks_list.append([False] * len(t_hist) + [True] * len(t_now))
                 weights_list.append([0.] * len(t_hist)  + [1. / len(t_now)] * len(t_now))
                 numseq_list.append(1)
 
-            # add hist correctness
-            hist_all_neutral &= chosen_step["rating"] == 0
-            hist_all_correct &= chosen_step["rating"] >= 0
-
             # add hist tokens
-            t = STEP_FN(chosen_step["rating"], chosen_step["text"])
-            if step_idx == num_steps - 1:
-                t += _tokenize_special(model_config.eot_token)
-                # warn if answer not found
-                if "# Answer" not in chosen_step["text"]:
-                    print (f"Answer not found in final step {chosen_step['text']}")
+            hist_steps.extend(STEP_FN(chosen_step["text"]))
 
-            hist_steps.extend(t)
-            hist_weights.extend([1. / len(t)] * len(t))
-            hist_numseq += 1
-
-        # main trunk
-        if not hist_all_neutral:
-            t_prefix = PREFIX_MAP[hist_all_correct] + problem_tokens
-
-            tokens_list.append(t_prefix + hist_steps)
-            masks_list.append([False] * len(t_prefix) + [True] * len(hist_steps))
-            weights_list.append([0.] * len(t_prefix)  + hist_weights)
-            numseq_list.append(hist_numseq)
-
-        # Add to results
-        add_token_group(outputs, model_config.model_max_context, max_group_len,
-                        tokens_list, masks_list, weights_list, numseq_list)
+        # Add to results (shuffled)
+        for tokens, mask, weights, numseqs in zip(tokens_list, masks_list, weights_list, numseq_list):
+            add_token_group(outputs, model_config.model_max_context, max_group_len,
+                            [tokens], [mask], [weights], [numseqs])
 
     return outputs
 
 
 def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, max_group_len: int, num_cpus: int = os.cpu_count()):
-    from ochat.config.model_config import MODEL_CONFIG_MAP
-
     # schema
     metadata = {
         "model_type": model_type

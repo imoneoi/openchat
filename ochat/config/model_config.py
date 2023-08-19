@@ -121,13 +121,13 @@ MODEL_CONFIG_MAP = {
 
         # Prompt
         role_prefix={
-            "human": "User:",
+            "human": None,
             "gpt": None
         },
         ai_role="gpt",
         eot_token="<|end_of_turn|>",
         bos_token="<s>",
-        default_system_prompt="Provide a correct solution to the user's problem.",
+        default_system_prompt="Write a correct step to solve the problem.",
 
         # Tokenize
         model_max_context=4096,
