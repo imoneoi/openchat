@@ -89,8 +89,8 @@ def batch_to_tensor(batch, int_dtype=torch.long, loss_dtype=torch.bfloat16):
 
         # total length
         batch = pyarrow.concat_tables((batch, pyarrow.Table.from_pydict({
-            "total_length": pad_len,
-            "num_seqs": 0,
+            "total_length": [pad_len],
+            "num_seqs": [0],
 
             "seqlens": [[pad_len]],
             "nz_input_ids": [[PAD_ID] * pad_len],
