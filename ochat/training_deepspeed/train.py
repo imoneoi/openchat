@@ -50,16 +50,16 @@ def parse_args():
     parser.add_argument("--batch_size_per_gpu", type=int,   default=16)
     parser.add_argument("--epochs",             type=int,   default=5)
 
-    # Estimated using LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
-    parser.add_argument("--lr",                 type=float, default=4e-5)
+    # Set lr to None to automatically estimate from LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
+    parser.add_argument("--lr",                 type=float, default=None)
     parser.add_argument("--lr_min_ratio",       type=float, default=0.1)
-    parser.add_argument("--lr_warmup_steps",    type=int,   default=2000)
+    parser.add_argument("--lr_warmup_ratio",    type=int,   default=0.05)
 
     parser.add_argument("--weight_decay",       type=float, default=0.1)
 
     parser.add_argument("--beta1",              type=float, default=0.9)
     parser.add_argument("--beta2",              type=float, default=0.95)
-    parser.add_argument("--eps",                type=float, default=1e-8)
+    parser.add_argument("--eps",                type=float, default=1e-5)
 
     # DeepSpeed parameters
     parser = deepspeed.add_config_arguments(parser)
@@ -125,14 +125,14 @@ def create_distributed_dataloader(args, data):
         f"The dataset is for {data.metadata['model_type']}, but you specified {args.model_type} for training."
 
     # Multipack dataloader
-    batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
+    args.batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
 
     return MultipackDistributedDataloader(
         dataset=data,
         lengths=data["total_length"],
         numseqs=data["num_seqs"],
 
-        batch_max_length=batch_max_len,
+        batch_max_length=args.batch_max_len,
         collate_fn=batch_to_tensor,
 
         seed=0
@@ -183,12 +183,31 @@ def create_lr_scheduler(args, train_total_steps):
     lr_scheduler = partial(
         cosine_schedule_with_warmup_lr_lambda,
 
-        num_warmup_steps=args.lr_warmup_steps,
+        num_warmup_steps=round(args.lr_warmup_ratio * train_total_steps),
         num_training_steps=train_total_steps,
         min_ratio=args.lr_min_ratio
     )
 
     return lr_scheduler
+
+
+def calculate_auto_lr(lr, batch_max_len, train_dataset):
+    if lr is not None:
+        return lr
+    
+    # Llama hyperparameters
+    # FIXME: Only 7B/13B is supported
+    base_lr = 3e-4
+    base_bs = 4_000_000
+
+    label_ids = np.concatenate(train_dataset["nz_shifted_label_ids"])
+    supervised_ratio = np.sum(label_ids != IGNORE_LABEL_ID) / len(label_ids)
+
+    supervised_tokens = batch_max_len * torch.distributed.get_world_size() * supervised_ratio
+    lr = base_lr * math.sqrt(supervised_tokens / base_bs)
+
+    _rank0_print(f"Use automatic learning rate {lr} (estimated from supervised ratio {supervised_ratio} effective batch size {supervised_tokens})")
+    return lr
 
 
 def train():
@@ -200,14 +219,10 @@ def train():
     args       = parse_args()
     LOCAL_RANK = args.local_rank
 
-    # Data
+    # Dataset
     _rank0_print("Loading data...")
     train_dataset = create_dataset(args, "train")
     eval_dataset  = create_dataset(args, "eval")
-
-    # Model
-    _rank0_print("Loading model...")
-    model_engine, optimizer = create_model(args)
 
     # Data Loader
     train_loader      = create_distributed_dataloader(args, train_dataset)
@@ -216,6 +231,13 @@ def train():
     eval_loader = None
     if eval_dataset is not None:
         eval_loader = create_distributed_dataloader(args, eval_dataset)
+
+    # Hyperparams
+    args.lr = calculate_auto_lr(args.lr, args.batch_max_len, train_dataset)
+
+    # Model
+    _rank0_print("Loading model...")
+    model_engine, optimizer = create_model(args)
 
     # LR Scheduler
     lr_scheduler = create_lr_scheduler(args, train_total_steps)

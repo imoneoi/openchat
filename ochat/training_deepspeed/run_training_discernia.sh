@@ -11,10 +11,7 @@ do
         --data_path dataset_discernia/$name \
         --save_path $PATH_TO_SAVE_MODEL/$name \
         --epochs 5 \
-        --lr 4e-5 \
-        --eps 1e-5 \
         --batch_size_per_gpu 8 \
-        --lr_warmup_steps 250 \
         --deepspeed \
         --deepspeed_config ochat/training_deepspeed/deepspeed_config.json
 done
