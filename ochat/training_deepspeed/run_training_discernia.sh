@@ -1,7 +1,7 @@
 NUM_GPUS=8
 PATH_TO_SAVE_MODEL=/
 
-NAMES=("prm800k" "prm800k_w_0.1" "prm800k_unlikelihood" "prm800k_correctonly")
+NAMES=("prm800k_w_0.1" "prm800k_w_0.1_noneutral")
 
 for name in "${NAMES[@]}"
 do
@@ -10,7 +10,8 @@ do
         --model_path imone/LLaMA2_13B_with_EOT_token \
         --data_path dataset_discernia/$name \
         --save_path $PATH_TO_SAVE_MODEL/$name \
-        --epochs 5 \
+        --epochs 3 \
+        --save_every 1 \
         --batch_size_per_gpu 8 \
         --deepspeed \
         --deepspeed_config ochat/training_deepspeed/deepspeed_config.json
