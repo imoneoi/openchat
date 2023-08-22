@@ -127,7 +127,7 @@ MODEL_CONFIG_MAP = {
         ai_role="gpt",
         eot_token="<|end_of_turn|>",
         bos_token="<s>",
-        default_system_prompt="Write a correct step to solve the problem.",
+        default_system_prompt="Below are the steps that lead to a correct solution to the problem.",
 
         # Tokenize
         model_max_context=4096,
@@ -137,6 +137,7 @@ MODEL_CONFIG_MAP = {
                              use_auth_token=True),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
+                                       legacy=True,
                                        use_auth_token=True),
     ),
 

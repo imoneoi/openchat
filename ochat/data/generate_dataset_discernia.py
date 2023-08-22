@@ -85,7 +85,7 @@ def add_token_group(output, max_context, max_group_len, tokens_list, masks_list,
 
 
 @ray.remote
-def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_names: list, max_group_len: int):
+def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_names: list, max_group_len: int, wrong_weight: float, no_neutral: bool):
     from ochat.config.model_config import MODEL_CONFIG_MAP
 
     # Tokenization
@@ -101,8 +101,8 @@ def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_n
 
     # Constants
     PREFIX_MAP = {
-        True:  _tokenize_special(model_config.bos_token) + _tokenize("Write a correct step to solve the problem.") + _tokenize_special(model_config.eot_token),
-        False: _tokenize_special(model_config.bos_token) + _tokenize("Write a wrong step to solve the problem.")   + _tokenize_special(model_config.eot_token),
+        True:  _tokenize_special(model_config.bos_token) + _tokenize("Below are the steps that lead to a correct solution to the problem.")   + _tokenize_special(model_config.eot_token),
+        False: _tokenize_special(model_config.bos_token) + _tokenize("Below are the steps that lead to an incorrect solution to the problem.") + _tokenize_special(model_config.eot_token),
     }
     STEP_FN = lambda text: _tokenize(text + "\n")
 
@@ -153,18 +153,24 @@ def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_n
             for alt_step in step_data["completions"]:
                 if alt_step["rating"] is None:
                     continue  # Skip no rating
+                if no_neutral and alt_step["rating"] == 0:
+                    continue  # Skip neutral
 
                 is_correct = alt_step["rating"] >= 0
+                t_weight = 1.0 if is_correct else wrong_weight
 
-                t_hist = PREFIX_MAP[is_correct] + problem_tokens + hist_steps
+                if t_weight == 0:
+                    continue  # Skip weight 0
+
+                t_hist = PREFIX_MAP[is_correct if wrong_weight >= 0 else True] + problem_tokens + hist_steps
                 t_now  = STEP_FN(alt_step["text"])
 
                 if (step_idx == num_steps - 1) and ("# Answer" in alt_step["text"]):
                     t_now += _tokenize_special(model_config.eot_token)
 
                 tokens_list.append(t_hist + t_now)
-                masks_list.append([False] * len(t_hist) + [True] * len(t_now))
-                weights_list.append([0.] * len(t_hist)  + [1. / len(t_now)] * len(t_now))
+                masks_list.append([False] * len(t_hist) + [True]                  * len(t_now))
+                weights_list.append([0.]  * len(t_hist) + [t_weight / len(t_now)] * len(t_now))
                 numseq_list.append(1)
 
             # add hist tokens
@@ -178,7 +184,7 @@ def convert_prm800k_batch(model_type: str, model_path: str, batch: list, field_n
     return outputs
 
 
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, max_group_len: int, num_cpus: int = os.cpu_count()):
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, max_group_len: int, wrong_weight: float, no_neutral: bool, num_cpus: int = os.cpu_count()):
     # schema
     metadata = {
         "model_type": model_type
@@ -204,7 +210,9 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         model_path=model_path,
         batch=batch,
         field_names=schema.names,
-        max_group_len=max_group_len
+        max_group_len=max_group_len,
+        wrong_weight=wrong_weight,
+        no_neutral=no_neutral
     ) for batch in _split(conversations, num_cpus)]
 
     # aggegrate results
@@ -222,7 +230,7 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
     ray.shutdown()
 
 
-def generate_dataset(model_type, model_path, in_path, out_prefix, max_group_len):
+def generate_dataset(model_type, model_path, in_path, out_prefix, max_group_len, wrong_weight, no_neutral):
     # Load PRM800K
     SPLITS = {
         "train": ["phase1_train.jsonl", "phase2_train.jsonl"],
@@ -235,14 +243,16 @@ def generate_dataset(model_type, model_path, in_path, out_prefix, max_group_len)
             with open(os.path.join(in_path, filename), "r") as f:
                 data.extend(f.readlines())
 
-        generate_split(model_type, model_path, data, split, out_prefix, max_group_len)
+        generate_split(model_type, model_path, data, split, out_prefix, max_group_len, wrong_weight, no_neutral)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-type", type=str, default="discernia")
-    parser.add_argument("--model-path", type=str, default="imone/LLaMA2_13B_with_correctness_token")
+    parser.add_argument("--model-path", type=str, default="imone/deprecated_LLaMA2_13B_with_EOT_token")
     parser.add_argument("--max-group-len", type=int, default=32768)
+    parser.add_argument("--wrong-weight", type=float, default=1.0)
+    parser.add_argument("--no-neutral", action="store_true")
 
     parser.add_argument("--in-path", type=str, required=True)
     parser.add_argument("--out-prefix", type=str,required=True)
