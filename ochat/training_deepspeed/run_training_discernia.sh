@@ -1,7 +1,7 @@
 NUM_GPUS=8
 PATH_TO_SAVE_MODEL=/
 
-NAMES=("prm800k_w_0.1" "prm800k_w_0.1_noneutral")
+NAMES=("prm800k_w_0.1" "prm800k_w_0.1_noneutral" "prm800k_correctonly" "prm800k_correctonly_noneutral")
 
 for name in "${NAMES[@]}"
 do
