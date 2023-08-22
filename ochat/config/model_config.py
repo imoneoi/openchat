@@ -148,6 +148,7 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
+                                       legacy=True,
                                        use_auth_token=True),
     ),
 
@@ -176,6 +177,7 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
+                                       legacy=True,
                                        use_auth_token=True),
     ),
 
@@ -200,6 +202,7 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
+                                       legacy=True,
                                        use_auth_token=True),
     ),
 
@@ -223,6 +226,7 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
+                                       legacy=True,
                                        use_auth_token=True),
     ),
 
@@ -245,6 +249,7 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
+                                       legacy=True,
                                        use_auth_token=True),
     ),
 
@@ -269,6 +274,7 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
+                                       legacy=True,
                                        use_auth_token=True),
     ),
 
