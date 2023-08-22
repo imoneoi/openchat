@@ -126,9 +126,9 @@ async def create_chat_completion(raw_request: Request):
 
     request = openai_api_protocol.ChatCompletionRequest(**await raw_request.json())
 
-    error_check_ret = await check_model(request)
-    if error_check_ret is not None:
-        return error_check_ret
+    # error_check_ret = await check_model(request)
+    # if error_check_ret is not None:
+    #     return error_check_ret
 
     if request.logit_bias is not None:
         # TODO: support logit_bias in vLLM engine.
@@ -160,7 +160,6 @@ async def create_chat_completion(raw_request: Request):
             frequency_penalty=request.frequency_penalty,
             temperature=request.temperature,
             top_p=request.top_p,
-            stop=[model.eot_token],
             max_tokens=request.max_tokens
         )
     except ValueError as e:
