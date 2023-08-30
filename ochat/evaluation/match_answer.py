@@ -64,11 +64,22 @@ def fs_cothub_gsm8k_match_answer(task_data, response):
     return False, response
 
 
+def prm800k_math_match_answer(task_data, response):
+    ans_line = response.split("# Answer\n\n")
+
+    if len(ans_line) == 1:
+        return False, response
+
+    return True, ans_line[-1].strip()
+
+
 MATCH_ANSWER_FUNCTION = {
     "zs/agieval": zs_agieval_match_answer,
     "zs/bbh_mc_orca": zs_bbh_mc_orca_truthfulqa_orca_match_answer,
     "zs/truthfulqa_orca": zs_bbh_mc_orca_truthfulqa_orca_match_answer,
 
     "fs_cothub/bbh": fs_cothub_bbh_match_answer,
-    "fs_cothub/gsm8k": fs_cothub_gsm8k_match_answer
+    "fs_cothub/gsm8k": fs_cothub_gsm8k_match_answer,
+
+    "special/prm800k_math": prm800k_math_match_answer
 }

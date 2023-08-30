@@ -14,6 +14,7 @@ from vllm import LLM, SamplingParams
 
 from ochat.config.model_config import MODEL_CONFIG_MAP
 from ochat.evaluation.match_answer import MATCH_ANSWER_FUNCTION
+from ochat.evaluation.compare_answer import COMPARE_ANSWER_FUNCTION
 from ochat.evaluation.conversation_templates import CONVERSATION_TEMPLATES
 
 
@@ -90,8 +91,7 @@ async def get_model_answers(
     engine = LLM(model_path,
                  max_num_batched_tokens=model_config.model_max_context)
     sampling_params = SamplingParams(temperature=0,
-                                     max_tokens=model_config.model_max_context,
-                                     stop=[model_config.eot_token])
+                                     max_tokens=model_config.model_max_context)
 
     # Init tokenizer
     tokenizer = model_config.model_tokenizer_create(model_path)
@@ -107,7 +107,7 @@ async def get_model_answers(
     prompts = []
     prompt_indices = []
 
-    for template_name, template_questions in questions.items():
+    for template_name, template_questions in tqdm(questions.items()):
         prompt_template_fn = CONVERSATION_TEMPLATES[template_name]
 
         for idx, q in enumerate(template_questions):
@@ -196,7 +196,7 @@ async def run_eval(
     for template_name, template_questions in questions.items():
         for q in template_questions:
             q["is_matched"], q["answer"] = MATCH_ANSWER_FUNCTION[q["task_type"]](q, q["response"])
-            q["is_correct"] = q["answer"] in q["label"]
+            q["is_correct"]              = COMPARE_ANSWER_FUNCTION[q["task_type"]](q["answer"], q["label"])
 
     # Write results
     if output_file is None:
