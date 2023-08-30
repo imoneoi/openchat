@@ -21,7 +21,7 @@ def _split(a, n):
 
 
 @ray.remote
-def filter_conversation_batch(fasttext_model: str, lang_list: list, batch: list):
+def filter_conversation_batch(fasttext_model: str, keep_lang: list, skip_lang: list, batch: list):
     model = fasttext.load_model(fasttext_model)
 
     result = []
@@ -39,13 +39,17 @@ def filter_conversation_batch(fasttext_model: str, lang_list: list, batch: list)
         lang_freq.setdefault(lang, 0)
         lang_freq[lang] += 1
 
-        if lang in lang_list:
-            result.append(conversation)
+        if lang in skip_lang:
+            continue
+        if keep_lang and (lang not in keep_lang):
+            continue
+
+        result.append(conversation)
 
     return result, lang_freq
 
 
-def filter_lang(fasttext_model: str, lang_list: str, in_file: str, out_file: str, num_cpus: int = os.cpu_count()):
+def filter_lang(fasttext_model: str, keep_lang: list, skip_lang: list, in_file: str, out_file: str, num_cpus: int = os.cpu_count()):
     # load conversations
     with open(in_file, "r") as f:
         conversations = json.load(f)
@@ -55,7 +59,8 @@ def filter_lang(fasttext_model: str, lang_list: str, in_file: str, out_file: str
 
     handles = [filter_conversation_batch.remote(
         fasttext_model=fasttext_model,
-        lang_list=lang_list,
+        keep_lang=keep_lang,
+        skip_lang=skip_lang,
         batch=batch
     ) for batch in _split(conversations, num_cpus)]
 
@@ -74,6 +79,7 @@ def filter_lang(fasttext_model: str, lang_list: str, in_file: str, out_file: str
         json.dump(results, f)
 
     # show statistics
+    print(f"Total {len(conversations)} Keep {len(results)}")
     pprint(total_lang_freq)
 
     ray.shutdown()
@@ -82,7 +88,8 @@ def filter_lang(fasttext_model: str, lang_list: str, in_file: str, out_file: str
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--fasttext-model", type=str, required=True)
-    parser.add_argument("--lang-list",  type=str, nargs='+', default=["en"])
+    parser.add_argument("--keep-lang",  type=str, nargs='+', default=["en"])
+    parser.add_argument("--skip-lang",  type=str, nargs='+', default=[])
 
     parser.add_argument("--in-file", type=str, required=True)
     parser.add_argument("--out-file", type=str, required=True)

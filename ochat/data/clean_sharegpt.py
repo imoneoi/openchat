@@ -43,7 +43,7 @@ def sample_load(filename):
 ############### [2] HTML cleaning
 
 
-blocked_words = ["openai"]
+# blocked_words = ["openai"]
 
 div_pattern = re.compile("<div.*?>")
 span_pattern = re.compile("<span.*?>")
@@ -91,11 +91,15 @@ def html_to_markdown(val: str) -> str:
     return val
 
 
-def contain_blocked_words(val: str) -> bool:
-    for w in blocked_words:
-        if w in val.lower():
-            return True
-    return False
+# def contain_blocked_words(val: str) -> bool:
+#     for w in blocked_words:
+#         if w in val.lower():
+#             return True
+#     return False
+
+
+def remove_whitespace_and_non_printable(s: str) -> str:
+    return "".join([c for c in s if c.isprintable() and not c.isspace()])
 
 
 def sample_clean_html(sample):
@@ -115,19 +119,28 @@ def sample_clean_html(sample):
     if len(sample["items"]) <= 1:
         raise DataPipelineError("Conversation too short")
 
+    char_count = 0
     for i, c in enumerate(sample["items"]):
         if c["from"] != roles[i % 2]:
             raise DataPipelineError("Wrong format")
 
-        if contain_blocked_words(c["value"]):
-            raise DataPipelineError("Contain blocked words")
+        # if contain_blocked_words(c["value"]):
+        #     raise DataPipelineError("Contain blocked words")
 
         try:
             new_val = html_to_markdown(c["value"])
         except (bs4.builder.ParserRejectedMarkup, AssertionError):
             raise DataPipelineError("Parser error")
 
+        # Filter empty answers like https://sharegpt.com/c/mrllZ6u
+        if not len(remove_whitespace_and_non_printable(new_val)):
+            raise DataPipelineError("Empty answer")
+
+        char_count += len(new_val)
         c["value"] = new_val
+
+    if char_count < 16:
+        raise DataPipelineError("Conversation too short")
 
     return sample
 
