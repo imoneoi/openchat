@@ -33,7 +33,7 @@ from transformers.utils import logging
 from transformers.models.llama.configuration_llama import LlamaConfig
 
 try:
-    from flash_attn.flash_attn_interface import flash_attn_unpadded_func
+    from flash_attn.flash_attn_interface import flash_attn_varlen_func
     from flash_attn.bert_padding import pad_input
 except ImportError:
     print ("FlashAttention not found. Install it if you need to train models.")
@@ -47,6 +47,34 @@ def weighted_cross_entropy(logits: torch.Tensor, labels: torch.Tensor, weights: 
     return (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
 
 
+@torch.jit.script
+def rms_norm(hidden_states: torch.Tensor, weight: torch.Tensor, variance_epsilon: float):
+    input_dtype = hidden_states.dtype
+    hidden_states = hidden_states.to(torch.float32)
+
+    variance = (hidden_states * hidden_states).mean(-1, keepdim=True)
+    hidden_states = hidden_states * torch.rsqrt(variance + variance_epsilon)
+    return weight * hidden_states.to(input_dtype)
+
+
+def rotate_half(x: torch.Tensor):
+    """Rotates half the hidden dims of the input."""
+    x1 = x[..., : x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2 :]
+    return torch.cat((-x2, x1), dim=-1)
+
+
+def apply_rotary_pos_emb(q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor, position_ids: torch.Tensor):
+    # q, k:     [nnz, num_heads, head_dim]
+    # position_ids: [nnz]
+    # cos, sin: [max_seq_len, head_dim]
+    cos = cos[position_ids].unsqueeze(-2)  # [nnz, 1, head_dim]
+    sin = sin[position_ids].unsqueeze(-2)  # [nnz, 1, head_dim]
+    q_embed = (q * cos) + (rotate_half(q) * sin)
+    k_embed = (k * cos) + (rotate_half(k) * sin)
+    return q_embed, k_embed
+
+
 class UnpaddedLlamaRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
         """
@@ -58,11 +86,7 @@ class UnpaddedLlamaRMSNorm(nn.Module):
         self.variance_epsilon = eps
 
     def forward(self, hidden_states):
-        input_dtype = hidden_states.dtype
-        variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
-
-        return (self.weight * hidden_states).to(input_dtype)
+        return rms_norm(hidden_states, self.weight, self.variance_epsilon)
 
 
 class UnpaddedLlamaRotaryEmbedding(torch.nn.Module):
@@ -77,18 +101,14 @@ class UnpaddedLlamaRotaryEmbedding(torch.nn.Module):
         # Needs mixing with training data.
         # self.extend_factor = max_position_embeddings / extend_context_to
         self.extend_factor = 1
+        self.max_seq_len_cached = max(max_position_embeddings, extend_context_to)
 
         print (f"LLaMA context extended from {max_position_embeddings} to {extend_context_to}, factor {self.extend_factor}")
 
         # RoPE
-        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
-        self.register_buffer("inv_freq", inv_freq, persistent=False)
-
-        # Build here to make `torch.jit.trace` work.
-        self.max_seq_len_cached = max(max_position_embeddings, extend_context_to)
-
-        t = torch.arange(self.max_seq_len_cached, device=self.inv_freq.device, dtype=self.inv_freq.dtype) * self.extend_factor
-        freqs = torch.einsum("i,j->ij", t, self.inv_freq)
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, dtype=torch.float32, device=device) / dim))
+        t = self.extend_factor * torch.arange(self.max_seq_len_cached, dtype=torch.float32, device=device)
+        freqs = torch.outer(t, inv_freq)
 
         # Different from paper, but it uses a different permutation in order to obtain the same calculation
         emb = torch.cat((freqs, freqs), dim=-1)
@@ -98,25 +118,6 @@ class UnpaddedLlamaRotaryEmbedding(torch.nn.Module):
 
     def forward(self):
         return self.cos_cached, self.sin_cached
-
-
-def rotate_half(x):
-    """Rotates half the hidden dims of the input."""
-    x1 = x[..., : x.shape[-1] // 2]
-    x2 = x[..., x.shape[-1] // 2 :]
-    return torch.cat((-x2, x1), dim=-1)
-
-
-def apply_rotary_pos_emb(q, k, cos, sin, position_ids):
-    # q, k:     [nnz, num_heads, head_dim]
-    # position_ids: [nnz]
-    # cos, sin: [max_seq_len, head_dim]
-
-    cos = cos[position_ids].unsqueeze(-2)  # [nnz, 1, head_dim]
-    sin = sin[position_ids].unsqueeze(-2)  # [nnz, 1, head_dim]
-    q_embed = (q * cos) + (rotate_half(q) * sin)
-    k_embed = (k * cos) + (rotate_half(k) * sin)
-    return q_embed, k_embed
 
 
 class UnpaddedLlamaMLP(nn.Module):
@@ -180,7 +181,7 @@ class UnpaddedLlamaAttention(nn.Module):
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, nz_position_ids)
 
         # flash attn
-        attn_output = flash_attn_unpadded_func(
+        attn_output = flash_attn_varlen_func(
             q=query_states, k=key_states, v=value_states,
             cu_seqlens_q=cu_seqlens, cu_seqlens_k=cu_seqlens,
             max_seqlen_q=max_seqlen, max_seqlen_k=max_seqlen,
