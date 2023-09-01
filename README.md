@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://openchat.team">Online Demo</a> •
-  <a href="https://discord.gg/ajNgYD3K">Discord</a> •
+  <a href="https://discord.gg/pQjnXvNKHY">Discord</a> •
   <a href="https://huggingface.co/openchat">Huggingface</a>
 </p>
 
