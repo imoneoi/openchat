@@ -226,7 +226,7 @@ OpenChat V3.2:
 NUM_GPUS=8
 
 deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
-    --model-type openchat_v3.2 \
+    --model_type openchat_v3.2 \
     --model_path imone/LLaMA2_13B_with_EOT_token \
     --data_path openchat_sharegpt_v3/sharegpt_v3.2 \
     --save_path PATH_TO_SAVE_MODEL \
@@ -246,7 +246,7 @@ OpenChat V3.1:
 NUM_GPUS=8
 
 deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
-    --model-type openchat_v3.1_llama2 \
+    --model_type openchat_v3.1_llama2 \
     --model_path imone/LLaMA2_13B_with_EOT_token \
     --data_path openchat_sharegpt_v3/sharegpt_v3.1_llama2 \
     --save_path PATH_TO_SAVE_MODEL \
