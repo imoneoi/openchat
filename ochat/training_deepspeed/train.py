@@ -253,6 +253,12 @@ def create_lr_scheduler(args, train_total_steps):
     return lr_scheduler
 
 
+def save_tokenizer(args, save_path):
+    tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False)
+    tokenizer.eos_token = MODEL_CONFIG_MAP[args.model_type].eot_token
+    tokenizer.save_pretrained(save_path)
+
+
 def train():
     global LOCAL_RANK
 
@@ -368,7 +374,7 @@ def train():
                                                     state_dict=deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict()))
 
                 # Also save tokenizer from base model
-                transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False).save_pretrained(save_path)
+                save_tokenizer(args, save_path)
 
 
 if __name__ == "__main__":
