@@ -68,7 +68,7 @@ def add_single_conv(output, tokens, masks, weights):
 
 
 @ray.remote
-def convert_conversation_batch(model_type: str, model_path: str, batch: list, field_names: list, sum_logprob: bool):
+def convert_conversation_batch(model_type: str, model_path: str, batch: list, field_names: list):
     from ochat.config.model_config import MODEL_CONFIG_MAP
 
     # Tokenization
@@ -97,8 +97,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, fi
         tokens, masks, weights = model_config.generate_conversation_template(_tokenize, _tokenize_special,
                                                                              system_prompt=c.get("system_message", ""),
                                                                              message_list=message_list,
-                                                                             message_props=props,
-                                                                             sum_logprob=sum_logprob)
+                                                                             message_props=props)
 
         # Truncate to specified tokens
         max_context = model_config.model_max_context
@@ -113,7 +112,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, fi
     return outputs
 
 
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, sum_logprob: bool, num_cpus: int = os.cpu_count()):
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, num_cpus: int = os.cpu_count()):
     # schema
     metadata = {
         "model_type": model_type
@@ -138,7 +137,6 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         model_type=model_type,
         model_path=model_path,
         batch=batch,
-        sum_logprob=sum_logprob,
         field_names=schema.names,
     ) for batch in _split(conversations, num_cpus)]
 
@@ -156,7 +154,7 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
     ray.shutdown()
 
 
-def generate_dataset(model_type, model_path, in_files, out_prefix, sum_logprob, seed, eval_ratio):
+def generate_dataset(model_type, model_path, in_files, out_prefix, seed, eval_ratio):
     # Load conversations
     conversations = []
     for filename in in_files:
@@ -171,9 +169,9 @@ def generate_dataset(model_type, model_path, in_files, out_prefix, sum_logprob, 
     train_conversations = conversations[eval_num:]
     eval_conversations  = conversations[:eval_num]
 
-    generate_split(model_type, model_path, train_conversations, "train", out_prefix, sum_logprob)
+    generate_split(model_type, model_path, train_conversations, "train", out_prefix)
     if eval_num > 0:
-        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix, sum_logprob)
+        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix)
 
 
 if __name__ == "__main__":
@@ -183,8 +181,6 @@ if __name__ == "__main__":
 
     parser.add_argument("--in-files", type=str, nargs="+", required=True)
     parser.add_argument("--out-prefix", type=str,required=True)
-
-    parser.add_argument("--sum-logprob", action="store_true")
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--eval-ratio", type=float, default=0.0)

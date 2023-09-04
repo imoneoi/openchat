@@ -25,7 +25,7 @@ class ModelConfig:
     model_tokenizer_create: Optional[Callable] = None
 
     # Get template
-    def generate_conversation_template(self, tokenize_fn, tokenize_special_fn, system_prompt, message_list, message_props=None, sum_logprob=False):
+    def generate_conversation_template(self, tokenize_fn, tokenize_special_fn, system_prompt, message_list, message_props=None):
         tokens = []
         masks = []
         weights = []
@@ -73,10 +73,9 @@ class ModelConfig:
                 
                 # determine weights
                 use_loss = (message["from"] == self.ai_role) and bool(message.get("use_loss", True))
-                w = 0.0
-                if use_loss:
-                    w = 1.0 if sum_logprob else 1.0 / len(t)
-                if message_props["weight"]:
+                w = 1.0 if use_loss else 0.0
+                
+                if message_props is not None and ("weight" in message_props):
                     w *= message_props["weight"]
 
                 tokens.extend(t)
