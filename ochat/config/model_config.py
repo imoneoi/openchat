@@ -19,10 +19,6 @@ class ModelConfig:
 
     condition_fn: Optional[Callable] = None
 
-    # Label
-    group_fn: Optional[Callable] = None
-    num_groups: int = 1
-
     # Model
     model_max_context: Optional[int] = None
     model_create: Optional[Callable] = None
@@ -32,24 +28,31 @@ class ModelConfig:
     def generate_conversation_template(self, tokenize_fn, tokenize_special_fn, system_prompt, message_list, message_props=None):
         tokens = []
         masks = []
+        weights = []
 
         # begin of sentence (bos)
         if self.bos_token:
             t = tokenize_special_fn(self.bos_token)
-            tokens.append(t)
-            masks.append(False)
+
+            tokens.extend([t])
+            masks.extend([False])
+            weights.extend([0.])
 
         # Condition
         if self.condition_fn is not None:
             t = tokenize_fn(self.condition_fn(message_props)) + [tokenize_special_fn(self.eot_token)]
+
             tokens.extend(t)
             masks.extend([False] * len(t))
+            weights.extend([0.] * len(t))
 
         # System
         if system_prompt:
             t = tokenize_fn(system_prompt) + [tokenize_special_fn(self.eot_token)]
+
             tokens.extend(t)
             masks.extend([False] * len(t))
+            weights.extend([0.] * len(t))
 
         # Messages
         for idx, message in enumerate(message_list):
@@ -62,20 +65,26 @@ class ModelConfig:
             t = tokenize_fn(role_prefix)
             tokens.extend(t)
             masks.extend([False] * len(t))
+            weights.extend([0.] * len(t))
 
             # Message
             if "value" in message:
                 t = tokenize_fn(message["value"]) + [tokenize_special_fn(self.eot_token)]
+                
+                # determine weights
+                use_loss = (message["from"] == self.ai_role) and bool(message.get("use_loss", True))
+                w = 1.0 if use_loss else 0.0
+                
+                if message_props is not None and ("weight" in message_props):
+                    w *= message_props["weight"]
+
                 tokens.extend(t)
-                masks.extend([message["from"] == self.ai_role] * len(t))
+                masks.extend([use_loss] * len(t))
+                weights.extend([w]      * len(t))
             else:
                 assert idx == len(message_list) - 1, "Empty message for completion must be on the last."
 
-        group = 0
-        if self.group_fn:
-            group = self.group_fn(message_props)
-
-        return tokens, masks, group
+        return tokens, masks, weights
 
 
 def _v2_conditional_prefix(from_role, props):
@@ -109,13 +118,6 @@ def _v3_2_conditional_prefix(from_role, props):
     return prefixes[from_role]
 
 
-def _v2_v3_group(props):
-    if props is None:
-        return 1
-
-    return 1 if props["is_gpt4"] else 0
-
-
 def _v3_condition(props):
     gpt4_condition = "Assistant is GPT4"
     gpt3_condition = "Assistant is GPT3"
@@ -137,10 +139,6 @@ MODEL_CONFIG_MAP = {
         eot_token="<|end_of_turn|>",
         bos_token="<s>",
 
-        # Label
-        group_fn=_v2_v3_group,
-        num_groups=2,
-
         # Tokenize
         model_max_context=4096,
         model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
@@ -148,7 +146,7 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
-                                       use_auth_token=True),
+                                       legacy=True),
     ),
 
     "openchat_v3.1_llama2": ModelConfig(
@@ -165,10 +163,6 @@ MODEL_CONFIG_MAP = {
 
         condition_fn=_v3_condition,
 
-        # Label
-        group_fn=_v2_v3_group,
-        num_groups=2,
-
         # Tokenize
         model_max_context=4096,
         model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
@@ -176,7 +170,7 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
-                                       use_auth_token=True),
+                                       legacy=True),
     ),
 
     # OpenChat V2
@@ -189,10 +183,6 @@ MODEL_CONFIG_MAP = {
         eot_token="<|end_of_turn|>",
         bos_token="<s>",
 
-        # Label
-        group_fn=_v2_v3_group,
-        num_groups=2,
-
         # Tokenize
         model_max_context=2048,
         model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
@@ -200,7 +190,7 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
-                                       use_auth_token=True),
+                                       legacy=True),
     ),
 
     # OpenChat
@@ -223,73 +213,6 @@ MODEL_CONFIG_MAP = {
                              torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
-                                       use_auth_token=True),
-    ),
-
-    "openchat": ModelConfig(
-        name="OpenChat",
-
-        # Prompt
-        role_prefix={
-            "human": "Human: ",
-            "gpt": "Assistant: "
-        },
-        ai_role="gpt",
-        eot_token="<|end_of_turn|>",
-        bos_token="<s>",
-
-        # Tokenize
-        model_max_context=2048,
-        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
-                             low_cpu_mem_usage=True,
-                             torch_dtype=torch.bfloat16),
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False,
-                                       use_auth_token=True),
-    ),
-
-    # OpenChat 8192
-    "openchat_8192": ModelConfig(
-        name="OpenChat_8192",
-
-        # Prompt
-        role_prefix={
-            "human": "Human: ",
-            "gpt": "Assistant: "
-        },
-        ai_role="gpt",
-        eot_token="<|end_of_turn|>",
-        bos_token="<s>",
-
-        # Model
-        model_max_context=8192,
-        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
-                             extend_context_to=8192,
-                             low_cpu_mem_usage=True,
-                             torch_dtype=torch.bfloat16),
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False,
-                                       use_auth_token=True),
-    ),
-
-    # OpenCoder / OpenCoderPlus
-    "opencoder": ModelConfig(
-        name="OpenCoder",
-
-        # Prompt
-        role_prefix={
-            "human": "User:",
-            "gpt": "Assistant:"
-        },
-        ai_role="gpt",
-        eot_token="<|end_of_turn|>",
-        bos_token=None,
-
-        # Tokenize
-        model_max_context=8192,
-        model_create=None,  # TODO: StarCoder Unpadded
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False,
-                                       use_auth_token=True)
+                                       legacy=True),
     )
 }

@@ -10,17 +10,21 @@
   <a href="https://huggingface.co/openchat">Huggingface</a>
 </p>
 
-OpenChat is a series of open-source language models based on supervised fine-tuning (SFT). We leverage the ~80k ShareGPT conversations with a conditioning strategy and weighted loss to achieve remarkable performance despite our simple methods. Our final vision is to develop a high-performance, open-source, and commercially available large language model, and we are continuously making progress.
+OpenChat is a collection of open-source language models, optimized and fine-tuned with a strategy inspired by offline reinforcement learning. We use approximately 80k ShareGPT conversations, a conditioning strategy, and weighted loss to deliver outstanding performance, despite our simple approach. Our ultimate goal is to develop a high-performance, commercially available, open-source large language model, and we are continuously making strides towards this vision.
 
-**🔥 Rank #1 of 13B open-source models | 89.5% win-rate on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) | 7.01 score on [MT-bench](https://chat.lmsys.org/?leaderboard)**
+**🤖 Ranked #1 among all open-source models on [AgentBench](https://github.com/THUDM/AgentBench)**
+
+**🔥 Ranked #1 among 13B open-source models | 89.5% win-rate on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) | 7.19 score on [MT-bench](https://chat.lmsys.org/?leaderboard)**
+
+**🕒 Exceptionally efficient padding-free fine-tuning, only requires 15 hours on 8xA100 80G**
 
 **💲 FREE for commercial use under [Llama 2 Community License](https://ai.meta.com/resources/models-and-libraries/llama-downloads/)**
-
-**🕒 Super efficient padding-free finetuning for applications, only 10 hours on 8xA100 80G**
 
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
 ## News
+
+- [2023/09/03] We released the [OpenChat V3.2 SUPER](#models) model.
 
 - [2023/08/04] We have launched an [Online Demo](https://openchat.team) featuring the latest version, OpenChat 3.2.
 
@@ -32,15 +36,13 @@ OpenChat is a series of open-source language models based on supervised fine-tun
 
 ## <a id="models"></a> Models
 
-We recommend using our V3.2 model for optimal performance in multi-turn conversation scenarios since it utilizes multi-turn conditioning. However, if you require a model for single-turn instruction following, we suggest using V3.1, which uses a single condition schema and performs slightly better in this context. All models listed below are designed for English and have limited multilingual capabilities. They are available for download under the [Llama 2 Community License](https://ai.meta.com/resources/models-and-libraries/llama-downloads/).
+Our latest model, OpenChat 3.2 SUPER, is an enhanced version of the original OpenChat 3.2. We recommend using it for optimal conversational and instruction-following performance. Older versions are supported for a limited time for research purposes. All models are designed for English and have limited multilingual capabilities. They can be downloaded under the [Llama 2 Community License](https://ai.meta.com/resources/models-and-libraries/llama-downloads/).
 
 To use these models, we highly recommend installing the OpenChat package by following the [installation guide](#installation) and using the OpenChat OpenAI-compatible API server by running the serving command from the table below. The server is optimized for high-throughput deployment using [vLLM](https://github.com/vllm-project/vllm) and can run on a GPU with at least 48GB RAM or two consumer GPUs with tensor parallelism. To enable tensor parallelism, append `--tensor-parallel-size 2` to the serving command.
 
 Once started, the server listens at `localhost:18888` for requests and is compatible with the [OpenAI ChatCompletion API specifications](https://platform.openai.com/docs/api-reference/chat). Please refer to the example request below for reference. Additionally, you can use the [OpenChat Web UI](#web-ui) for a user-friendly experience.
 
 If you want to deploy the server as an online service, you can use `--api-keys sk-KEY1 sk-KEY2 ...` to specify allowed API keys and `--disable-log-requests --disable-log-stats --log-file openchat.log` for logging only to a file. For security purposes, we recommend using an [HTTPS gateway](https://fastapi.tiangolo.com/es/deployment/concepts/#security-https) in front of the server.
-
-*Note:* If you encounter IPv6 address errors, which is a known [vLLM issue](https://github.com/vllm-project/vllm/issues/570), please run `export NCCL_IGNORE_DISABLED_P2P=1` before starting the server.
 
 <details>
   <summary>Example request (click to expand)</summary>
@@ -58,36 +60,21 @@ curl http://localhost:18888/v1/chat/completions \
 
 | Model        | Size | Context | Weights                                                      | Serving                                                                                                                                                                      |
 |--------------|------|---------|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.2 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2) | `python -m ochat.serving.openai_api_server --model-type openchat_v3.2 --model openchat/openchat_v3.2 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120`        |
-| OpenChat 3.1 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.1) | `python -m ochat.serving.openai_api_server --model-type openchat_v3.1_llama2 --model openchat/openchat_v3.1 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120` |
+| OpenChat 3.2 SUPER | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model-type openchat_v3.2 --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120`        |
 
 For inference with Huggingface Transformers (slow and not recommended), follow the conversation template provided below:
 
 <details>
   <summary>Conversation templates (click to expand)</summary>
 
-V3.2
-
 ```python
-# Single-turn V3.2
+# Single-turn V3.2 (SUPER)
 tokenize("GPT4 User: Hello<|end_of_turn|>GPT4 Assistant:")
 # Result: [1, 402, 7982, 29946, 4911, 29901, 15043, 32000, 402, 7982, 29946, 4007, 22137, 29901]
 
-# Multi-turn V3.2
+# Multi-turn V3.2 (SUPER)
 tokenize("GPT4 User: Hello<|end_of_turn|>GPT4 Assistant: Hi<|end_of_turn|>GPT4 User: How are you today?<|end_of_turn|>GPT4 Assistant:")
 # Result: [1, 402, 7982, 29946, 4911, 29901, 15043, 32000, 402, 7982, 29946, 4007, 22137, 29901, 6324, 32000, 402, 7982, 29946, 4911, 29901, 1128, 526, 366, 9826, 29973, 32000, 402, 7982, 29946, 4007, 22137, 29901]
-```
-
-V3.1
-
-```python
-# Single-turn V3.1
-tokenize("Assistant is GPT4<|end_of_turn|>User: Hello<|end_of_turn|>Assistant:")
-# Result: [1, 4007, 22137, 338, 402, 7982, 29946, 32000, 4911, 29901, 15043, 32000, 4007, 22137, 29901]
-
-# Multi-turn V3.1
-tokenize("Assistant is GPT4<|end_of_turn|>User: Hello<|end_of_turn|>Assistant: Hi<|end_of_turn|>User: How are you today?<|end_of_turn|>Assistant:")
-# Result: [1, 4007, 22137, 338, 402, 7982, 29946, 32000, 4911, 29901, 15043, 32000, 4007, 22137, 29901, 6324, 32000, 4911, 29901, 1128, 526, 366, 9826, 29973, 32000, 4007, 22137, 29901]
 ```
 
 </details>
@@ -98,16 +85,16 @@ We have evaluated our models using the two most popular evaluation benchmarks **
 
 To ensure consistency, we used the same routine as ChatGPT / GPT-4 to run these benchmarks. We started the OpenAI API-compatible server and set the `openai.api_base` to `http://localhost:18888/v1` in the benchmark program.
 
-| **Model**        | **Size** | **Context** | **💲Free** | **AlpacaEval (win rate %)** | **MT-bench (win rate adjusted %)** | **MT-bench (score)** |
-|------------------|----------|-------------|------------|-----------------------------|------------------------------------|----------------------|
-|                  |          |             |            | **v.s. text-davinci-003**   | **v.s. ChatGPT**                   |                      |
-| GPT-4            | 1.8T*    | 8K          | ❌         | 95.3                        | 82.5                               | 8.99                 |
-| ChatGPT          | 175B*    | 4K          | ❌         | 89.4                        | 50.0                               | 7.94                 |
-| Llama-2-70B-Chat | 70B      | 4K          | ✅         | 92.7                        |                                    | 6.86                 |
-| **OpenChat 3.2** | **13B**  | **4K**      | ✅         | **89.1**                    | **51.6**                           | **7.01**             |
-| **OpenChat 3.1** | **13B**  | **4K**      | ✅         | **89.5**                    | **50.0**                           | **6.65**             |
-| Llama-2-13B-Chat | 13B      | 4K          | ✅         | 81.0                        |                                    | 6.65                 |
-| Vicuna 1.3       | 13B      | 2K          | ❌         | 82.1                        | 37.5                               | 6.00                 |
+| **Model**                        | **Size** | **Context** | **Dataset Size** | **💲Free** | **AlpacaEval (win rate %)** | **MT-bench (win rate adjusted %)** | **MT-bench (score)** |
+|----------------------------------|----------|-------------|------------------|-----------|-----------------------------|------------------------------------|----------------------|
+|                                  |          |             |                  |           | **v.s. text-davinci-003**   | **v.s. ChatGPT**                   |                      |
+| GPT-4                            | 1.8T*    | 8K          |                  | ❌         | 95.3                        | 82.5                               | 8.99                 |
+| ChatGPT                          | 175B*    | 4K          |                  | ❌         | 89.4                        | 50.0                               | 7.94                 |
+| Llama-2-70B-Chat                 | 70B      | 4K          | 2.9M             | ✅         | 92.7                        | 60.0                               | 6.86                 |
+| **OpenChat 3.2 SUPER**           | **13B**  | **4K**      | **80K**          | ✅         | **89.5**                    | **57.5**                           | **7.19**             |
+| Llama-2-13B-Chat                 | 13B      | 4K          | 2.9M             | ✅         | 81.1                        | 55.3                               | 6.65                 |
+| WizardLM 1.2                     | 13B      | 4K          | 196K             | ✅         | 89.2                        | 53.1                               | 7.05                 |
+| Vicuna 1.5                       | 13B      | 2K          | 125K             | ✅         | 78.8                        | 37.2                               | 6.57                 |
 
 *: Estimated model size
 
@@ -199,13 +186,13 @@ npm run dev
 
 ## <a id="training"></a> Training
 
-OpenChat leverages padding-free training and [Multipack Sampler](https://github.com/imoneoi/multipack_sampler), achieving a 3~6x speedup compared to commonly-used padded training. V3 series can be trained in 10 hours on 8x A100 80GB.
+OpenChat leverages padding-free training and [Multipack Sampler](https://github.com/imoneoi/multipack_sampler), achieving a 3~6x speedup compared to commonly-used padded training. V3 series can be trained in 15 hours on 8x A100 80GB.
 
 The hyperparameters used in training the models are listed as follows:
 
 | **Hyperparameter** | Context | Batch size | Learning rate | AdamW betas | AdamW eps | Weight decay |
 |--------------------|---------|------------|---------------|-------------|-----------|--------------|
-| **Value**          | 4096    | 64         | 2e-5          | (0.9, 0.95) | 1e-5      | 0.1          |
+| **Value**          | 4096    | 64         | Auto          | (0.9, 0.95) | 1e-5      | 0.1          |
 
 To train using 8xA100 80GB, you should first clone the dataset for training:
 
@@ -214,13 +201,11 @@ git lfs install
 git clone https://huggingface.co/datasets/openchat/openchat_sharegpt_v3
 ```
 
-Then, run the following commands for V3.1 and V3.2 respectively:
+Then, run the following commands for V3.2 SUPER:
 
 <details>
 
 <summary>Training commands (click to expand)</summary>
-
-OpenChat V3.2:
 
 ```bash
 NUM_GPUS=8
@@ -228,34 +213,10 @@ NUM_GPUS=8
 deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
     --model_type openchat_v3.2 \
     --model_path imone/LLaMA2_13B_with_EOT_token \
-    --data_path openchat_sharegpt_v3/sharegpt_v3.2 \
+    --data_path openchat_sharegpt_v3/openchat_v3.2_super \
     --save_path PATH_TO_SAVE_MODEL \
     --epochs 5 \
-    --lr 2e-5 \
-    --eps 1e-5 \
     --batch_size_per_gpu 8 \
-    --lr_warmup_steps 100 \
-    --loss_balancing \
-    --deepspeed \
-    --deepspeed_config ochat/training_deepspeed/deepspeed_config.json
-```
-
-OpenChat V3.1:
-
-```bash
-NUM_GPUS=8
-
-deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
-    --model_type openchat_v3.1_llama2 \
-    --model_path imone/LLaMA2_13B_with_EOT_token \
-    --data_path openchat_sharegpt_v3/sharegpt_v3.1_llama2 \
-    --save_path PATH_TO_SAVE_MODEL \
-    --epochs 3 \
-    --lr 2e-5 \
-    --eps 1e-5 \
-    --batch_size_per_gpu 8 \
-    --lr_warmup_steps 50 \
-    --loss_balancing \
     --deepspeed \
     --deepspeed_config ochat/training_deepspeed/deepspeed_config.json
 ```
@@ -316,37 +277,23 @@ We look forward to hearing from you and collaborating on this exciting project!
 }
 ```
 
-## <a id="section4"></a> Legacy Models (V1 and V2)
+## <a id="section4"></a> Legacy Models
 
-The following models are older versions of OpenChat and have inferior performance compared to the latest version. They are licensed under the same terms as the foundation model and will be deprecated in the next release.
-
- - OpenChat series: [LLaMA License](https://github.com/facebookresearch/llama/blob/main/MODEL_CARD.md)
- - OpenCoder series: [BigCode OpenRAIL-M v1](https://huggingface.co/spaces/bigcode/bigcode-model-license-agreement)
+The following models are older versions of OpenChat and have inferior performance compared to the latest version. They will be deprecated in the next release. Please note that OpenChat V1 and V2 series are now deprecated, [please install 3.1.x for using V1 and V2 models](https://github.com/imoneoi/openchat/tree/83a683c775c77867cc45937fafdf48e8dcb68daa)
 
 To run the models on multiple GPUs with smaller VRAM, you can enable tensor parallelization, for example, using the `--tensor-parallel-size 2` flag.
 
 <details>
-  <summary>OpenChat V2 (click to expand)</summary>
+  <summary>OpenChat V3 (click to expand)</summary>
 
-| Model         | Size | Context | Weights                                                                 | Serve                                                                                                      |
-|---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| openchat-v2-w | 13B  | 2K      | [Huggingface](https://huggingface.co/openchat/openchat_v2_w) | `python -m ochat.serving.openai_api_server --model-type openchat_v2 --model openchat/openchat_v2_w --engine-use-ray --worker-use-ray`      |
-| openchat-v2   | 13B  | 2K      | [Huggingface](https://huggingface.co/openchat/openchat_v2)     | `python -m ochat.serving.openai_api_server --model-type openchat_v2 --model openchat/openchat_v2 --engine-use-ray --worker-use-ray`        |
-</details>
-
-<details>
-  <summary>OpenChat V1 (click to expand)</summary>
-
-| Model         | Size | Context | Weights                                                                 | Serve                                                                                                      |
-|---------------|------|---------|-------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| openchat      | 13B  | 2K      | [Huggingface](https://huggingface.co/openchat/openchat)           | `python -m ochat.serving.openai_api_server --model-type openchat --model openchat/openchat --engine-use-ray --worker-use-ray`           |
-| openchat8192  | 13B  | 8K      | [Huggingface](https://huggingface.co/openchat/openchat_8192) | `python -m ochat.serving.openai_api_server --model-type openchat_8192 --model openchat/openchat_8192 --engine-use-ray --worker-use-ray` |
-| opencoderplus | 15B  | 8K      | [Huggingface](https://huggingface.co/openchat/opencoderplus) | `python -m ochat.serving.openai_api_server --model-type opencoder --model openchat/opencoderplus --engine-use-ray --worker-use-ray`     |
-
+| Model        | Size | Context | Weights                                                      | Serving                                                                                                                                                                      |
+|--------------|------|---------|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| OpenChat 3.2 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2) | `python -m ochat.serving.openai_api_server --model-type openchat_v3.2 --model openchat/openchat_v3.2 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120`        |
+| OpenChat 3.1 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.1) | `python -m ochat.serving.openai_api_server --model-type openchat_v3.1_llama2 --model openchat/openchat_v3.1 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120` |
 </details>
 
 ## Acknowledgements
 
-We would like to express our gratitude to GPT Desk Pte. Ltd. and Tsinghua Laboratory of Brain and Intelligence (THBI) for their invaluable support.
+We would like to express our gratitude to GPT Desk Pte. Ltd., 01.AI company, and Tsinghua Laboratory of Brain and Intelligence (THBI) for their invaluable support.
 
 We are also grateful to the developers of the following projects, which have contributed significantly to our research: [Llama 2](https://ai.meta.com/llama/), [self-instruct](https://arxiv.org/abs/2212.10560), [FastChat (Vicuna)](https://github.com/lm-sys/FastChat), [Alpaca](https://github.com/tatsu-lab/stanford_alpaca.git) and [StarCoder](https://github.com/bigcode-project/starcoder).
