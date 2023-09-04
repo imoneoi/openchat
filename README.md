@@ -88,11 +88,9 @@ To ensure consistency, we used the same routine as ChatGPT / GPT-4 to run these 
 | **Model**                        | **Size** | **Context** | **Dataset Size** | **💲Free** | **AlpacaEval (win rate %)** | **MT-bench (win rate adjusted %)** | **MT-bench (score)** |
 |----------------------------------|----------|-------------|------------------|-----------|-----------------------------|------------------------------------|----------------------|
 |                                  |          |             |                  |           | **v.s. text-davinci-003**   | **v.s. ChatGPT**                   |                      |
-| 🔴 *Larger than 13B*              |          |             |                  |           |                             |                                    |                      |
 | GPT-4                            | 1.8T*    | 8K          |                  | ❌         | 95.3                        | 82.5                               | 8.99                 |
 | ChatGPT                          | 175B*    | 4K          |                  | ❌         | 89.4                        | 50.0                               | 7.94                 |
 | Llama-2-70B-Chat                 | 70B      | 4K          | 2.9M             | ✅         | 92.7                        | 60.0                               | 6.86                 |
-| 🔷 *Equal to 13B (Llama-2 based)* |          |             |                  |           |                             |                                    |                      |
 | **OpenChat 3.2 SUPER**           | **13B**  | **4K**      | **80K**          | ✅         | **89.5**                    | **57.5**                           | **7.19**             |
 | Llama-2-13B-Chat                 | 13B      | 4K          | 2.9M             | ✅         | 81.1                        | 55.3                               | 6.65                 |
 | WizardLM 1.2                     | 13B      | 4K          | 196K             | ✅         | 89.2                        | 53.1                               | 7.05                 |
