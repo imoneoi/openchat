@@ -26,11 +26,11 @@ def _split(a, n):
     return [a[i*k+min(i, m): (i+1)*k+min(i+1, m)] for i in range(n)]
 
 
-def conversation_properties(c):
+def conversation_properties(c, gpt3_weight):
     is_gpt4 = c.get("model", "") == "Model: GPT-4"
     return {
         "is_gpt4": is_gpt4,
-        "weight": 1.0 if is_gpt4 else 0.1
+        "weight": 1.0 if is_gpt4 else gpt3_weight
     }
 
 
@@ -68,7 +68,7 @@ def add_single_conv(output, tokens, masks, weights):
 
 
 @ray.remote
-def convert_conversation_batch(model_type: str, model_path: str, batch: list, field_names: list):
+def convert_conversation_batch(model_type: str, model_path: str, batch: list, field_names: list, gpt3_weight: float):
     from ochat.config.model_config import MODEL_CONFIG_MAP
 
     # Tokenization
@@ -85,7 +85,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, fi
     # Generate data
     outputs = {k: [] for k in field_names}
     for c in batch:
-        props = conversation_properties(c)
+        props = conversation_properties(c, gpt3_weight)
         message_list = c["items"]
         for msg in message_list:
             assert msg["from"] in {"human", "gpt"}
@@ -112,7 +112,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, fi
     return outputs
 
 
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, num_cpus: int = os.cpu_count()):
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, gpt3_weight: float, num_cpus: int = os.cpu_count()):
     # schema
     metadata = {
         "model_type": model_type
@@ -138,6 +138,7 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         model_path=model_path,
         batch=batch,
         field_names=schema.names,
+        gpt3_weight=gpt3_weight
     ) for batch in _split(conversations, num_cpus)]
 
     # aggegrate results
@@ -154,7 +155,7 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
     ray.shutdown()
 
 
-def generate_dataset(model_type, model_path, in_files, out_prefix, seed, eval_ratio):
+def generate_dataset(model_type, model_path, in_files, out_prefix, gpt3_weight, seed, eval_ratio):
     # Load conversations
     conversations = []
     for filename in in_files:
@@ -169,9 +170,9 @@ def generate_dataset(model_type, model_path, in_files, out_prefix, seed, eval_ra
     train_conversations = conversations[eval_num:]
     eval_conversations  = conversations[:eval_num]
 
-    generate_split(model_type, model_path, train_conversations, "train", out_prefix)
+    generate_split(model_type, model_path, train_conversations, "train", out_prefix, gpt3_weight)
     if eval_num > 0:
-        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix)
+        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix, gpt3_weight)
 
 
 if __name__ == "__main__":
@@ -181,6 +182,8 @@ if __name__ == "__main__":
 
     parser.add_argument("--in-files", type=str, nargs="+", required=True)
     parser.add_argument("--out-prefix", type=str,required=True)
+
+    parser.add_argument("--gpt3_weight", type=float, default=0.1)
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--eval-ratio", type=float, default=0.0)
