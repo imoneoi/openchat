@@ -12,7 +12,9 @@
 
 OpenChat is a collection of open-source language models, optimized and fine-tuned with a strategy inspired by offline reinforcement learning. We use approximately 80k ShareGPT conversations, a conditioning strategy, and weighted loss to deliver outstanding performance, despite our simple approach. Our ultimate goal is to develop a high-performance, commercially available, open-source large language model, and we are continuously making strides towards this vision.
 
-**🔥 Ranked #1 among 13B open-source models | 89.5% win-rate on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) | 7.19 score on [MT-bench](https://chat.lmsys.org/?leaderboard) | 1.15 score on [AgentBench](https://github.com/THUDM/AgentBench)**
+**🤖 Ranked #1 among all open-source models on [AgentBench](https://github.com/THUDM/AgentBench)**
+
+**🔥 Ranked #1 among 13B open-source models | 89.5% win-rate on [AlpacaEval](https://tatsu-lab.github.io/alpaca_eval/) | 7.19 score on [MT-bench](https://chat.lmsys.org/?leaderboard)**
 
 **🕒 Exceptionally efficient padding-free fine-tuning, only requires 15 hours on 8xA100 80G**
 
@@ -279,7 +281,7 @@ We look forward to hearing from you and collaborating on this exciting project!
 
 ## <a id="section4"></a> Legacy Models
 
-The following models are older versions of OpenChat and have inferior performance compared to the latest version. They will be deprecated in the next release. Please note that OpenChat V1 and V2 series are now deprecated, [please install 3.1.x for using these models](https://github.com/imoneoi/openchat/tree/83a683c775c77867cc45937fafdf48e8dcb68daa)
+The following models are older versions of OpenChat and have inferior performance compared to the latest version. They will be deprecated in the next release. Please note that OpenChat V1 and V2 series are now deprecated, [please install 3.1.x for using V1 and V2 models](https://github.com/imoneoi/openchat/tree/83a683c775c77867cc45937fafdf48e8dcb68daa)
 
 To run the models on multiple GPUs with smaller VRAM, you can enable tensor parallelization, for example, using the `--tensor-parallel-size 2` flag.
 
