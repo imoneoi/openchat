@@ -21,7 +21,7 @@ from ochat.training_deepspeed.parquet_dataset import ParquetDataset
 LOCAL_RANK      = None
 
 PAD_ID          = 0
-IGNORE_LABEL_ID = -100
+IGNORE_LABEL_ID = 0  # For weighted smooth acc loss any ignore token ID is OK
 
 
 def _find_multiple(a, b):
@@ -50,6 +50,8 @@ def parse_args():
     # Hyperparameters
     parser.add_argument("--batch_size_per_gpu", type=int,   default=16)
     parser.add_argument("--epochs",             type=int,   default=5)
+
+    parser.add_argument("--loss_type",          type=str,   default="weighted_cross_entropy")
 
     # Set lr to None to automatically estimate from LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
     parser.add_argument("--lr",                 type=float, default=None)
@@ -274,7 +276,7 @@ def train():
             batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
 
             # Update
-            loss = (1 / all_numseq) * model_engine(**batch).loss
+            loss = (1 / all_numseq) * model_engine(**batch, loss_type=args.loss_type).loss
 
             model_engine.backward(loss)
 
@@ -309,7 +311,7 @@ def train():
                     batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
 
                     # Eval
-                    eval_loss = (1 / all_numseq) * model_engine(**batch).loss
+                    eval_loss = (1 / all_numseq) * model_engine(**batch, loss_type=args.loss_type).loss
                     
                     # Accumulate eval loss
                     eval_total_loss.add_(eval_loss)

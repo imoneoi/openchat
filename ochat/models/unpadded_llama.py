@@ -42,11 +42,43 @@ except ImportError:
 logger = logging.get_logger(__name__)
 
 
+# Loss function collections
 @torch.jit.script
 def weighted_cross_entropy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
     return (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
 
 
+@torch.jit.script
+def weighted_smooth_accuracy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
+    # logits  shape: [N, D]
+    # labels  shape: [N]
+    # weights shape: [N]
+
+    p = torch.softmax(logits, -1)
+    p = torch.gather(p, -1, labels.unsqueeze(-1)).squeeze(-1)
+    return -(weights * p).sum()
+
+
+@torch.jit.script
+def weighted_gold(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor, beta: float = 0.05):
+    ce_loss = torch.nn.functional.cross_entropy(logits, labels, reduction="none")
+
+    with torch.no_grad():
+        p = torch.softmax(logits, -1)
+        p = torch.gather(p, -1, labels.unsqueeze(-1)).squeeze(-1)
+        p = torch.clamp(p, min=beta)
+
+    return (weights * p * ce_loss).sum()
+
+
+LOSS_FUNCTIONS = {
+    "weighted_cross_entropy": weighted_cross_entropy,
+    "weighted_smooth_accuracy": weighted_smooth_accuracy,
+    "weighted_gold": weighted_gold
+}
+
+
+# Helper functions
 @torch.jit.script
 def rms_norm(hidden_states: torch.Tensor, weight: torch.Tensor, variance_epsilon: float):
     input_dtype = hidden_states.dtype
@@ -378,7 +410,9 @@ class LlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
         max_seqlen: torch.Tensor,
         # Unpadded labels
         nz_shifted_label_ids: Optional[torch.Tensor] = None,
-        nz_shifted_loss_weights:      Optional[torch.Tensor] = None
+        nz_shifted_loss_weights:      Optional[torch.Tensor] = None,
+        # Loss type
+        loss_type: Optional[str] = None
     ) -> CausalLMOutputWithPast:
         # Model logits
         hidden_states = self.model(
@@ -391,10 +425,7 @@ class LlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
 
         loss = None
         if nz_shifted_label_ids is not None:
-            if nz_shifted_loss_weights is not None:
-                loss = weighted_cross_entropy(logits, nz_shifted_label_ids, nz_shifted_loss_weights)
-            else:
-                loss = CrossEntropyLoss(reduction="sum")(logits, nz_shifted_label_ids)
+            loss = LOSS_FUNCTIONS[loss_type](logits, nz_shifted_label_ids, nz_shifted_loss_weights)
 
         return CausalLMOutputWithPast(
             loss=loss,

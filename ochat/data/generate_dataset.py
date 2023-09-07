@@ -16,7 +16,7 @@ from pyarrow import parquet
 from ochat.data.unwanted_words import contains_unwanted_words
 
 
-IGNORE_TOKEN_ID = -100
+IGNORE_TOKEN_ID = 0  # For weighted smooth acc loss any ignore token ID is OK
 
 
 def _split(a, n):
