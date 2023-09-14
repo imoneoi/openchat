@@ -108,20 +108,13 @@ We will release the evaluation results as soon as they become available, so stay
 
 ## <a id="installation"></a> Installation
 
-To use OpenChat, you need to install CUDA and PyTorch, then you can install OpenChat via pip:
+To use OpenChat, you need to install PyTorch, then you can install OpenChat via pip:
 
 ```bash
 pip3 install ochat
 ```
 
-If you want to train models, please also install FlashAttention 1.
-
-```bash
-pip3 install packaging ninja
-pip3 install --no-build-isolation "flash-attn<2"
-```
-
-FlashAttention and vLLM may have compatibility issues. If you encounter these problems, you can try to create a new `conda` environment following the instructions below.
+vLLM may have compatibility issues. If you encounter these problems, you can try to create a new `conda` environment following the instructions below.
 
 ```bash
 conda create -y --name openchat
@@ -130,9 +123,6 @@ conda activate openchat
 conda install -y python
 conda install -y cudatoolkit-dev -c conda-forge
 pip3 install torch torchvision torchaudio
-
-pip3 install packaging ninja
-pip3 install --no-build-isolation "flash-attn<2"
 
 pip3 install ochat
 ```
