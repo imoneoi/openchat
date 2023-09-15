@@ -275,16 +275,16 @@ def train():
         model_engine.train()
 
         train_loader.set_epoch(epoch)
-        for (batch, batch_info), all_numseq, cur_numseq in train_loader:
+        for (batch_tensor, batch_info), all_numseq, cur_numseq in train_loader:
             step += 1
             if step > train_total_steps:  # At most train_total_steps
                 break
 
             # To device
-            batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
+            batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
 
             # Update
-            loss = (1 / all_numseq) * model_engine(**batch, **batch_info).loss
+            loss = (1 / all_numseq) * model_engine(**batch_tensor, **batch_info).loss
 
             model_engine.backward(loss)
 
@@ -314,12 +314,12 @@ def train():
 
             eval_loader.set_epoch(epoch)
             with torch.inference_mode():
-                for (batch, batch_info), all_numseq, cur_numseq in eval_loader:
+                for (batch_tensor, batch_info), all_numseq, cur_numseq in eval_loader:
                     # To device
-                    batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
+                    batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
 
                     # Eval
-                    eval_loss = (1 / all_numseq) * model_engine(**batch, **batch_info).loss
+                    eval_loss = (1 / all_numseq) * model_engine(**batch_tensor, **batch_info).loss
                     
                     # Accumulate eval loss
                     eval_total_loss.add_(eval_loss)
