@@ -1,6 +1,7 @@
 import argparse
 import os
 import math
+import json
 from functools import partial
 
 import torch
@@ -41,7 +42,6 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, required=True)
 
     # Model type and data
-    parser.add_argument("--model_type", type=str, required=True)
     parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--data_path",  type=str, required=True)
     parser.add_argument("--save_path",  type=str, required=True)
@@ -77,6 +77,7 @@ def create_dataset(args, split_name):
         _rank0_print (f"Skipping loading {split_name}")
         return None
 
+    _rank0_print(f"Loading {split_name} data from {filename}...")
     return ParquetDataset(filename)
 
 
@@ -111,20 +112,18 @@ def batch_to_tensor(batch, int_dtype=torch.long, loss_dtype=torch.bfloat16):
         batch_tensor[k] = torch.from_numpy(np.concatenate(batch.column(k).to_numpy())).to(dtype)
 
     # cu seqlens
-    batch_tensor["max_seqlen"] = torch.max(batch_tensor["seqlens"])
     batch_tensor["cu_seqlens"] = torch.nn.functional.pad(batch_tensor["seqlens"].cumsum(-1, dtype=torch.int32), (1, 0))
 
-    del batch_tensor["seqlens"]
+    # batch info
+    batch_info = {"max_seqlen": torch.max(batch_tensor["seqlens"]).item()}
 
     # inputs
-    return batch_tensor
+    del batch_tensor["seqlens"]
+
+    return batch_tensor, batch_info
 
 
 def create_distributed_dataloader(args, data):
-    # Check data
-    assert data.metadata["model_type"] == args.model_type, \
-        f"The dataset is for {data.metadata['model_type']}, but you specified {args.model_type} for training."
-
     # Multipack dataloader
     args.batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
 
@@ -142,6 +141,8 @@ def create_distributed_dataloader(args, data):
 
 def create_model(args):
     global LOCAL_RANK
+
+    _rank0_print(f"Loading model {args.model_type} from {args.model_path}...")
 
     # Create model + optimizer + lr scheduler
     model = MODEL_CONFIG_MAP[args.model_type].model_create(args.model_path)
@@ -198,6 +199,14 @@ def save_tokenizer(args, save_path):
     tokenizer.save_pretrained(save_path)
 
 
+def save_openchat_metadata(args, epoch, save_path):
+    metadata = vars(args)
+    metadata["epoch"] = epoch
+
+    with open(os.path.join(save_path, "openchat.json"), "w") as f:
+        json.dump(metadata, f, default=lambda o: "<non-serializable>")
+
+
 def calculate_auto_lr(lr, batch_max_len, train_dataset):
     if lr is not None:
         return lr
@@ -227,9 +236,11 @@ def train():
     LOCAL_RANK = args.local_rank
 
     # Dataset
-    _rank0_print("Loading data...")
     train_dataset = create_dataset(args, "train")
     eval_dataset  = create_dataset(args, "eval")
+
+    # Load model type
+    args.model_type = train_dataset.metadata["model_type"]
 
     # Data Loader
     train_loader      = create_distributed_dataloader(args, train_dataset)
@@ -243,7 +254,6 @@ def train():
     args.lr = calculate_auto_lr(args.lr, args.batch_max_len, train_dataset)
 
     # Model
-    _rank0_print("Loading model...")
     model_engine, optimizer = create_model(args)
 
     # LR Scheduler
@@ -265,16 +275,16 @@ def train():
         model_engine.train()
 
         train_loader.set_epoch(epoch)
-        for batch, all_numseq, cur_numseq in train_loader:
+        for (batch_tensor, batch_info), all_numseq, cur_numseq in train_loader:
             step += 1
             if step > train_total_steps:  # At most train_total_steps
                 break
 
             # To device
-            batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
+            batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
 
             # Update
-            loss = (1 / all_numseq) * model_engine(**batch).loss
+            loss = (1 / all_numseq) * model_engine(**batch_tensor, **batch_info).loss
 
             model_engine.backward(loss)
 
@@ -304,12 +314,12 @@ def train():
 
             eval_loader.set_epoch(epoch)
             with torch.inference_mode():
-                for batch, all_numseq, cur_numseq in eval_loader:
+                for (batch_tensor, batch_info), all_numseq, cur_numseq in eval_loader:
                     # To device
-                    batch = {k: (v.to(args.device) if v is not None else None) for k, v in batch.items()}
+                    batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
 
                     # Eval
-                    eval_loss = (1 / all_numseq) * model_engine(**batch).loss
+                    eval_loss = (1 / all_numseq) * model_engine(**batch_tensor, **batch_info).loss
                     
                     # Accumulate eval loss
                     eval_total_loss.add_(eval_loss)
@@ -336,6 +346,9 @@ def train():
 
                 # Also save tokenizer from base model
                 save_tokenizer(args, save_path)
+
+                # Write metadata
+                save_openchat_metadata(args, epoch, save_path)
 
 
 if __name__ == "__main__":
