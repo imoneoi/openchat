@@ -10,6 +10,14 @@ import json
 import numpy as np
 
 
+def subsample_mask(seed: int, n: int, p: float):
+    mask = np.zeros((len(filtered_samples), ), np.bool_)
+    perm = np.random.default_rng(seed=seed).permutation(n)
+
+    mask[perm[:round(n * p)]] = True
+    return mask
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--in-file", type=str, required=True)
@@ -37,7 +45,7 @@ if __name__ == "__main__":
 
     # Subsampling
     if args.subsample < 1.0:
-        keep = np.random.default_rng(seed=args.subsample_seed).random(len(filtered_samples)) < args.subsample
+        keep = subsample_mask(args.subsample_seed, len(filtered_samples), args.subsample)
         filtered_samples = [s for s, k in zip(filtered_samples, keep) if k]
 
         # Print
