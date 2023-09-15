@@ -29,6 +29,8 @@ from vllm.utils import random_uuid
 from ochat.config.model_config import MODEL_CONFIG_MAP
 from ochat.serving import openai_api_protocol, async_tokenizer
 
+from transformers.utils.hub import cached_file
+
 
 TIMEOUT_KEEP_ALIVE = 5  # seconds
 
@@ -37,7 +39,6 @@ TIMEOUT_KEEP_ALIVE = 5  # seconds
 class ModelConfig:
     name: str = None
 
-    eot_token: str = None
     max_length: int = None
     stream_period: int = None
 
@@ -65,7 +66,7 @@ async def validation_exception_handler(request, exc):  # pylint: disable=unused-
 
 async def check_api_key(
     auth: Optional[HTTPAuthorizationCredentials] = fastapi.Depends(HTTPBearer(auto_error=False)),
-) -> str:
+):
     if not model.api_keys:
         return
 
@@ -287,8 +288,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OpenChat OpenAI-Compatible RESTful API server.")
 
     # Model
-    parser.add_argument("--model-type", type=str, required=True, help="Type of model")
-
     parser.add_argument("--stream-period", type=int, default=6, help="Number of tokens per stream event")
     parser.add_argument("--api-keys", type=str, nargs="*", default=[], help="Allowed API Keys. Leave blank to not verify")
 
@@ -327,21 +326,27 @@ if __name__ == "__main__":
             backupCount=args.log_max_count)
         )
 
-    # Load model
-    engine_args = AsyncEngineArgs.from_cli_args(args)
-    engine = AsyncLLMEngine.from_engine_args(engine_args)
-    engine_model_config = asyncio.run(engine.get_model_config())
+    # Load model type
+    with open(cached_file(path_or_repo_id=args.model, filename="openchat.json"), "r") as f:
+        model_type = json.load(f)["model_type"]
 
     # Load tokenizer
-    tokenizer = async_tokenizer.AsyncTokenizer.remote(args.model_type, args.model)
+    tokenizer = async_tokenizer.AsyncTokenizer.remote(model_type, args.model)
 
     # Model config
-    model.name = args.model_type
-    model.eot_token = MODEL_CONFIG_MAP[args.model_type].eot_token
-    model.max_length = MODEL_CONFIG_MAP[args.model_type].model_max_context
+    model.name = model_type
+    model.max_length = MODEL_CONFIG_MAP[model_type].model_max_context
 
     model.stream_period = args.stream_period
     model.api_keys = args.api_keys
+
+    # Set max num batched tokens
+    args.max_num_batched_tokens = max(args.max_num_batched_tokens, model.max_length)
+
+    # Load model engine
+    engine_args = AsyncEngineArgs.from_cli_args(args)
+    engine = AsyncLLMEngine.from_engine_args(engine_args)
+    engine_model_config = asyncio.run(engine.get_model_config())
 
     # Run
     uvicorn.run(app,

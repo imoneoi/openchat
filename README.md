@@ -58,9 +58,9 @@ curl http://localhost:18888/v1/chat/completions \
 
 </details>
 
-| Model        | Size | Context | Weights                                                      | Serving                                                                                                                                                                      |
-|--------------|------|---------|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.2 SUPER | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model-type openchat_v3.2 --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120`        |
+| Model              | Size | Context | Weights                                                            | Serving                                                                                                            |
+|--------------------|------|---------|--------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| OpenChat 3.2 SUPER | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray` |
 
 For inference with Huggingface Transformers (slow and not recommended), follow the conversation template provided below:
 
@@ -276,10 +276,11 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 <details>
   <summary>OpenChat V3 (click to expand)</summary>
 
-| Model        | Size | Context | Weights                                                      | Serving                                                                                                                                                                      |
-|--------------|------|---------|--------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.2 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2) | `python -m ochat.serving.openai_api_server --model-type openchat_v3.2 --model openchat/openchat_v3.2 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120`        |
-| OpenChat 3.1 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.1) | `python -m ochat.serving.openai_api_server --model-type openchat_v3.1_llama2 --model openchat/openchat_v3.1 --engine-use-ray --worker-use-ray --max-num-batched-tokens 5120` |
+| Model        | Size | Context | Weights                                                      | Serving                                                                                                      |
+|--------------|------|---------|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| OpenChat 3.2 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2 --engine-use-ray --worker-use-ray` |
+| OpenChat 3.1 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.1) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.1 --engine-use-ray --worker-use-ray` |
+
 </details>
 
 ## Acknowledgements

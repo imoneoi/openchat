@@ -166,7 +166,7 @@ class UnpaddedLlamaAttention(nn.Module):
         nz_hidden_states: torch.Tensor,
         nz_position_ids: torch.LongTensor,
         cu_seqlens: torch.Tensor,
-        max_seqlen: torch.Tensor
+        max_seqlen: int
     ) -> torch.Tensor:
         # nz_hidden_states: [nnz, num_heads, head_dim]
         # nz_position_ids:  [nnz]
@@ -213,7 +213,7 @@ class UnpaddedLlamaDecoderLayer(nn.Module):
         nz_hidden_states: torch.Tensor,
         nz_position_ids: torch.Tensor,
         cu_seqlens: torch.Tensor,
-        max_seqlen: torch.Tensor
+        max_seqlen: int
     ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
         # Self Attention
         residual = nz_hidden_states
@@ -298,7 +298,7 @@ class UnpaddedLlamaModel(UnpaddedLlamaPreTrainedModel):
         nz_input_ids: torch.Tensor,
         nz_position_ids: torch.Tensor,
         cu_seqlens: torch.Tensor,
-        max_seqlen: torch.Tensor,
+        max_seqlen: int,
     ) -> torch.Tensor:
         nz_hidden_states = self.embed_tokens(nz_input_ids)
         cos_sin          = self.rotary_emb()
@@ -375,7 +375,7 @@ class LlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
         nz_input_ids: torch.Tensor,
         nz_position_ids: torch.Tensor,
         cu_seqlens: torch.Tensor,
-        max_seqlen: torch.Tensor,
+        max_seqlen: int,
         # Unpadded labels
         nz_shifted_label_ids: Optional[torch.Tensor] = None,
         nz_shifted_loss_weights:      Optional[torch.Tensor] = None

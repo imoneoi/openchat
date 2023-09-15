@@ -131,7 +131,7 @@ def _v3_condition(props):
 MODEL_CONFIG_MAP = {
     # OpenChat V3.2
     "openchat_v3.2": ModelConfig(
-        name="OpenChat V3.2",
+        name="OpenChat V3.2 Llama 2",
 
         # Prompt
         role_prefix=_v3_2_conditional_prefix,
@@ -174,8 +174,8 @@ MODEL_CONFIG_MAP = {
     ),
 
     # OpenChat V2
-    "openchat_v2": ModelConfig(
-        name="OpenChat_v2",
+    "openchat_v2_llama2": ModelConfig(
+        name="OpenChat V2 Llama 2",
 
         # Prompt
         role_prefix=_v2_conditional_prefix,
@@ -184,7 +184,7 @@ MODEL_CONFIG_MAP = {
         bos_token="<s>",
 
         # Tokenize
-        model_max_context=2048,
+        model_max_context=4096,
         model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
                              low_cpu_mem_usage=True,
                              torch_dtype=torch.bfloat16),
@@ -195,7 +195,7 @@ MODEL_CONFIG_MAP = {
 
     # OpenChat
     "openchat_llama2": ModelConfig(
-        name="OpenChat Llama 2",
+        name="OpenChat V1 Llama 2",
 
         # Prompt
         role_prefix={
