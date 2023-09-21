@@ -1,4 +1,4 @@
-# OpenChat: Advancing Open-source Language Models with Imperfect Data</h1>
+# OpenChat: Advancing Open-source Language Models with Mixed-Quality Data</h1>
 
 <div align="center">
   <img src="assets/logo_new.png" style="width: 65%">
