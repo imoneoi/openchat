@@ -8,9 +8,10 @@
   <a href="https://openchat.team">Online Demo</a> •
   <a href="https://discord.gg/pQjnXvNKHY">Discord</a> •
   <a href="https://huggingface.co/openchat">Huggingface</a>
+  <a href="https://arxiv.org/pdf/2309.11235.pdf">Paper</a>
 </p>
 
-OpenChat is a collection of open-source language models, optimized and fine-tuned with a strategy inspired by offline reinforcement learning. We use approximately 80k ShareGPT conversations, a conditioning strategy, and weighted loss to deliver outstanding performance, despite our simple approach. Our ultimate goal is to develop a high-performance, commercially available, open-source large language model, and we are continuously making strides towards this vision.
+OpenChat is a collection of open-source language models, optimized and fine-tuned with a strategy inspired by offline reinforcement learning. We use approximately 80k ShareGPT conversations, a conditioning strategy, and weighted loss to deliver outstanding performance, despite our simple approach. Our ultimate goal is to develop a high-performance, commercially available, open-source large language model, and we are continuously making strides toward this vision.
 
 **🤖 Ranked #1 among all open-source models on [AgentBench](https://github.com/THUDM/AgentBench)**
 
@@ -23,6 +24,8 @@ OpenChat is a collection of open-source language models, optimized and fine-tune
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
 ## News
+
+- [2023/09/21] We released our paper [OpenChat: Advancing Open-source Language Models with Mixed-Quality Data](https://arxiv.org/pdf/2309.11235.pdf).
 
 - [2023/09/03] We released the [OpenChat V3.2 SUPER](#models) model.
 
