@@ -259,6 +259,15 @@ We look forward to hearing from you and collaborating on this exciting project!
 ## Citation
 
 ```
+@misc{wang2023openchat,
+      title={OpenChat: Advancing Open-source Language Models with Mixed-Quality Data}, 
+      author={Guan Wang and Sijie Cheng and Xianyuan Zhan and Xiangang Li and Sen Song and Yang Liu},
+      year={2023},
+      eprint={2309.11235},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+}
+
 @software{openchat,
   title = {{OpenChat: Advancing Open-source Language Models with Imperfect Data}},
   author = {Wang, Guan and Cheng, Sijie and Yu, Qiying and Liu, Changling},
