@@ -21,8 +21,8 @@ class ModelConfig:
 
     # Model
     model_max_context: Optional[int] = None
-    model_create: Optional[Callable] = None
     model_tokenizer_create: Optional[Callable] = None
+    model_create_for_training: Optional[Callable] = None
 
     # Get template
     def generate_conversation_template(self, tokenize_fn, tokenize_special_fn, system_prompt, message_list, message_props=None):
@@ -129,6 +129,7 @@ def _v3_condition(props):
 
 
 MODEL_CONFIG_MAP = {
+    ################# Llama 2 based models
     # OpenChat V3.2
     "openchat_v3.2": ModelConfig(
         name="OpenChat V3.2 Llama 2",
@@ -141,12 +142,12 @@ MODEL_CONFIG_MAP = {
 
         # Tokenize
         model_max_context=4096,
-        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
-                             low_cpu_mem_usage=True,
-                             torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
                                        legacy=True),
+        model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
     ),
 
     "openchat_v3.1_llama2": ModelConfig(
@@ -165,12 +166,12 @@ MODEL_CONFIG_MAP = {
 
         # Tokenize
         model_max_context=4096,
-        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
-                             low_cpu_mem_usage=True,
-                             torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
                                        legacy=True),
+        model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
     ),
 
     # OpenChat V2
@@ -185,12 +186,12 @@ MODEL_CONFIG_MAP = {
 
         # Tokenize
         model_max_context=4096,
-        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
-                             low_cpu_mem_usage=True,
-                             torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
                                        legacy=True),
+        model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
     ),
 
     # OpenChat
@@ -208,11 +209,11 @@ MODEL_CONFIG_MAP = {
 
         # Tokenize
         model_max_context=4096,
-        model_create=partial(ochat.models.LlamaForCausalLM.from_pretrained,
-                             low_cpu_mem_usage=True,
-                             torch_dtype=torch.bfloat16),
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
                                        use_fast=False,
                                        legacy=True),
+        model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
     )
 }
