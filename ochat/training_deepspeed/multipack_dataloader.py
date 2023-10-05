@@ -77,7 +77,7 @@ def allocate(lengths: np.ndarray, numseqs: np.ndarray, lengths_cumsum: np.ndarra
                 r = m
 
         # use length l
-        batch = ffd_with_result(lengths[start_index: start_index + l], c, start_index)
+        batch = ffd_with_result(lengths[start_index: start_index + l], c, start_index)  # type: ignore
         if len(batch) < n:
             break
 

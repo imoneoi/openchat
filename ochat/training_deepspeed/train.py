@@ -239,6 +239,9 @@ def train():
     train_dataset = create_dataset(args, "train")
     eval_dataset  = create_dataset(args, "eval")
 
+    if train_dataset is None:
+        raise RuntimeError("Training data not found.")
+
     # Load model type
     args.model_type = train_dataset.metadata["model_type"]
 
@@ -268,6 +271,7 @@ def train():
 
     # Training Loop
     step = 0
+    lr_this_step = None
     for epoch in range(args.epochs):
         _rank0_print(f"Epoch {epoch}")
 
@@ -299,13 +303,13 @@ def train():
             model_engine.step()
 
             # Logging
-            if (LOCAL_RANK == 0) and model_engine.is_gradient_accumulation_boundary():
+            if LOCAL_RANK == 0:
                 wandb.log({
                     "train/loss": loss.item() * (all_numseq / cur_numseq),
                     "train/acc":  acc.item()  * (all_numseq / cur_numseq),
                     "train/lr": lr_this_step
                 }, step=step)
-                progress_bar.update()
+                progress_bar.update()  # type: ignore
 
         # Log batch efficiency
         if LOCAL_RANK == 0:
@@ -349,7 +353,7 @@ def train():
                 save_path = os.path.join(args.save_path, f"ep_{epoch}")
 
                 model_engine.module.save_pretrained(save_path,
-                                                    state_dict=deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict()))
+                                                    state_dict=deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict()))  # type: ignore
 
                 # Also save tokenizer from base model
                 save_tokenizer(args, save_path)

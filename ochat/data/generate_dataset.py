@@ -4,6 +4,7 @@ Generate training data based on conversations
 Usage: python -m ochat.data.generate_data --in-file sharegpt_gpt4.jsonl --tokenizer-name HF_REPO_NAME --out-dir .
 """
 
+from typing import Optional
 import argparse
 import os
 import random
@@ -96,7 +97,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
     return pyarrow.Table.from_pydict(outputs, schema=schema)
 
 
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, num_cpus: int = os.cpu_count()):
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, num_cpus: Optional[int] = os.cpu_count()):
     # schema
     metadata = {
         "model_type": model_type
@@ -118,7 +119,7 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
     ray.init(num_cpus=num_cpus)
 
     handles = [convert_conversation_batch.remote(
-        model_type=model_type,
+        model_type=model_type,  # type: ignore
         model_path=model_path,
         batch=batch,
         schema=schema

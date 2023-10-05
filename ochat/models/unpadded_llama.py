@@ -41,17 +41,17 @@ except ImportError:
 logger = logging.get_logger(__name__)
 
 
-@torch.jit.script
+@torch.jit.script  # type: ignore
 def weighted_token_accuracy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
     return (weights * (torch.argmax(logits, dim=-1) == labels)).sum()
 
 
-@torch.jit.script
+@torch.jit.script  # type: ignore
 def weighted_cross_entropy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
     return (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
 
 
-@torch.jit.script
+@torch.jit.script  # type: ignore
 def rms_norm(hidden_states: torch.Tensor, weight: torch.Tensor, variance_epsilon: float):
     input_dtype = hidden_states.dtype
     hidden_states = hidden_states.to(torch.float32)
@@ -180,7 +180,7 @@ class UnpaddedLlamaAttention(nn.Module):
             dropout_p=0.0, causal=True)
 
         # attn_output: [total_nnz, num_heads, head_dim]
-        attn_output = attn_output.view(-1, self.hidden_size)
+        attn_output = attn_output.view(-1, self.hidden_size)  # type: ignore
         return self.o_proj(attn_output)
 
 
@@ -383,11 +383,13 @@ class LlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
 
         loss = None
         if nz_shifted_label_ids is not None:
+            assert nz_shifted_loss_weights is not None
+
             loss = weighted_cross_entropy(logits, nz_shifted_label_ids, nz_shifted_loss_weights), \
                    weighted_token_accuracy(logits.detach(), nz_shifted_label_ids, nz_shifted_loss_weights)
 
         return CausalLMOutputWithPast(
-            loss=loss,
+            loss=loss,  # type: ignore
             logits=logits
         )
 
@@ -413,7 +415,7 @@ class PaddedLlamaForCausalLM(LlamaForCausalLM):
         # get indices
         seqlens_in_batch = attention_mask.sum(dim=-1, dtype=torch.int32)
         indices = torch.nonzero(attention_mask.flatten(), as_tuple=False).flatten()
-        max_seqlen_in_batch = seqlens_in_batch.max().item()
+        max_seqlen_in_batch = int(seqlens_in_batch.max().item())
         cu_seqlens = torch.nn.functional.pad(torch.cumsum(seqlens_in_batch, dim=0, dtype=torch.int32), (1, 0))
 
         # Unpad inputs
@@ -431,7 +433,7 @@ class PaddedLlamaForCausalLM(LlamaForCausalLM):
         # Pad logits
         logits = pad_input(logits, indices, batch_size, seq_len)
 
-        return CausalLMOutputWithPast(logits=logits)
+        return CausalLMOutputWithPast(logits=logits)  # type: ignore
 
     def prepare_inputs_for_generation(self,
                                       input_ids: torch.Tensor,
