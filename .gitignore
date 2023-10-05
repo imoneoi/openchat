@@ -6,6 +6,8 @@ wandb/
 
 # Old
 old/
+temp/
+profiler/
 
 # Logs
 logs/

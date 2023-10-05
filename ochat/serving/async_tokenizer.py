@@ -1,39 +1,33 @@
 import ray
 
+from ochat.config import Message, Conversation
+
 
 @ray.remote
 class AsyncTokenizer:
     def __init__(self, model_type: str, model_path: str) -> None:
-        from ochat.config.model_config import MODEL_CONFIG_MAP
+        from ochat.config import MODEL_CONFIG_MAP
 
-        self.config = MODEL_CONFIG_MAP[model_type]
-        self.role_map = {
-            "user": "human",
-            "assistant": self.config.ai_role
-        }
+        config = MODEL_CONFIG_MAP[model_type]
+        tokenizer = config.model_tokenizer_create(model_path)
 
-        self.tokenizer = self.config.model_tokenizer_create(model_path)
-
-    def _tokenize(self, text):
-        return self.tokenizer.convert_tokens_to_ids(self.tokenizer._tokenize(text))
-
-    def _tokenize_special(self, special_name):
-        return self.tokenizer.convert_tokens_to_ids(special_name)
+        self.conv_template = config.conversation_template(tokenizer=tokenizer)
 
     def tokenize(self, messages):
-        # get conversation
-        conversation = []
-        for message in messages:
-            msg_role, msg_text = message["role"], message["content"]
-            if msg_role == "system":
-                # FIXME: Ignoring system prompt.
-                continue
+        # get system messages
+        system_message = ""
+        items = []
 
-            conversation.append({"from": self.role_map[msg_role], "value": msg_text})
+        for msg_raw in messages:
+            msg = Message(**msg_raw)
+            if msg.role == "system":
+                system_message = msg.value
+            else:
+                items.append(msg)
 
         # append ai role
-        if not (len(conversation) and conversation[-1]["from"] == self.config.ai_role):
-            conversation.append({"from": self.config.ai_role})
+        if not (len(items) and items[-1].role != "assistant"):
+            items.append(Message(role="assistant", value=""))
 
-        input_ids, _, _ = self.config.generate_conversation_template(self._tokenize, self._tokenize_special, system_prompt="", message_list=conversation)
-        return input_ids
+        tokens, _ = self.conv_template.tokenize_conversations(Conversation(items=items, system=system_message), inference=True)
+        return tokens

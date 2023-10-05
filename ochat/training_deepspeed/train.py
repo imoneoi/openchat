@@ -12,17 +12,23 @@ import deepspeed
 import tqdm
 import wandb
 import numpy as np
-import pyarrow
 
-from ochat.config.model_config import MODEL_CONFIG_MAP
+from ochat.config import MODEL_CONFIG_MAP
 from ochat.training_deepspeed.multipack_dataloader import MultipackDistributedDataloader
-from ochat.training_deepspeed.parquet_dataset import ParquetDataset
+from ochat.training_deepspeed.numpy_dataset import NumpyDataset
 
 
-LOCAL_RANK      = None
+LOCAL_RANK = None
 
-PAD_ID          = 0
-IGNORE_LABEL_ID = -100
+PAD_ID     = 0
+BATCH_KEYS = {
+    "seqlens": torch.long,
+    "nz_input_ids": torch.long,
+    "nz_position_ids": torch.long,
+    "nz_shifted_label_ids": torch.long,
+
+    "nz_shifted_loss_weights": torch.bfloat16
+}
 
 
 def _find_multiple(a, b):
@@ -43,12 +49,12 @@ def parse_args():
 
     # Model type and data
     parser.add_argument("--model_path", type=str, required=True)
-    parser.add_argument("--data_path",  type=str, required=True)
+    parser.add_argument("--data_prefix", type=str, required=True)
     parser.add_argument("--save_path",  type=str, required=True)
     parser.add_argument("--save_every", type=int, default=None)
 
     # Hyperparameters
-    parser.add_argument("--batch_size_per_gpu", type=int,   default=16)
+    parser.add_argument("--batch_size_per_gpu", type=int,   default=8)
     parser.add_argument("--epochs",             type=int,   default=5)
 
     # Set lr to None to automatically estimate from LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
@@ -72,54 +78,50 @@ def parse_args():
 
 def create_dataset(args, split_name):
     # Load data
-    filename = f"{args.data_path}.{split_name}.parquet"
+    filename = f"{args.data_prefix}.{split_name}.parquet"
     if not os.path.isfile(filename):
         _rank0_print (f"Skipping loading {split_name}")
         return None
 
     _rank0_print(f"Loading {split_name} data from {filename}...")
-    return ParquetDataset(filename)
+    return NumpyDataset(filename)
 
 
-def batch_to_tensor(batch, int_dtype=torch.long, loss_dtype=torch.bfloat16):
+def batch_to_tensor(batch):
+    # Concat batches
+    batch = {k: np.concatenate(batch[k], axis=0) for k in BATCH_KEYS.keys()}
+
     # Pad an unused item to reach multiple of 64, for faster GEMM
-    total_seqlen = pyarrow.compute.sum(batch.column("total_length")).as_py()
+    total_seqlen = batch["nz_input_ids"].size
     pad_len      = _find_multiple(total_seqlen, 64) - total_seqlen
 
     if pad_len > 0:
         assert pad_len < 64
 
         # total length
-        batch = pyarrow.concat_tables((batch, pyarrow.Table.from_pydict({
-            "total_length": [pad_len],
-            "num_seqs": [0],
+        padding_specs = {
+            "seqlens": (1, pad_len),
 
-            "seqlens": [[pad_len]],
-            "nz_input_ids": [[PAD_ID] * pad_len],
-            "nz_position_ids": [[0] * pad_len],
-            "nz_shifted_label_ids": [[IGNORE_LABEL_ID] * pad_len],
-            "nz_shifted_loss_weights": [[0.0] * pad_len],
-        }, schema=batch.schema)))
+            "nz_input_ids": (pad_len, PAD_ID),
+            "nz_position_ids": (pad_len, 0),
+            "nz_shifted_label_ids": (pad_len, PAD_ID),
+            "nz_shifted_loss_weights": (pad_len, 0),
+        }
+        for k, pad_spec in padding_specs.items():
+            batch[k] = np.concatenate((batch[k], np.full(*pad_spec, dtype=batch[k].dtype)), axis=0)
 
-    # concatenate
+    # to tensor
     batch_tensor = {}
-    keys = {
-        "seqlens": int_dtype, "nz_input_ids": int_dtype, "nz_position_ids": int_dtype, "nz_shifted_label_ids": int_dtype,
-        "nz_shifted_loss_weights": loss_dtype
-    }
-
-    for k, dtype in keys.items():
-        batch_tensor[k] = torch.from_numpy(np.concatenate(batch.column(k).to_numpy())).to(dtype)
+    for k, dtype in BATCH_KEYS.items():
+        batch_tensor[k] = torch.from_numpy(batch[k]).to(dtype)
 
     # cu seqlens
     batch_tensor["cu_seqlens"] = torch.nn.functional.pad(batch_tensor["seqlens"].cumsum(-1, dtype=torch.int32), (1, 0))
-
     # batch info
     batch_info = {"max_seqlen": torch.max(batch_tensor["seqlens"]).item()}
 
     # inputs
     del batch_tensor["seqlens"]
-
     return batch_tensor, batch_info
 
 
@@ -194,9 +196,7 @@ def create_lr_scheduler(args, train_total_steps):
 
 
 def save_tokenizer(args, save_path):
-    tokenizer = transformers.AutoTokenizer.from_pretrained(args.model_path, use_fast=False)
-    tokenizer.eos_token = MODEL_CONFIG_MAP[args.model_type].eot_token
-    tokenizer.save_pretrained(save_path)
+    transformers.PreTrainedTokenizerFast.from_pretrained(args.model_path).save_pretrained(save_path)
 
 
 def save_openchat_metadata(args, epoch, save_path):
@@ -216,8 +216,8 @@ def calculate_auto_lr(lr, batch_max_len, train_dataset):
     base_lr = 3e-4
     base_bs = 4_000_000
 
-    label_ids = np.concatenate(train_dataset["nz_shifted_label_ids"])
-    supervised_ratio = np.sum(label_ids != IGNORE_LABEL_ID) / len(label_ids)
+    loss_weights = np.concatenate(train_dataset["nz_shifted_loss_weights"])
+    supervised_ratio = np.sum(loss_weights != 0) / len(loss_weights)
 
     supervised_tokens = batch_max_len * torch.distributed.get_world_size() * supervised_ratio
     lr = base_lr * math.sqrt(supervised_tokens / base_bs)
@@ -284,7 +284,9 @@ def train():
             batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
 
             # Update
-            loss = (1 / all_numseq) * model_engine(**batch_tensor, **batch_info).loss
+            loss, acc = model_engine(**batch_tensor, **batch_info).loss
+            loss = (1 / all_numseq) * loss
+            acc  = (1 / all_numseq) * acc
 
             model_engine.backward(loss)
 
@@ -294,12 +296,16 @@ def train():
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = lr_this_step
 
-                # Log
-                if LOCAL_RANK == 0:
-                    wandb.log({"loss": loss.item() * (all_numseq / cur_numseq), "lr": lr_this_step}, step=step)
-                    progress_bar.update()
-
             model_engine.step()
+
+            # Logging
+            if (LOCAL_RANK == 0) and model_engine.is_gradient_accumulation_boundary():
+                wandb.log({
+                    "train/loss": loss.item() * (all_numseq / cur_numseq),
+                    "train/acc":  acc.item()  * (all_numseq / cur_numseq),
+                    "train/lr": lr_this_step
+                }, step=step)
+                progress_bar.update()
 
         # Log batch efficiency
         if LOCAL_RANK == 0:
@@ -309,7 +315,7 @@ def train():
         if eval_loader is not None:
             model_engine.eval()
 
-            eval_total_loss = torch.zeros((), dtype=torch.float32, device=args.device)
+            eval_total_metric = torch.zeros((), dtype=torch.float32, device=args.device)
             eval_total_steps = 0
 
             eval_loader.set_epoch(epoch)
@@ -319,18 +325,19 @@ def train():
                     batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
 
                     # Eval
-                    eval_loss = (1 / all_numseq) * model_engine(**batch_tensor, **batch_info).loss
+                    eval_loss, eval_acc = model_engine(**batch_tensor, **batch_info).loss
                     
                     # Accumulate eval loss
-                    eval_total_loss.add_(eval_loss)
+                    eval_total_metric.add_((1 / all_numseq) * torch.stack([eval_loss, eval_acc]))
                     eval_total_steps += 1
 
             # Gather eval loss (reduce sum)
-            eval_total_loss.div_(eval_total_steps)
-            torch.distributed.reduce(eval_total_loss, 0)
+            eval_total_metric.div_(eval_total_steps)
+            torch.distributed.reduce(eval_total_metric, 0)
 
             if LOCAL_RANK == 0:
-                wandb.log({"eval_loss": eval_total_loss.item()}, step=step)
+                eval_loss, eval_acc = eval_total_metric.cpu().numpy()
+                wandb.log({"eval/loss": eval_loss, "eval/acc": eval_acc}, step=step)
 
         ############ Save Checkpoint
         # Save model with lean state dict
