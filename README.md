@@ -11,7 +11,7 @@
   <a href="https://arxiv.org/pdf/2309.11235.pdf">Paper</a>
 </p>
 
-OpenChat is a collection of open-source language models, optimized and fine-tuned with a strategy inspired by offline reinforcement learning. We use approximately 80k ShareGPT conversations, a conditioning strategy, and weighted loss to deliver outstanding performance, despite our simple approach. Our ultimate goal is to develop a high-performance, commercially available, open-source large language model, and we are continuously making strides toward this vision.
+OpenChat is a collection of open-source language models, optimized and fine-tuned with [C-RLFT](https://arxiv.org/pdf/2309.11235.pdf), a strategy inspired by offline reinforcement learning, to learn from mixed-quality data without preference labels. We use approximately 80k ShareGPT conversations to deliver outstanding performance, despite our simple approach. Our ultimate goal is to develop a high-performance, commercially available, open-source large language model, and we are continuously making strides toward this vision.
 
 **🤖 Ranked #1 among all open-source models on [AgentBench](https://github.com/THUDM/AgentBench)**
 
@@ -39,7 +39,7 @@ OpenChat is a collection of open-source language models, optimized and fine-tune
 
 ## <a id="models"></a> Models
 
-Our latest model, OpenChat 3.2 SUPER, is an enhanced version of the original OpenChat 3.2. We recommend using it for optimal conversational and instruction-following performance. Older versions are supported for a limited time for research purposes. All models are designed for English and have limited multilingual capabilities. They can be downloaded under the [Llama 2 Community License](https://ai.meta.com/resources/models-and-libraries/llama-downloads/).
+Our latest model is OpenChat 3.2 SUPER. We recommend using it for optimal conversational and instruction-following performance. This models is designed for English and have limited multilingual capabilities. They can be downloaded under the [Llama 2 Community License](https://ai.meta.com/resources/models-and-libraries/llama-downloads/).
 
 To use these models, we highly recommend installing the OpenChat package by following the [installation guide](#installation) and using the OpenChat OpenAI-compatible API server by running the serving command from the table below. The server is optimized for high-throughput deployment using [vLLM](https://github.com/vllm-project/vllm) and can run on a GPU with at least 48GB RAM or two consumer GPUs with tensor parallelism. To enable tensor parallelism, append `--tensor-parallel-size 2` to the serving command.
 
@@ -142,7 +142,6 @@ pip3 install -e .
 ```
 </details>
 
-
 ## <a id="web-ui"></a> Web UI
 
 After lanuching the API server, you can interact with it using [OpenChat-UI](https://github.com/imoneoi/openchat-ui), which is a fork of Chatbot UI with support for OpenChat models.
@@ -177,46 +176,96 @@ NEXT_PUBLIC_DEFAULT_TEMPERATURE=0.7
 npm run dev
 ```
 
-## <a id="training"></a> Training
+## <a id="training"></a> OpenChat Model Training
 
-OpenChat leverages padding-free training and [Multipack Sampler](https://github.com/imoneoi/multipack_sampler), achieving a 3~6x speedup compared to commonly-used padded training. V3 series can be trained in 15 hours on 8x A100 80GB.
+The OpenChat training system utilizes padding-free training and the [Multipack Sampler](https://github.com/imoneoi/multipack_sampler), achieving a **3~10x** speedup compared to the conventional padded training. The V3 series can be trained in approximately 15 hours using eight A100 80GB GPUs.
 
-The hyperparameters used in training the models are listed as follows:
+### Preparing Your Data
 
-| **Hyperparameter** | Context | Batch size | Learning rate | AdamW betas | AdamW eps | Weight decay |
-|--------------------|---------|------------|---------------|-------------|-----------|--------------|
-| **Value**          | 4096    | 64         | Auto          | (0.9, 0.95) | 1e-5      | 0.1          |
+To utilize the OpenChat trainer, prepare your SFT data into a JSON Lines format where each line corresponds to a `Conversation` object:
 
-To train using 8xA100 80GB, you should first clone the dataset for training:
+```python
+class Message(BaseModel):
+    role: str = Field(..., alias="from")  # Must be "human" or "gpt"
+    value: str  # Message content
+    weight: Optional[float] = None  # Loss weight for this message. Typically 0 for human and 1 for gpt to supervise assistant's responses only
 
-```bash
-git lfs install
-git clone https://huggingface.co/datasets/openchat/openchat_sharegpt_v3
+
+class Conversation(BaseModel):
+    items: List[Message]  # All messages within the conversation
+    condition: Optional[str] = None  # C-RLFT condition, can be any string or empty.
+    system: str = ""  # System message for this conversation
 ```
 
-Then, run the following commands for V3.2 SUPER:
+For basic SFT, set `condition` as an empty string, and assign `weight` as `0` for human messages and `1` for assistant responses.
+
+SFT example:
+
+```json
+{"items":[{"from":"human","value":"Hello","weight":0.0},{"from":"gpt","value":"Hi","weight":1.0},{"from":"human","value":"How are you today?","weight":0.0},{"from":"gpt","value":"I'm fine.","weight":1.0}],"condition":"","system":""}
+{"items":[{"from":"human","value":"Who are you?","weight":0.0},{"from":"gpt","value":"I'm OpenChat.","weight":1.0}],"condition":"","system":"You are a helpful assistant named OpenChat."}
+```
+
+For C-RLFT, `condition` should be set as the class the conversation belongs to (e.g. `GPT3` or `GPT4`). The `weight` is assigned as `0` for human messages and `w` for assistant responses, where `w` is the weight of the class (e.g. `0.1` for `GPT3` and `1` for `GPT4`, as found in our C-RLFT paper).
+
+C-RLFT example:
+
+```json
+{"items":[{"from":"human","value":"What is C-RLFT?","weight":0.0},{"from":"gpt","value":"C-RLFT is a method for improving open-source LLMs with mixed-quality data.","weight":1.0}],"condition":"GPT4","system":""}
+{"items":[{"from":"human","value":"What is C-RLFT?","weight":0.0},{"from":"gpt","value":"I don't know.","weight":0.1}],"condition":"GPT3","system":""}
+```
+### Pre-tokenizing the Dataset
+
+You'll then need to pre-tokenize the dataset using the command:
+
+```bash
+python -m ochat.data.generate_dataset --model-type openchat_v3.2 --model-path imone/Llama2_13B_with_EOT_token --in-files data.jsonl --out-prefix PRETOKENIZED_DATA_OUTPUT_PATH
+```
+
+We provide the pre-tokenized dataset of OpenChat 3.2 SUPER at the following location: [openchat/openchat_sharegpt_v3](https://huggingface.co/datasets/openchat/openchat_sharegpt_v3).
+
+Note: The OpenChat conversation template requires an `<|end_of_turn|>` special token. The base model specified must include this token. We provide Llama 2 weights with this token added in the following HuggingFace repositories:
+
+```
+imone/Llama2_7B_with_EOT_token
+imone/Llama2_13B_with_EOT_token
+```
+
+To add the end-of-turn token to a Llama base model, use the `convert_llama_weights_to_hf_add_tokens.py` in `scripts` directory:
+
+```
+python scripts/convert_llama_weights_to_hf_add_tokens.py --input_dir LLAMA_WEIGHT_DIR --model_size LLAMA_SIZE --output_dir OUTPUT_DIR --added_special_tokens \<\|end_of_turn\|\> \<\|PAD\|\>
+```
+
+### Launching the OpenChat Trainer
+
+You can now launch the OpenChat trainer using the command below. Training a 13B model requires eight A/H100s with 80GB VRAM, while a 7B model can be trained with four A/H100s with 80GB VRAM or eight A/H100s with 40GB VRAM.
 
 <details>
 
-<summary>Training commands (click to expand)</summary>
+<summary>Training Commands (click to expand)</summary>
 
 ```bash
 NUM_GPUS=8
 
 deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
-    --model_type openchat_v3.2 \
-    --model_path imone/LLaMA2_13B_with_EOT_token \
-    --data_path openchat_sharegpt_v3/openchat_v3.2_super \
-    --save_path PATH_TO_SAVE_MODEL \
-    --epochs 5 \
-    --batch_size_per_gpu 8 \
-    --deepspeed \
-    --deepspeed_config ochat/training_deepspeed/deepspeed_config.json
+          --model_path imone/Llama2_13B_with_EOT_token \
+          --data_prefix PRETOKENIZED_DATA_OUTPUT_PATH \
+          --save_path PATH_TO_SAVE_MODEL \
+          --epochs 5 \
+          --deepspeed \
+          --deepspeed_config ochat/training_deepspeed/deepspeed_config.json
 ```
 
 </details>
 
-Please note that we added an EOT (end-of-turn) token to the Llama 2 base models. The embedding of the EOT token is initialized as the average of all existing token embeddings. The HF repo `imone/LLaMA2_13B_with_EOT_token` contains converted Llama weights with the aforementioned EOT token.
+We recommend using the default hyperparameters as they have been carefully selected. Furthermore, the default learning rate is automatically determined based on the [inverse square-root rule](https://arxiv.org/abs/2006.09092).
+
+The default hyperparameters utilized in the model training are as follows:
+
+| **Hyperparameter** | Context | Batch size | Learning rate | AdamW betas | AdamW eps | Weight decay |
+|--------------------|---------|------------|---------------|-------------|-----------|--------------|
+| **Value**          | 4096    | 64         | Auto          | (0.9, 0.95) | 1e-5      | 0.1          |
 
 ## Limitations
 
