@@ -117,14 +117,13 @@ To use OpenChat, you need to install PyTorch, then you can install OpenChat via 
 pip3 install ochat
 ```
 
-vLLM may have compatibility issues. If you encounter these problems, you can try to create a new `conda` environment following the instructions below.
+If you encounter compatibility problems, you can try to create a new `conda` environment following the instructions below.
 
 ```bash
 conda create -y --name openchat
 conda activate openchat
 
-conda install -y python
-conda install -y cudatoolkit-dev -c conda-forge
+conda install -y python=3.11
 pip3 install torch torchvision torchaudio
 
 pip3 install ochat
@@ -179,6 +178,16 @@ npm run dev
 ## <a id="training"></a> OpenChat Model Training
 
 The OpenChat training system utilizes padding-free training and the [Multipack Sampler](https://github.com/imoneoi/multipack_sampler), achieving a **3~10x** speedup compared to the conventional padded training. The V3 series can be trained in approximately 15 hours using eight A100 80GB GPUs.
+
+## Installing DeepSpeed
+
+First, ensure that the CUDA `nvcc` compiler is available in your environment. If it is not, install the CUDA toolkit that matches the version used by PyTorch.
+
+Next, install DeepSpeed:
+
+```bash
+pip install deepspeed
+```
 
 ### Preparing Your Data
 
@@ -292,19 +301,6 @@ Our OpenChat V3 models are licensed under the [Llama 2 Community License](https:
 
 We look forward to hearing from you and collaborating on this exciting project!
 
-## TODO
-
-**High-priority**
-
-- [ ] Improving reasoning and math skills
-- [ ] Training larger LLaMA models
-
-**Low-priority**
-
-- [ ] Mixing SFT data with pretraining data (e.g. RedPajama)
-- [ ] Extending context by interpolating RoPE (requires mixing with pretraining data)
-- [ ] Improving conversation splitting
-
 ## Citation
 
 ```
@@ -327,22 +323,6 @@ We look forward to hearing from you and collaborating on this exciting project!
   month = {7},
 }
 ```
-
-## <a id="section4"></a> Legacy Models
-
-The following models are older versions of OpenChat and have inferior performance compared to the latest version. They will be deprecated in the next release. Please note that OpenChat V1 and V2 series are now deprecated, [please install 3.1.x for using V1 and V2 models](https://github.com/imoneoi/openchat/tree/83a683c775c77867cc45937fafdf48e8dcb68daa)
-
-To run the models on multiple GPUs with smaller VRAM, you can enable tensor parallelization, for example, using the `--tensor-parallel-size 2` flag.
-
-<details>
-  <summary>OpenChat V3 (click to expand)</summary>
-
-| Model        | Size | Context | Weights                                                      | Serving                                                                                                      |
-|--------------|------|---------|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.2 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2 --engine-use-ray --worker-use-ray` |
-| OpenChat 3.1 | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.1) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.1 --engine-use-ray --worker-use-ray` |
-
-</details>
 
 ## Acknowledgements
 
