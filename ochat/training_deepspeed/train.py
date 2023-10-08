@@ -196,7 +196,7 @@ def create_lr_scheduler(args, train_total_steps):
 
 
 def save_tokenizer(args, save_path):
-    transformers.PreTrainedTokenizerFast.from_pretrained(args.model_path).save_pretrained(save_path)
+    MODEL_CONFIG_MAP[args.model_type].model_tokenizer_create(args.model_path).save_pretrained(save_path)
 
 
 def save_openchat_metadata(args, epoch, save_path):
@@ -319,7 +319,7 @@ def train():
         if eval_loader is not None:
             model_engine.eval()
 
-            eval_total_metric = torch.zeros((), dtype=torch.float32, device=args.device)
+            eval_total_metric = torch.zeros((2, ), dtype=torch.float32, device=args.device)
             eval_total_steps = 0
 
             eval_loader.set_epoch(epoch)
