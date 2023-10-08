@@ -61,7 +61,7 @@ def add_single_conv(output, tokens, weights):
 
 
 @ray.remote
-def convert_conversation_batch(model_type: str, model_path: str, batch: list, schema: pyarrow.Schema):
+def convert_conversation_batch(model_type: str, model_path: str, batch: list, schema: pyarrow.Schema, per_sequence_loss: bool):
     from ochat.config import MODEL_CONFIG_MAP, Conversation
 
     # Tokenization
@@ -75,7 +75,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
 
     # Tokenize
     print ("Tokenizing ...")
-    tokens_list, weights_list = conv_template.tokenize_conversations(batch, inference=False)
+    tokens_list, weights_list = conv_template.tokenize_conversations(batch, inference=False, seq_level_weight=per_sequence_loss)
 
     # Generate data
     print ("Generating ...")
@@ -97,7 +97,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
     return pyarrow.Table.from_pydict(outputs, schema=schema)
 
 
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, num_cpus: Optional[int] = os.cpu_count()):
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, per_sequence_loss: bool, num_cpus: Optional[int] = os.cpu_count()):
     # schema
     metadata = {
         "model_type": model_type
@@ -122,7 +122,8 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         model_type=model_type,  # type: ignore
         model_path=model_path,
         batch=batch,
-        schema=schema
+        schema=schema,
+        per_sequence_loss=per_sequence_loss
     ) for batch in _split(conversations, num_cpus)]
 
     # write
@@ -131,7 +132,7 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
     ray.shutdown()
 
 
-def generate_dataset(model_type, model_path, in_files, out_prefix, seed, eval_ratio):
+def generate_dataset(model_type, model_path, in_files, out_prefix, per_sequence_loss, seed, eval_ratio):
     # Load conversations
     conversations = []
     for filename in in_files:
@@ -146,9 +147,9 @@ def generate_dataset(model_type, model_path, in_files, out_prefix, seed, eval_ra
     train_conversations = conversations[eval_num:]
     eval_conversations  = conversations[:eval_num]
 
-    generate_split(model_type, model_path, train_conversations, "train", out_prefix)
+    generate_split(model_type, model_path, train_conversations, "train", out_prefix, per_sequence_loss)
     if eval_num > 0:
-        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix)
+        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix, per_sequence_loss)
 
 
 if __name__ == "__main__":
@@ -159,6 +160,7 @@ if __name__ == "__main__":
     parser.add_argument("--in-files", type=str, nargs="+", required=True)
     parser.add_argument("--out-prefix", type=str, required=True)
 
+    parser.add_argument("--per-sequence-loss", action="store_true")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--eval-ratio", type=float, default=0.005)
     args = parser.parse_args()

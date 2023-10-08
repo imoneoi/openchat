@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class Message(BaseModel):
-    role: str = Field(..., alias="from")
+    role: str
     value: str
 
     weight: Optional[float] = None
@@ -42,7 +42,7 @@ class ConversationTemplate(BaseModel):
     def safe_tokenize(self, strings: Iterable[str]) -> List[List[int]]:
         return self.tokenizer(strings, split_special_tokens=True, return_attention_mask=False, add_special_tokens=False).input_ids
 
-    def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False):
+    def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_loss: bool = False):
         # Pre-tokenize all conversations
         default_condition = self.inference_condition if inference else None
 
@@ -96,15 +96,22 @@ class ConversationTemplate(BaseModel):
                 text = all_text[all_text_idx]
                 all_text_idx += 1
 
+                # weight
+                w = None
                 if not inference:
                     assert msg.weight is not None
 
+                    w = msg.weight
+                    if seq_level_loss:
+                        w /= len(text) + len(self.eot_tokens_)
+
+                # Message tokens
                 tokens.extend(text)
-                weights.extend([msg.weight] * len(text))
+                weights.extend([w] * len(text))
 
                 if not (inference and idx == last_idx):  # Do not add EOT on last turn during inference
                     tokens.extend(self.eot_tokens_)
-                    weights.extend([msg.weight] * len(self.eot_tokens_))
+                    weights.extend([w] * len(self.eot_tokens_))
 
             # Append result
             result_tokens.append(tokens)
