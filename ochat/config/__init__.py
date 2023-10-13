@@ -9,11 +9,9 @@ import ochat.models
 
 
 _V3_2_PREFIXES = {
-    # ShareGPT & OpenAI mapping
+    # OpenAI mapping
 
-    "human": "User:",
     "user": "User:",
-    "gpt": "Assistant:",
     "assistant": "Assistant:"
 }
 

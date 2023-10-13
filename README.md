@@ -195,24 +195,24 @@ To utilize the OpenChat trainer, prepare your SFT data into a JSON Lines format 
 
 ```python
 class Message(BaseModel):
-    role: str = Field(..., alias="from")  # Must be "human" or "gpt"
-    value: str  # Message content
-    weight: Optional[float] = None  # Loss weight for this message. Typically 0 for human and 1 for gpt to supervise assistant's responses only
+    role: str     # Must be "user" or "assistant"
+    content: str  # Message content
+    weight: Optional[float] = None  # Loss weight for this message. Typically 0 for user and 1 for assistant to supervise assistant's responses only
 
 
 class Conversation(BaseModel):
     items: List[Message]  # All messages within the conversation
-    condition: Optional[str] = None  # C-RLFT condition, can be any string or empty.
+    condition: str = ""  # C-RLFT condition, can be any string or empty.
     system: str = ""  # System message for this conversation
 ```
 
-For basic SFT, set `condition` as an empty string, and assign `weight` as `0` for human messages and `1` for assistant responses.
+For basic SFT, assign `weight` as `0` for human messages and `1` for assistant responses.
 
 SFT example:
 
 ```json
-{"items":[{"from":"human","value":"Hello","weight":0.0},{"from":"gpt","value":"Hi","weight":1.0},{"from":"human","value":"How are you today?","weight":0.0},{"from":"gpt","value":"I'm fine.","weight":1.0}],"condition":"","system":""}
-{"items":[{"from":"human","value":"Who are you?","weight":0.0},{"from":"gpt","value":"I'm OpenChat.","weight":1.0}],"condition":"","system":"You are a helpful assistant named OpenChat."}
+{"items":[{"from":"user","content":"Hello","weight":0.0},{"from":"assistant","content":"Hi","weight":1.0},{"from":"user","content":"How are you today?","weight":0.0},{"from":"assistant","content":"I'm fine.","weight":1.0}],"system":""}
+{"items":[{"from":"user","content":"Who are you?","weight":0.0},{"from":"assistant","content":"I'm OpenChat.","weight":1.0}],"system":"You are a helpful assistant named OpenChat."}
 ```
 
 For C-RLFT, `condition` should be set as the class the conversation belongs to (e.g. `GPT3` or `GPT4`). The `weight` is assigned as `0` for human messages and `w` for assistant responses, where `w` is the weight of the class (e.g. `0.1` for `GPT3` and `1` for `GPT4`, as found in our C-RLFT paper).
@@ -220,9 +220,10 @@ For C-RLFT, `condition` should be set as the class the conversation belongs to (
 C-RLFT example:
 
 ```json
-{"items":[{"from":"human","value":"What is C-RLFT?","weight":0.0},{"from":"gpt","value":"C-RLFT is a method for improving open-source LLMs with mixed-quality data.","weight":1.0}],"condition":"GPT4","system":""}
-{"items":[{"from":"human","value":"What is C-RLFT?","weight":0.0},{"from":"gpt","value":"I don't know.","weight":0.1}],"condition":"GPT3","system":""}
+{"items":[{"from":"user","content":"What is C-RLFT?","weight":0.0},{"from":"assistant","content":"C-RLFT is a method for improving open-source LLMs with mixed-quality data.","weight":1.0}],"condition":"GPT4","system":""}
+{"items":[{"from":"user","content":"What is C-RLFT?","weight":0.0},{"from":"assistant","content":"I don't know.","weight":0.1}],"condition":"GPT3","system":""}
 ```
+
 ### Pre-tokenizing the Dataset
 
 You'll then need to pre-tokenize the dataset using the command:

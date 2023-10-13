@@ -97,7 +97,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
     return pyarrow.Table.from_pydict(outputs, schema=schema)
 
 
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, per_sequence_loss: bool, num_cpus: Optional[int] = os.cpu_count()):
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, per_sequence_loss: bool):
     # schema
     metadata = {
         "model_type": model_type
@@ -116,7 +116,8 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
     schema = pyarrow.schema(schema, metadata={"metadata_json": orjson.dumps(metadata)})
 
     # launch remote workers
-    ray.init(num_cpus=num_cpus)
+    if not ray.is_initialized():
+        ray.init()
 
     handles = [convert_conversation_batch.remote(
         model_type=model_type,  # type: ignore
@@ -124,12 +125,10 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         batch=batch,
         schema=schema,
         per_sequence_loss=per_sequence_loss
-    ) for batch in _split(conversations, num_cpus)]
+    ) for batch in _split(conversations, int(ray.available_resources()["CPU"]))]
 
     # write
     parquet.write_table(pyarrow.concat_tables([ray.get(handle) for handle in handles]), f"{out_prefix}.{split_name}.parquet")
-
-    ray.shutdown()
 
 
 def generate_dataset(model_type, model_path, in_files, out_prefix, per_sequence_loss, seed, eval_ratio):

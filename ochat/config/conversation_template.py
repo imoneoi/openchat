@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 class Message(BaseModel):
     role: str
-    value: str
+    content: str
 
     weight: Optional[float] = None
 
@@ -14,7 +14,7 @@ class Message(BaseModel):
 class Conversation(BaseModel):
     items: List[Message]
 
-    condition: Optional[str] = None
+    condition: str = ""
     system: str = ""
 
 
@@ -42,9 +42,9 @@ class ConversationTemplate(BaseModel):
     def safe_tokenize(self, strings: Iterable[str]) -> List[List[int]]:
         return self.tokenizer(strings, split_special_tokens=True, return_attention_mask=False, add_special_tokens=False).input_ids
 
-    def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_loss: bool = False):
+    def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_weight: bool = False):
         # Pre-tokenize all conversations
-        default_condition = self.inference_condition if inference else None
+        default_condition = self.inference_condition if inference else ""
 
         sys_mappings = set()
         role_mappings = set()
@@ -53,7 +53,7 @@ class ConversationTemplate(BaseModel):
             sys_mappings.add(conv.system)
             for msg in conv.items:
                 role_mappings.add((msg.role, conv.condition or default_condition))
-                all_text.append(msg.value)
+                all_text.append(msg.content)
 
         sys_mappings = list(sys_mappings)
         role_mappings = list(role_mappings)
@@ -102,7 +102,7 @@ class ConversationTemplate(BaseModel):
                     assert msg.weight is not None
 
                     w = msg.weight
-                    if seq_level_loss:
+                    if seq_level_weight:
                         w /= len(text) + len(self.eot_tokens_)
 
                 # Message tokens

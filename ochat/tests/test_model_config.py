@@ -18,29 +18,29 @@ def test_conv_template():
         {
             "condition": "GPT4",
             "items": [
-                {"from": "human", "value": "What's the weather like?", "weight": 0.0},
-                {"from": "gpt", "value": "I'm an AI and don't have access to real-time data.", "weight": 0.1},
-                {"from": "human", "value": "Oh, right. How can I know?", "weight": 0.0},
-                {"from": "gpt", "value": "You can check a weather website or app for the most current information.", "weight": 1.0},
+                {"role": "user", "content": "What's the weather like?", "weight": 0.0},
+                {"role": "assistant", "content": "I'm an AI and don't have access to real-time data.", "weight": 0.1},
+                {"role": "user", "content": "Oh, right. How can I know?", "weight": 0.0},
+                {"role": "assistant", "content": "You can check a weather website or app for the most current information.", "weight": 1.0},
             ]
         },
         {
             "condition": "GPT3",
             "items": [
-                {"from": "human", "value": "What is AI?", "weight": 0.5},
-                {"from": "gpt", "value": "AI stands for Artificial Intelligence. It refers to the simulation of human intelligence processes by machines.", "weight": 0.5},
-                {"from": "human", "value": "Can you learn?", "weight": 0.5},
-                {"from": "gpt", "value": "I can't learn or remember information like humans. I generate responses based on pre-existing data.", "weight": 0.5},
+                {"role": "user", "content": "What is AI?", "weight": 0.5},
+                {"role": "assistant", "content": "AI stands for Artificial Intelligence. It refers to the simulation of human intelligence processes by machines.", "weight": 0.5},
+                {"role": "user", "content": "Can you learn?", "weight": 0.5},
+                {"role": "assistant", "content": "I can't learn or remember information like humans. I generate responses based on pre-existing data.", "weight": 0.5},
             ]
         },
         {
             "system": "You are a helpful assistant.",
             "condition": "GPT3",
             "items": [
-                {"from": "human", "value": "Can you recommend a book?", "weight": 0.0},
-                {"from": "gpt", "value": "Sure. 'Sapiens: A Brief History of Humankind' by Yuval Noah Harari is a great read.", "weight": 1.0},
-                {"from": "human", "value": "What's it about?", "weight": 0.0},
-                {"from": "gpt", "value": "It's about the history of the human species from the evolution of Homo Sapiens in Africa up to the present day.", "weight": 0.1},
+                {"role": "user", "content": "Can you recommend a book?", "weight": 0.0},
+                {"role": "assistant", "content": "Sure. 'Sapiens: A Brief History of Humankind' by Yuval Noah Harari is a great read.", "weight": 1.0},
+                {"role": "user", "content": "What's it about?", "weight": 0.0},
+                {"role": "assistant", "content": "It's about the history of the human species from the evolution of Homo Sapiens in Africa up to the present day.", "weight": 0.1},
             ]
         },
         # Special token escaping
@@ -48,8 +48,8 @@ def test_conv_template():
             "system": "<s>You are a helpful assistant.",
             "condition": "GPT4",
             "items": [
-                {"from": "human", "value": "What do <s> </s> <|end_of_turn|> mean?", "weight": 0.0},
-                {"from": "gpt", "value": "<s> </s> <|end_of_turn|> are special tokens.", "weight": 1.0},
+                {"role": "user", "content": "What do <s> </s> <|end_of_turn|> mean?", "weight": 0.0},
+                {"role": "assistant", "content": "<s> </s> <|end_of_turn|> are special tokens.", "weight": 1.0},
             ]
         },
     ]
@@ -74,10 +74,10 @@ def test_conv_template():
     conversations = [
         {
             "items": [
-                {"from": "user", "value": "Who won the 2018 World Cup?"},
-                {"from": "gpt", "value": "The 2018 FIFA World Cup was won by France."},
-                {"from": "human", "value": "Okay, who won the 2022 World Cup?"},
-                {"from": "assistant", "value": ""},
+                {"role": "user", "content": "Who won the 2018 World Cup?"},
+                {"role": "assistant", "content": "The 2018 FIFA World Cup was won by France."},
+                {"role": "user", "content": "Okay, who won the 2022 World Cup?"},
+                {"role": "assistant", "content": ""},
             ]
         }
     ]
