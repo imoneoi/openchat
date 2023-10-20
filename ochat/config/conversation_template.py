@@ -1,7 +1,6 @@
 from typing import Optional, Callable, Iterable, List, Dict
-import re
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Message(BaseModel):
@@ -39,7 +38,7 @@ class ConversationTemplate(BaseModel):
 
         super().__init__(**data, bos_tokens_=bos_tokens_, eot_tokens_=eot_tokens_)
 
-    def safe_tokenize(self, strings: Iterable[str]) -> List[List[int]]:
+    def _safe_tokenize(self, strings: Iterable[str]) -> List[List[int]]:
         return self.tokenizer(strings, split_special_tokens=True, return_attention_mask=False, add_special_tokens=False).input_ids
 
     def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_weight: bool = False):
@@ -59,9 +58,9 @@ class ConversationTemplate(BaseModel):
         role_mappings = list(role_mappings)
 
         # Tokenize
-        sys_mappings = dict(zip(sys_mappings, self.safe_tokenize(sys_mappings)))
-        role_mappings = dict(zip(role_mappings, self.safe_tokenize([self.role_prefix(*args) for args in role_mappings])))
-        all_text = self.safe_tokenize(all_text)
+        sys_mappings = dict(zip(sys_mappings, self._safe_tokenize(sys_mappings)))
+        role_mappings = dict(zip(role_mappings, self._safe_tokenize([self.role_prefix(*args) for args in role_mappings])))
+        all_text = self._safe_tokenize(all_text)
 
         # Convert
         result_tokens = []
