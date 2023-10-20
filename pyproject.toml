@@ -26,7 +26,7 @@ dependencies = [
     "torch", 
     "ray", 
     "sentencepiece", 
-    "transformers>=4.33.3", 
+    "transformers>=4.34.1", 
     "accelerate", 
     "protobuf",
     "fastapi", 
