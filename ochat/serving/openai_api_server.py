@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 
 import uvicorn
+import ray
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -26,7 +27,7 @@ from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
-from ochat.config.model_config import MODEL_CONFIG_MAP
+from ochat.config import MODEL_CONFIG_MAP
 from ochat.serving import openai_api_protocol, async_tokenizer
 
 from transformers.utils.hub import cached_file
@@ -41,6 +42,7 @@ class ModelConfig:
 
     max_length: int = None
     stream_period: int = None
+    eot_tokens: list = None
 
     api_keys: list = None
 
@@ -161,8 +163,9 @@ async def create_chat_completion(raw_request: Request):
             frequency_penalty=request.frequency_penalty,
             temperature=request.temperature,
             top_p=request.top_p,
-            stop=request.stop,
-            max_tokens=request.max_tokens
+            max_tokens=request.max_tokens,
+            stop_token_ids=model.eot_tokens,  # Override stop tokens
+            ignore_eos=True
         )
     except ValueError as e:
         return create_error_response(HTTPStatus.BAD_REQUEST, str(e))
@@ -336,12 +339,13 @@ if __name__ == "__main__":
     # Model config
     model.name = model_type
     model.max_length = MODEL_CONFIG_MAP[model_type].model_max_context
+    model.eot_tokens = ray.get(tokenizer.get_eot_tokens.remote())
 
     model.stream_period = args.stream_period
     model.api_keys = args.api_keys
 
     # Set max num batched tokens
-    args.max_num_batched_tokens = max(args.max_num_batched_tokens, model.max_length)
+    args.max_num_batched_tokens = max(args.max_num_batched_tokens or model.max_length, model.max_length)
 
     # Load model engine
     engine_args = AsyncEngineArgs.from_cli_args(args)

@@ -21,13 +21,20 @@ class AsyncTokenizer:
         for msg_raw in messages:
             msg = Message(**msg_raw)
             if msg.role == "system":
-                system_message = msg.value
+                system_message = msg.content.strip()
             else:
                 items.append(msg)
 
-        # append ai role
-        if not (len(items) and items[-1].role != "assistant"):
-            items.append(Message(role="assistant", value=""))
+        assert len(items)
 
-        tokens, _ = self.conv_template.tokenize_conversations(Conversation(items=items, system=system_message), inference=True)
-        return tokens
+        # append ai role
+        if items[-1].role != "assistant":
+            items.append(Message(role="assistant", content=""))
+
+        tokens, _ = self.conv_template.tokenize_conversations([Conversation(items=items, system=system_message)], inference=True)
+        return tokens[0]
+    
+    def get_eot_tokens(self):
+        assert len(self.conv_template.eot_tokens_) == 1
+
+        return self.conv_template.eot_tokens_
