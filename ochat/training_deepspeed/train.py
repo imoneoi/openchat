@@ -5,9 +5,8 @@ import json
 from functools import partial
 
 import torch
-import torch.distributed
+import torch.distributed as dist
 
-import transformers
 import deepspeed
 import tqdm
 import wandb
@@ -17,8 +16,6 @@ from ochat.config import MODEL_CONFIG_MAP
 from ochat.training_deepspeed.multipack_dataloader import MultipackDistributedDataloader
 from ochat.training_deepspeed.numpy_dataset import NumpyDataset
 
-
-LOCAL_RANK = None
 
 PAD_ID     = 0
 BATCH_KEYS = {
@@ -34,14 +31,6 @@ BATCH_KEYS = {
 def _find_multiple(a, b):
     return (-(a // -b)) * b
 
-
-def _rank0_print(*args):
-    global LOCAL_RANK
-
-    if LOCAL_RANK == 0:
-        tqdm.tqdm.write(*args)
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     # Distributed
@@ -54,7 +43,7 @@ def parse_args():
     parser.add_argument("--save_every", type=int, default=None)
 
     # Hyperparameters
-    parser.add_argument("--batch_size_per_gpu", type=int,   default=8)
+    parser.add_argument("--batch_size_per_gpu", type=int,   default=9)
     parser.add_argument("--epochs",             type=int,   default=5)
 
     # Set lr to None to automatically estimate from LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
@@ -80,10 +69,10 @@ def create_dataset(args, split_name):
     # Load data
     filename = f"{args.data_prefix}.{split_name}.parquet"
     if not os.path.isfile(filename):
-        _rank0_print (f"Skipping loading {split_name}")
+        print (f"Skipping loading {split_name}")
         return None
 
-    _rank0_print(f"Loading {split_name} data from {filename}...")
+    print(f"Loading {split_name} data from {filename}...")
     return NumpyDataset(filename)
 
 
@@ -142,14 +131,12 @@ def create_distributed_dataloader(args, data):
 
 
 def create_model(args):
-    global LOCAL_RANK
-
-    _rank0_print(f"Loading model {args.model_type} from {args.model_path}...")
+    print(f"Loading model {args.model_type} from {args.model_path}...")
 
     # Create model + optimizer + lr scheduler
     model = MODEL_CONFIG_MAP[args.model_type].model_create_for_training(args.model_path)
     # Model to assigned cuda device
-    model = model.to(LOCAL_RANK)
+    model = model.to(args.local_rank)
     # Enable gradient checkpointing
     model.gradient_checkpointing_enable()
 
@@ -219,21 +206,19 @@ def calculate_auto_lr(lr, batch_max_len, train_dataset):
     loss_weights = np.concatenate(train_dataset["nz_shifted_loss_weights"])
     supervised_ratio = np.sum(loss_weights != 0) / len(loss_weights)
 
-    supervised_tokens = batch_max_len * torch.distributed.get_world_size() * supervised_ratio
+    supervised_tokens = batch_max_len * dist.get_world_size() * supervised_ratio
     lr = base_lr * math.sqrt(supervised_tokens / base_bs)
 
-    _rank0_print(f"Use automatic learning rate {lr} (estimated from supervised ratio {supervised_ratio} effective batch size {supervised_tokens})")
+    print(f"Use automatic learning rate {lr} (estimated from supervised ratio {supervised_ratio} effective batch size {supervised_tokens})")
     return lr
 
 
 def train():
-    global LOCAL_RANK
-
     deepspeed.init_distributed(dist_backend="nccl")
+    RANK = dist.get_rank()
 
     # Args
     args       = parse_args()
-    LOCAL_RANK = args.local_rank
 
     # Dataset
     train_dataset = create_dataset(args, "train")
@@ -264,7 +249,7 @@ def train():
 
     # Progress bar and logger
     progress_bar = None
-    if LOCAL_RANK == 0:
+    if RANK == 0:
         progress_bar = tqdm.tqdm(total=train_total_steps)
 
         wandb.init(project=os.path.basename(args.model_path), config=args)
@@ -273,7 +258,7 @@ def train():
     step = 0
     lr_this_step = None
     for epoch in range(args.epochs):
-        _rank0_print(f"Epoch {epoch}")
+        print (f"[rank {RANK}]: Epoch {epoch}")
 
         ############ Train Epoch
         model_engine.train()
@@ -303,7 +288,7 @@ def train():
             model_engine.step()
 
             # Logging
-            if LOCAL_RANK == 0:
+            if RANK == 0:
                 wandb.log({
                     "train/loss": loss.item() * (all_numseq / cur_numseq),
                     "train/acc":  acc.item()  * (all_numseq / cur_numseq),
@@ -312,7 +297,7 @@ def train():
                 progress_bar.update()  # type: ignore
 
         # Log batch efficiency
-        if LOCAL_RANK == 0:
+        if RANK == 0:
             wandb.log({"batch_efficiency": train_loader.efficiency()}, step=step)
 
         ############ Eval Epoch
@@ -337,9 +322,9 @@ def train():
 
             # Gather eval loss (reduce sum)
             eval_total_metric.div_(eval_total_steps)
-            torch.distributed.reduce(eval_total_metric, 0)
+            dist.reduce(eval_total_metric, 0)
 
-            if LOCAL_RANK == 0:
+            if RANK == 0:
                 eval_loss, eval_acc = eval_total_metric.cpu().numpy()
                 wandb.log({"eval/loss": eval_loss, "eval/acc": eval_acc}, step=step)
 
@@ -347,9 +332,9 @@ def train():
         # Save model with lean state dict
         # https://deepspeed.readthedocs.io/en/latest/model-checkpointing.html
         if (epoch + 1 == args.epochs) or (args.save_every and ((epoch + 1) % args.save_every == 0)):
-            torch.distributed.barrier()
+            dist.barrier()
 
-            if LOCAL_RANK == 0:
+            if RANK == 0:
                 save_path = os.path.join(args.save_path, f"ep_{epoch}")
 
                 model_engine.module.save_pretrained(save_path,
