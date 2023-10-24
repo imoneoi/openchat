@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument("--save_every", type=int, default=None)
 
     # Hyperparameters
-    parser.add_argument("--batch_size_per_gpu", type=int,   default=9)
+    parser.add_argument("--batch_max_len",      type=int, default=81920)
     parser.add_argument("--epochs",             type=int,   default=5)
 
     # Set lr to None to automatically estimate from LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
@@ -116,8 +116,6 @@ def batch_to_tensor(batch):
 
 def create_distributed_dataloader(args, data):
     # Multipack dataloader
-    args.batch_max_len = args.batch_size_per_gpu * MODEL_CONFIG_MAP[args.model_type].model_max_context
-
     return MultipackDistributedDataloader(
         dataset=data,
         lengths=data["total_length"],
@@ -194,7 +192,7 @@ def save_openchat_metadata(args, epoch, save_path):
         json.dump(metadata, f, default=lambda o: "<non-serializable>")
 
 
-def calculate_auto_lr(lr, batch_max_len, train_dataset):
+def calculate_auto_lr(lr, batch_max_len, model_type, train_dataset):
     if lr is not None:
         return lr
     
@@ -202,6 +200,8 @@ def calculate_auto_lr(lr, batch_max_len, train_dataset):
     # FIXME: Only 7B/13B is supported
     base_lr = 3e-4
     base_bs = 4_000_000
+    if "mistral" in model_type.lower():
+        base_lr /= 6.0
 
     loss_weights = np.concatenate(train_dataset["nz_shifted_loss_weights"])
     supervised_ratio = np.sum(loss_weights != 0) / len(loss_weights)
@@ -239,7 +239,7 @@ def train():
         eval_loader = create_distributed_dataloader(args, eval_dataset)
 
     # Hyperparams
-    args.lr = calculate_auto_lr(args.lr, args.batch_max_len, train_dataset)
+    args.lr = calculate_auto_lr(args.lr, args.batch_max_len, args.model_type, train_dataset)
 
     # Model
     model_engine, optimizer = create_model(args)
