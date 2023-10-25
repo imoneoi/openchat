@@ -12,7 +12,7 @@ from typing import AsyncGenerator, Optional
 from dataclasses import dataclass
 
 import fastapi
-from fastapi import Request
+from fastapi import BackgroundTasks, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -55,11 +55,36 @@ model = ModelConfig()
 tokenizer = None
 
 
+def _strip_first_space(s: str):
+    if s[0] == " ":
+        return s[1:]
+    return s
+
+
+def log_request(created_time: int, request: openai_api_protocol.ChatCompletionRequest, output: RequestOutput):
+    if logger is not None:
+        logger.info(openai_api_protocol.LoggingRecord(
+            time=created_time,
+            request=request,
+            outputs=[o.text for o in output.outputs]
+        ).json(exclude_unset=True, ensure_ascii=False))
+
+
 def create_error_response(status_code: HTTPStatus,
                           message: str) -> JSONResponse:
     return JSONResponse(openai_api_protocol.ErrorResponse(message=message,
                                                           type="invalid_request_error").dict(),
                         status_code=status_code.value)
+
+
+def check_model(request) -> Optional[JSONResponse]:
+    if request.model.startswith(model.name):
+        return
+
+    return create_error_response(
+        HTTPStatus.NOT_FOUND,
+        f"The model `{request.model}` does not exist.",
+    )
 
 
 @app.exception_handler(RequestValidationError)
@@ -87,25 +112,6 @@ async def check_api_key(
         )
 
 
-def log_request(created_time: int, request: openai_api_protocol.ChatCompletionRequest, output: RequestOutput):
-    if logger is not None:
-        logger.info(openai_api_protocol.LoggingRecord(
-            time=created_time,
-            request=request,
-            outputs=[o.text for o in output.outputs]
-        ).json(exclude_unset=True, ensure_ascii=False))
-
-
-async def check_model(request) -> Optional[JSONResponse]:
-    if request.model.startswith(model.name):
-        return
-
-    return create_error_response(
-        HTTPStatus.NOT_FOUND,
-        f"The model `{request.model}` does not exist.",
-    )
-
-
 @app.get("/v1/models", dependencies=[fastapi.Depends(check_api_key)])
 async def show_available_models():
     """Show available models. Right now we only have one model."""
@@ -117,7 +123,7 @@ async def show_available_models():
 
 
 @app.post("/v1/chat/completions", dependencies=[fastapi.Depends(check_api_key)])
-async def create_chat_completion(raw_request: Request):
+async def create_chat_completion(raw_request: Request, background_tasks: BackgroundTasks):
     """Completion API similar to OpenAI's API.
 
     See  https://platform.openai.com/docs/api-reference/chat/create
@@ -130,7 +136,7 @@ async def create_chat_completion(raw_request: Request):
 
     request = openai_api_protocol.ChatCompletionRequest(**await raw_request.json())
 
-    error_check_ret = await check_model(request)
+    error_check_ret = check_model(request)
     if error_check_ret is not None:
         return error_check_ret
 
@@ -219,6 +225,7 @@ async def create_chat_completion(raw_request: Request):
 
         stream_index = 0
         final_res = None
+        is_first = True
         async for res in result_generator:
             stream_index += 1
             final_res = res
@@ -232,6 +239,11 @@ async def create_chat_completion(raw_request: Request):
                         previous_texts[i] = output.text
                         previous_num_tokens[i] = len(output.token_ids)
 
+                        if is_first:
+                            # Strip first space
+                            is_first = False
+                            delta_text = _strip_first_space(delta_text)
+
                         yield f"data: {create_stream_response_json(index=i, text=delta_text)}\n\n"
                         if output.finish_reason is not None:
                             yield f"data: {create_stream_response_json(index=i, text='', finish_reason=output.finish_reason)}\n\n"
@@ -239,7 +251,7 @@ async def create_chat_completion(raw_request: Request):
         yield "data: [DONE]\n\n"
 
         # Log request
-        log_request(created_time, request, final_res)
+        background_tasks.add_task(log_request, created_time, request, final_res)
 
     # Streaming response
     if request.stream:
@@ -260,7 +272,7 @@ async def create_chat_completion(raw_request: Request):
     for output in final_res.outputs:
         choice_data = openai_api_protocol.ChatCompletionResponseChoice(
             index=output.index,
-            message=openai_api_protocol.ChatMessage(role="assistant", content=output.text),
+            message=openai_api_protocol.ChatMessage(role="assistant", content=_strip_first_space(output.text)),
             finish_reason=output.finish_reason,
         )
         choices.append(choice_data)
@@ -282,7 +294,7 @@ async def create_chat_completion(raw_request: Request):
     )
 
     # Log request
-    log_request(created_time, request, final_res)
+    background_tasks.add_task(log_request, created_time, request, final_res)
 
     return response
 
