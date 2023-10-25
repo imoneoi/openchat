@@ -341,6 +341,7 @@ if __name__ == "__main__":
             maxBytes=args.log_max_mb * 1048576,
             backupCount=args.log_max_count)
         )
+        logger.propagate = False
 
     # Load model type
     with open(cached_file(path_or_repo_id=args.model, filename="openchat.json"), "r") as f:
