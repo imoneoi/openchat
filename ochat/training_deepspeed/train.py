@@ -7,7 +7,6 @@ from functools import partial
 import torch
 import torch.distributed as dist
 
-import deepspeed
 import tqdm
 import wandb
 import numpy as np
@@ -15,6 +14,11 @@ import numpy as np
 from ochat.config import MODEL_CONFIG_MAP
 from ochat.training_deepspeed.multipack_dataloader import MultipackDistributedDataloader
 from ochat.training_deepspeed.numpy_dataset import NumpyDataset
+
+try:
+    import deepspeed
+except ImportError:
+    raise ImportError("Please install deepspeed to train models.")
 
 
 PAD_ID     = 0

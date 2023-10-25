@@ -33,8 +33,7 @@ dependencies = [
     "pydantic", 
     "shortuuid", 
     "uvicorn", 
-    "vllm",
-    "flash-attn"
+    "vllm"
 ]
 
 [project.urls]
