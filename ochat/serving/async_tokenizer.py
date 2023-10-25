@@ -13,7 +13,7 @@ class AsyncTokenizer:
 
         self.conv_template = config.conversation_template(tokenizer=tokenizer)
 
-    def tokenize(self, messages):
+    def tokenize(self, messages, enable_sys_prompt=False):
         # get system messages
         system_message = ""
         items = []
@@ -21,9 +21,13 @@ class AsyncTokenizer:
         for msg_raw in messages:
             msg = Message(**msg_raw)
             if msg.role == "system":
-                system_message = msg.content.strip()
-            else:
-                items.append(msg)
+                # Use system prompt only when enabled
+                if enable_sys_prompt:
+                    system_message = msg.content.strip()
+
+                continue
+
+            items.append(msg)
 
         assert len(items)
 

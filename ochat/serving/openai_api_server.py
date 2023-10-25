@@ -12,7 +12,7 @@ from typing import AsyncGenerator, Optional
 from dataclasses import dataclass
 
 import fastapi
-from fastapi import BackgroundTasks, Request
+from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -44,6 +44,7 @@ class ModelConfig:
     stream_period: int = None
     eot_tokens: list = None
 
+    enable_sys_prompt: bool = None
     api_keys: list = None
 
 
@@ -133,22 +134,27 @@ async def create_chat_completion(raw_request: Request):
     if error_check_ret is not None:
         return error_check_ret
 
-    if request.logit_bias is not None:
+    if request.logit_bias is not None and len(request.logit_bias) > 0:
         # TODO: support logit_bias in vLLM engine.
         return create_error_response(HTTPStatus.BAD_REQUEST,
                                      "logit_bias is not currently supported")
 
     # input ids
-    input_ids = await tokenizer.tokenize.remote(request.messages)
+    input_ids = await tokenizer.tokenize.remote(request.messages, enable_sys_prompt=model.enable_sys_prompt)
+    input_num_tokens = len(input_ids)
 
     # check length
-    request.max_tokens = min(request.max_tokens, model.max_length - len(input_ids))
-    if request.max_tokens <= 0:
-        return create_error_response(
+    if request.max_tokens is None:
+        request.max_tokens = model.max_length - input_num_tokens
+
+    if input_num_tokens + request.max_tokens > model.max_length:
+        return input_ids, create_error_response(
             HTTPStatus.BAD_REQUEST,
             f"This model's maximum context length is {model.max_length} tokens. "
-            f"However, you requested {len(input_ids)} tokens. "
-            f"Please reduce the length of the messages.",
+            f"However, you requested {input_num_tokens + request.max_tokens} tokens "
+            f"({input_num_tokens} in the messages, "
+            f"{request.max_tokens} in the completion). "
+            f"Please reduce the length of the messages or completion.",
         )
 
     # completion
@@ -164,7 +170,8 @@ async def create_chat_completion(raw_request: Request):
             temperature=request.temperature,
             top_p=request.top_p,
             max_tokens=request.max_tokens,
-            stop_token_ids=model.eot_tokens,  # Override stop tokens
+            # Override stop tokens
+            stop_token_ids=model.eot_tokens,
             ignore_eos=True
         )
     except ValueError as e:
@@ -174,9 +181,6 @@ async def create_chat_completion(raw_request: Request):
                                        prompt_token_ids=input_ids,
                                        sampling_params=sampling_params,
                                        request_id=request_id)
-
-    async def abort_request() -> None:
-        await engine.abort(request_id)
 
     def create_stream_response_json(
         index: int,
@@ -239,19 +243,15 @@ async def create_chat_completion(raw_request: Request):
 
     # Streaming response
     if request.stream:
-        background_tasks = BackgroundTasks()
-        # Abort the request if the client disconnects.
-        background_tasks.add_task(abort_request)
         return StreamingResponse(completion_stream_generator(),
-                                 media_type="text/event-stream",
-                                 background=background_tasks)
+                                 media_type="text/event-stream")
 
     # Non-streaming response
     final_res: RequestOutput = None
     async for res in result_generator:
         if await raw_request.is_disconnected():
             # Abort the request if the client disconnects.
-            await abort_request()
+            await engine.abort(request_id)
             return create_error_response(HTTPStatus.BAD_REQUEST,
                                          "Client disconnected")
         final_res = res
@@ -293,6 +293,7 @@ if __name__ == "__main__":
     # Model
     parser.add_argument("--stream-period", type=int, default=6, help="Number of tokens per stream event")
     parser.add_argument("--api-keys", type=str, nargs="*", default=[], help="Allowed API Keys. Leave blank to not verify")
+    parser.add_argument("--enable-sys-prompt", default=False, action="store_true")
 
     # Server
     parser.add_argument("--host", type=str, default="localhost", help="Host name")
@@ -341,6 +342,7 @@ if __name__ == "__main__":
     model.max_length = MODEL_CONFIG_MAP[model_type].model_max_context
     model.eot_tokens = ray.get(tokenizer.get_eot_tokens.remote())
 
+    model.enable_sys_prompt = args.enable_sys_prompt
     model.stream_period = args.stream_period
     model.api_keys = args.api_keys
 
