@@ -3,7 +3,6 @@ import argparse
 import os
 import asyncio
 from glob import glob
-from copy import deepcopy
 
 import orjson
 import openai
@@ -12,60 +11,71 @@ from openai.error import RateLimitError, ServiceUnavailableError
 from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_exception_type
 from vllm import LLM, SamplingParams
 
-from ochat.config.model_config import MODEL_CONFIG_MAP
+from transformers.utils.hub import cached_file
+
 from ochat.evaluation.match_answer import MATCH_ANSWER_FUNCTION
-from ochat.evaluation.conversation_templates import CONVERSATION_TEMPLATES
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(20), retry=retry_if_exception_type((RateLimitError, ServiceUnavailableError, )))
-async def chat_completion_with_backoff(sem, **kwargs):
-    async with sem:
-        return await openai.ChatCompletion.acreate(**kwargs)
+async def _chat_completion_with_backoff(**kwargs):
+    return await openai.ChatCompletion.acreate(**kwargs)
+
+
+async def chat_completion_thread(model, progress_bar, queue):
+    while True:
+        # Fetch task
+        try:
+            task = queue.get_nowait()
+        except asyncio.QueueEmpty:
+            break
+
+        # Completion
+        try:
+            response = await _chat_completion_with_backoff(
+                model=model,
+                messages=[{"role": "user", "content": task["question"]}],
+
+                temperature=0
+            )
+            task["response"] = response["choices"][0]["message"]["content"]  # type: ignore
+        except Exception as e:
+            if hasattr(e, "last_attempt"):
+                e = e.last_attempt
+            if hasattr(e, "_exception"):
+                e = e._exception
+
+            print(type(e), str(e))
+        
+        # Progress
+        progress_bar.update()
 
 
 async def get_openai_answers(
-    questions: dict,
-    model_type: str,
+    model: str,
+    questions: list,
     parallel: int
 ):
     # Complete in retry cycles
-    last_to_complete_num = None
+    last_to_complete_num = 0
+
     while True:
-        # run openai api
+        # fill queue
         to_complete_num = 0
-        sem = asyncio.Semaphore(parallel)
-        for q in questions["default"]:
+        queue = asyncio.Queue()
+        for q in questions:
             if q["response"]:
                 continue
 
-            q["response"] = asyncio.create_task(chat_completion_with_backoff(
-                sem,
-                model=model_type,
-                messages=[{"role": "user", "content": q["question"]}],
-
-                temperature=0
-            ))
+            queue.put_nowait(q)
             to_complete_num += 1
 
-        # Fetch answers
         tqdm.write(f"New completion cycle. To complete {to_complete_num}, number of parallel calls {parallel}")
-        for q in tqdm(questions["default"]):
-            response = q["response"]
-            if not isinstance(response, str):
-                try:
-                    await response
-                    response = response.result()["choices"][0]["message"]["content"]
-                except Exception as e:
-                    response = ""
 
-                    if hasattr(e, "last_attempt"):
-                        e = e.last_attempt
-                    if hasattr(e, "_exception"):
-                        e = e._exception
-
-                    print(str(e))
-
-                q["response"] = response
+        # Create tasks
+        progress_bar = tqdm(total=to_complete_num)
+        async with asyncio.TaskGroup() as task_group:
+            for _ in range(parallel):
+                task_group.create_task(chat_completion_thread(model, progress_bar, queue))
 
         # Next retry cycle
         # Break if cannot complete more
@@ -79,72 +89,75 @@ async def get_openai_answers(
     return questions
 
 
-async def get_model_answers(
-    questions: dict,
-    model_type: str,
-    model_path: str
+def tokenize_questions(model_config: object, conv_template: object, questions: list, condition: Optional[str], system_msg: str):
+    from ochat.config import Conversation, Message
+
+    # Construct conversation
+    prompt_indices = []
+    conversations = []
+    for idx, q in enumerate(questions):
+        if q["response"]:
+            continue
+
+        conversations.append(Conversation(
+            items=[
+                Message(role="user", content=q["question"]),
+                Message(role="assistant", content="")
+            ],
+            condition=condition,
+            system=system_msg
+        ))
+        prompt_indices.append(idx)
+
+    # Tokenize
+    conversations, _ = conv_template.tokenize_conversations(conversations, inference=True)
+    conversations    = [tokens[-model_config.model_max_context:] for tokens in conversations]
+
+    return conversations, prompt_indices
+
+
+def get_model_answers(
+    model: str,
+    questions: list,
+    condition: Optional[str],
+    system_msg: str
 ):
+    from ochat.config import MODEL_CONFIG_MAP
+
+    # Load model config
+    with open(cached_file(path_or_repo_id=model, filename="openchat.json"), "r") as f:
+        model_type = orjson.loads(f.read())["model_type"]
+
+    model_config = MODEL_CONFIG_MAP[model_type]
+    tokenizer = model_config.model_tokenizer_create(model)
+    conv_template = model_config.conversation_template(tokenizer=tokenizer)
+
     # Init vLLM engine
     model_config = MODEL_CONFIG_MAP[model_type]
-
-    engine = LLM(model_path,
+    engine = LLM(model,
                  max_num_batched_tokens=model_config.model_max_context)
     sampling_params = SamplingParams(temperature=0,
                                      max_tokens=model_config.model_max_context,
-                                     stop=[model_config.eot_token])
-
-    # Init tokenizer
-    tokenizer = model_config.model_tokenizer_create(model_path)
-
-    def _tokenize(text):
-        """Tokenize text-only, ignoring all special tokens."""
-        return tokenizer.convert_tokens_to_ids(tokenizer._tokenize(text))
-
-    def _tokenize_special(special_name):
-        return tokenizer.convert_tokens_to_ids(special_name)
+                                     stop_token_ids=conv_template.eot_tokens_,  # Override stop tokens
+                                     ignore_eos=True)
 
     # Complete
-    prompts = []
-    prompt_indices = []
-
-    for template_name, template_questions in questions.items():
-        prompt_template_fn = CONVERSATION_TEMPLATES[template_name]
-
-        for idx, q in enumerate(template_questions):
-            if q["response"]:
-                continue
-
-            tokens = prompt_template_fn(q["question"],
-                                        model_config=model_config,
-                                        tokenize_fn=_tokenize,
-                                        tokenize_special_fn=_tokenize_special)
-
-            # Truncate to specified tokens
-            max_context = model_config.model_max_context
-            if max_context is not None:
-                tokens = tokens[-max_context:]
-
-            prompt_indices.append((template_name, idx))
-            prompts.append(tokens)
-
-            q["prompt"] = tokenizer.decode(tokens)
+    prompts, prompt_indices = tokenize_questions(model_config, conv_template, questions,
+                                                 condition=condition, system_msg=system_msg)
 
     # calculate & fill in responses
     responses = engine.generate(prompt_token_ids=prompts, sampling_params=sampling_params)
+    for idx, resp in zip(prompt_indices, responses):
+        questions[idx]["response"] = resp.outputs[0].text
 
-    responses = sorted(responses, key=lambda x: int(x.request_id))
-    responses = [x.outputs[0].text for x in responses]
-
-    for (template_name, idx), resp in zip(prompt_indices, responses):
-        questions[template_name][idx]["response"] = resp
 
     return questions
 
 
 async def run_eval(
-    model_type: str,
-    model_path: str,
-    conversation_templates: list,
+    model: str,
+    condition: Optional[str],
+    system_msg: str,
 
     data_path: str,
     eval_sets: list,
@@ -154,6 +167,8 @@ async def run_eval(
 
     parallel: int
 ):
+    print (f"Evaluating...\n\nCondition: {condition}\nSystem Prompt: {system_msg}\n")
+
     if continue_from is not None:
         # Load continue
         print (f"Continuing from {continue_from}...")
@@ -180,27 +195,20 @@ async def run_eval(
 
             questions.extend([{**item, "task_name": task_name, "task_type": task_type, "response": ""} for item in task_data])
 
-        # Add conversation templates
-        if not conversation_templates:
-            conversation_templates = CONVERSATION_TEMPLATES.keys()
-
-        questions = {template: deepcopy(questions) for template in conversation_templates}
-
     # run completion
-    if model_path is None:
-        questions = await get_openai_answers(questions, model_type, parallel)
+    if model.startswith("gpt-3.5-turbo") or model.startswith("gpt-4"):
+        questions = await get_openai_answers(model, questions, parallel)
     else:
-        questions = await get_model_answers(questions, model_type, model_path)
+        questions = get_model_answers(model, questions, condition, system_msg)
 
     # Calculate accuracy
-    for template_name, template_questions in questions.items():
-        for q in template_questions:
-            q["is_matched"], q["answer"] = MATCH_ANSWER_FUNCTION[q["task_type"]](q, q["response"])
-            q["is_correct"] = q["answer"] in q["label"]
+    for q in questions:
+        q["is_matched"], q["answer"] = MATCH_ANSWER_FUNCTION[q["task_type"]](q, q["response"])
+        q["is_correct"] = q["answer"] in q["label"]
 
     # Write results
     if output_file is None:
-        output_file = os.path.join(os.path.dirname(data_path), "eval_results", f"{model_type}.json")
+        output_file = os.path.join(os.path.dirname(data_path), "eval_results", f"{os.path.basename(model)}_{condition}.json")
 
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
@@ -212,9 +220,9 @@ async def main():
     parser = argparse.ArgumentParser()
 
     # Input / output
-    parser.add_argument("--model_type",             type=str, default="gpt-3.5-turbo")
-    parser.add_argument("--model_path",             type=str, default=None)
-    parser.add_argument("--conversation_templates", type=str, nargs="+", default=["default"])
+    parser.add_argument("--model", type=str, default=None)
+    parser.add_argument("--condition", type=str, default=None)
+    parser.add_argument("--system-msg", type=str, default="")
 
     parser.add_argument("--data_path", type=str, default="ochat/evaluation/eval_data")
     parser.add_argument("--eval_sets", type=str, nargs="+", default=[])
