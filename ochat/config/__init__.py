@@ -53,6 +53,6 @@ MODEL_CONFIG_MAP = {
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=_v3_2_role_prefix,
                                       eot="<|end_of_turn|>",
-                                      inference_condition="GPT4")
+                                      inference_condition="GPT4 Correct")
     ),
 }
