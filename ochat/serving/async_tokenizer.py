@@ -13,7 +13,7 @@ class AsyncTokenizer:
 
         self.conv_template = config.conversation_template(tokenizer=tokenizer)
 
-    def tokenize(self, messages, enable_sys_prompt=False):
+    def tokenize(self, messages, condition, enable_sys_prompt=False):
         # get system messages
         system_message = ""
         items = []
@@ -35,7 +35,8 @@ class AsyncTokenizer:
         if items[-1].role != "assistant":
             items.append(Message(role="assistant", content=""))
 
-        tokens, _ = self.conv_template.tokenize_conversations([Conversation(items=items, system=system_message)], inference=True)
+        tokens, _ = self.conv_template.tokenize_conversations([Conversation(items=items, system=system_message, condition=condition)],
+                                                              inference=True)
         return tokens[0]
     
     def get_eot_tokens(self):

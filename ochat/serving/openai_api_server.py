@@ -146,7 +146,8 @@ async def create_chat_completion(raw_request: Request, background_tasks: Backgro
                                      "logit_bias is not currently supported")
 
     # input ids
-    input_ids = await tokenizer.tokenize.remote(request.messages, enable_sys_prompt=model.enable_sys_prompt)
+    input_ids = await tokenizer.tokenize.remote(request.messages, condition=request.condition,
+                                                enable_sys_prompt=model.enable_sys_prompt)
     input_num_tokens = len(input_ids)
 
     # check length
