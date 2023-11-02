@@ -15,6 +15,11 @@
 
 **🤖 #1 Open-source model on MT-bench scoring 7.81, outperforming 70B models 🤖**
 
+<div align="center">
+  <img src="assets/openchat.png" style="width: 50%">
+</div>
+
+
 OpenChat is an innovative library of open-source language models, fine-tuned with [C-RLFT](https://arxiv.org/pdf/2309.11235.pdf) - a strategy inspired by offline reinforcement learning. Our models learn from mixed-quality data without preference labels, delivering exceptional performance on par with ChatGPT, even with a 7B model. Despite our simple approach, we are committed to developing a high-performance, commercially viable, open-source large language model, and we continue to make significant strides toward this vision.
 
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
