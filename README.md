@@ -137,7 +137,7 @@ HumanEval:
 Note: Please run the following commands at the base directory of this repository.
 
 ```bash
-python -m ochat.evaluation.run_eval --condition "Code" --model openchat/openchat_3.5
+python -m ochat.evaluation.run_eval --condition "Code" --eval_sets coding --model openchat/openchat_3.5
 python ochat/evaluation/convert_to_evalplus.py
 ```
 
