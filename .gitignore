@@ -14,7 +14,7 @@ logs/
 
 # eval
 eval_results/
-codegen_results/
+evalplus_codegen/
 
 # All datasets
 dataset/
