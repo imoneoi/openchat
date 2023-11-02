@@ -106,15 +106,15 @@ assert tokens == [1, 7596, 1247, 28747, 26256, 2936, 7653, 1413, 334, 1680, 3200
 
 ## <a id="benchmarks"></a> Benchmarks
 
-| Model             | # Params | AGIEval  | BBH MC   | TruthfulQA    | BBH CoT     | GSM8K        | MMLU         | HumanEval       | MT-Bench     | Average  |
-|-------------------|----------|----------|----------|---------------|-------------|--------------|--------------|-----------------|--------------|----------|
-| OpenChat-3.5      | **7B**   | **47.4** | **47.6** | **59.1**      | 63.5        | **77.3**     | 64.3         | **55.5**        | 7.81         | **61.6** |
-| ChatGPT*          | ?        | 47.1     | **47.6** | 57.7          | **70.1**    | 74.9         | **67.3**     | 48.1            | **7.94**     | 61.5     |
-| Mistral           | 7B       | 38.0     | 39.0     | -             | -           | 52.2         | 60.1         | 30.5            | 6.84         | -        |
-| Open-source SOTA**| 13B-70B  | 41.7     | 49.7     | 62.3          | 41.4        | 82.3         | 63.7         | 73.2            | 7.71         | 61.4     |
-|                   |          | Orca 13B | Orca 13B | Platypus2 70B | Flan-T5 11B | MetaMath 70B | WizardLM 70B | WizardCoder 34B | WizardLM 70B |          |
+| Model              | # Params | Average  | MT-Bench     | AGIEval  | BBH MC   | TruthfulQA    | MMLU         | HumanEval       | BBH CoT     | GSM8K        |
+|--------------------|----------|----------|--------------|----------|----------|---------------|--------------|-----------------|-------------|--------------|
+| OpenChat-3.5       | **7B**   | **61.6** | 7.81         | **47.4** | **47.6** | **59.1**      | 64.3         | **55.5**        | 63.5        | **77.3**     |
+| ChatGPT (March)*   | ?        | 61.5     | **7.94**     | 47.1     | **47.6** | 57.7          | **67.3**     | 48.1            | **70.1**    | 74.9         |
+| Mistral            | 7B       | -        | 6.84         | 38.0     | 39.0     | -             | 60.1         | 30.5            | -           | 52.2         |
+| Open-source SOTA** | 13B-70B  | 61.4     | 7.71         | 41.7     | 49.7     | 62.3          | 63.7         | 73.2            | 41.4        | 82.3         |
+|                    |          |          | WizardLM 70B | Orca 13B | Orca 13B | Platypus2 70B | WizardLM 70B | WizardCoder 34B | Flan-T5 11B | MetaMath 70B |
 
-*: ChatGPT results are from GPT-4 Technical Report, Chain-of-Thought Hub, and our evaluation.
+*: ChatGPT (March) results are from GPT-4 Technical Report, Chain-of-Thought Hub, and our evaluation.
 
 **: Open-source SOTA results are taken from reported results in instruction-tuned model papers and official repositories.
 
