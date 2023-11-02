@@ -11,7 +11,7 @@
   <a href="https://arxiv.org/pdf/2309.11235.pdf">Paper</a>
 </p>
 
-**🔥 Surpassed ChatGPT (March) with a 7B model! 🔥**
+**🔥 The first 7B model Achieves Comparable Results with ChatGPT (March)! 🔥**
 
 **🤖 #1 Open-source model on MT-bench scoring 7.81, outperforming 70B models 🤖**
 
