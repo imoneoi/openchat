@@ -26,11 +26,11 @@ OpenChat is an innovative library of open-source language models, fine-tuned wit
 
 ## News
 
-- [2023/11/01] We released the OpenChat-3.5-7B model, surpassing ChatGPT on various benchmarks 🔥.
+- [2023/11/01] We released the [OpenChat-3.5-7B](https://huggingface.co/openchat/openchat_3.5) model, surpassing ChatGPT on various benchmarks 🔥.
 
 - [2023/09/21] We released our paper [OpenChat: Advancing Open-source Language Models with Mixed-Quality Data](https://arxiv.org/pdf/2309.11235.pdf).
 
-- [2023/09/03] We released the [OpenChat V3.2 SUPER](#models) model.
+- [2023/09/03] We released the [OpenChat V3.2 SUPER]([#models](https://huggingface.co/openchat/openchat_v3.2_super)) model.
 
 - [2023/08/04] We have launched an [Online Demo](https://openchat.team) featuring the latest version, OpenChat 3.2.
 
