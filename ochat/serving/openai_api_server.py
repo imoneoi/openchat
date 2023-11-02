@@ -38,7 +38,7 @@ TIMEOUT_KEEP_ALIVE = 5  # seconds
 
 @dataclass
 class ModelConfig:
-    name: str = None
+    names: set = None
 
     max_length: int = None
     stream_period: int = None
@@ -78,7 +78,7 @@ def create_error_response(status_code: HTTPStatus,
 
 
 def check_model(request) -> Optional[JSONResponse]:
-    if request.model.startswith(model.name):
+    if request.model in model.names:
         return
 
     return create_error_response(
@@ -116,10 +116,10 @@ async def check_api_key(
 async def show_available_models():
     """Show available models. Right now we only have one model."""
     return openai_api_protocol.ModelList(data=[
-        openai_api_protocol.ModelCard(id=model.name,
-                                      root=model.name,
+        openai_api_protocol.ModelCard(id=name,
+                                      root=name,
                                       permission=[openai_api_protocol.ModelPermission()])
-    ])
+    for name in model.names])
 
 
 @app.post("/v1/chat/completions", dependencies=[fastapi.Depends(check_api_key)])
@@ -352,7 +352,7 @@ if __name__ == "__main__":
     tokenizer = async_tokenizer.AsyncTokenizer.remote(model_type, args.model)
 
     # Model config
-    model.name = model_type
+    model.names = set(list(MODEL_CONFIG_MAP[model_type].serving_aliases) + [model_type])
     model.max_length = MODEL_CONFIG_MAP[model_type].model_max_context
     model.eot_tokens = ray.get(tokenizer.get_eot_tokens.remote())
 

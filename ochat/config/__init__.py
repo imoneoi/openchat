@@ -40,6 +40,8 @@ MODEL_CONFIG_MAP = {
     ),
 
     "openchat_v3.2_mistral": ModelConfig(
+        serving_aliases=("openchat_3.5", ),
+
         # Model
         model_max_context=8192,
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,

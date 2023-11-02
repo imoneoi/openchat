@@ -1,9 +1,12 @@
-from typing import Callable
+from typing import Callable, Iterable
 
 from pydantic import BaseModel
 
 
 class ModelConfig(BaseModel):
+    # Alias
+    serving_aliases: Iterable[str] = ()
+
     # Model
     model_max_context: int
     model_tokenizer_create: Callable
