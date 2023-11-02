@@ -1,4 +1,5 @@
 import re
+import ast
 
 
 def zs_agieval_match_answer(task_data, response):
@@ -64,11 +65,72 @@ def fs_cothub_gsm8k_match_answer(task_data, response):
     return False, response
 
 
+def fs_cothub_mmlu_match_answer(task_data, response):
+    ans_line = response.split('answer is')
+
+    # Expect to see 'answer is'. If not return C
+    if len(ans_line) == 1:
+        return False, "(C)"
+    else:
+        ans = ans_line[-1].strip()
+        
+    options = ['(A)', '(B)', '(C)', '(D)']
+    for option in options:
+        if option in ans:
+            return True, option
+
+    return False, "(C)"
+
+
+def coding_humaneval_match_answer(task_data, response):
+    # Matching utilities
+    def _function_exists(code, func_name):
+        tree = ast.parse(code)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == func_name:
+                return True
+
+        return False
+
+    def _try_match(content, prefix, entrypoint):
+        for block in content.split("```"):
+            # Sanitize block
+            block = block.strip()
+            if block.startswith("python"):
+                block = block[len("python"):]
+
+            # Check syntax
+            try:
+                code_completion = prefix + block
+                if _function_exists(code_completion, entrypoint):
+                    return code_completion
+            except SyntaxError:
+                pass
+
+    # Try match with include prefix
+    humaneval_task = task_data["_metadata"]
+    include_prefix = humaneval_task['prompt'].split('def')[0].strip() + "\n\n"
+
+    result = _try_match(response, include_prefix, humaneval_task["entry_point"])
+    if result: 
+        return True, {"task_id": humaneval_task["task_id"], "completion": result}
+
+    # If fail then match with function signature
+    result = _try_match(response, humaneval_task["prompt"], humaneval_task["entry_point"])
+    if result: 
+        return True, {"task_id": humaneval_task["task_id"], "completion": result}
+
+    return False, {"task_id": humaneval_task["task_id"], "completion": response}
+
+
 MATCH_ANSWER_FUNCTION = {
     "zs/agieval": zs_agieval_match_answer,
     "zs/bbh_mc_orca": zs_bbh_mc_orca_truthfulqa_orca_match_answer,
     "zs/truthfulqa_orca": zs_bbh_mc_orca_truthfulqa_orca_match_answer,
 
     "fs_cothub/bbh": fs_cothub_bbh_match_answer,
-    "fs_cothub/gsm8k": fs_cothub_gsm8k_match_answer
+    "fs_cothub/gsm8k": fs_cothub_gsm8k_match_answer,
+    "fs_cothub/mmlu": fs_cothub_mmlu_match_answer,
+
+    "coding/humaneval": coding_humaneval_match_answer
 }

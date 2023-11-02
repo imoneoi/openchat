@@ -14,6 +14,7 @@ from vllm import LLM, SamplingParams
 from transformers.utils.hub import cached_file
 
 from ochat.evaluation.match_answer import MATCH_ANSWER_FUNCTION
+from ochat.config import MODEL_CONFIG_MAP
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(20), retry=retry_if_exception_type((RateLimitError, ServiceUnavailableError, )))
@@ -120,20 +121,19 @@ def get_model_answers(
     model: str,
     questions: list,
     condition: Optional[str],
-    system_msg: str
+    system_msg: str,
+    template_type: str
 ):
-    from ochat.config import MODEL_CONFIG_MAP
-
     # Load model config
-    with open(cached_file(path_or_repo_id=model, filename="openchat.json"), "r") as f:
-        model_type = orjson.loads(f.read())["model_type"]
+    if template_type == "openchat":
+        with open(cached_file(path_or_repo_id=model, filename="openchat.json"), "r") as f:
+            model_type = orjson.loads(f.read())["model_type"]
 
-    model_config = MODEL_CONFIG_MAP[model_type]
-    tokenizer = model_config.model_tokenizer_create(model)
-    conv_template = model_config.conversation_template(tokenizer=tokenizer)
+        model_config = MODEL_CONFIG_MAP[model_type]
+        tokenizer = model_config.model_tokenizer_create(model)
+        conv_template = model_config.conversation_template(tokenizer=tokenizer)
 
     # Init vLLM engine
-    model_config = MODEL_CONFIG_MAP[model_type]
     engine = LLM(model,
                  max_num_batched_tokens=model_config.model_max_context)
     sampling_params = SamplingParams(temperature=0,
@@ -158,6 +158,7 @@ async def run_eval(
     model: str,
     condition: Optional[str],
     system_msg: str,
+    template_type: str,
 
     data_path: str,
     eval_sets: list,
@@ -167,7 +168,7 @@ async def run_eval(
 
     parallel: int
 ):
-    print (f"Evaluating...\n\nCondition: {condition}\nSystem Prompt: {system_msg}\n")
+    print (f"Evaluating (Template: {template_type})...\n\nCondition: {condition}\nSystem Prompt: {system_msg}\n")
 
     if continue_from is not None:
         # Load continue
@@ -199,12 +200,15 @@ async def run_eval(
     if model.startswith("gpt-3.5-turbo") or model.startswith("gpt-4"):
         questions = await get_openai_answers(model, questions, parallel)
     else:
-        questions = get_model_answers(model, questions, condition, system_msg)
+        questions = get_model_answers(model, questions, condition, system_msg, template_type)
 
     # Calculate accuracy
     for q in questions:
         q["is_matched"], q["answer"] = MATCH_ANSWER_FUNCTION[q["task_type"]](q, q["response"])
-        q["is_correct"] = q["answer"] in q["label"]
+        try:
+            q["is_correct"] = q["answer"] in q["label"]
+        except:
+            q["is_correct"] = False
 
     # Write results
     if output_file is None:
@@ -223,6 +227,7 @@ async def main():
     parser.add_argument("--model", type=str, default=None)
     parser.add_argument("--condition", type=str, default=None)
     parser.add_argument("--system-msg", type=str, default="")
+    parser.add_argument("--template-type", type=str, default="openchat")
 
     parser.add_argument("--data_path", type=str, default="ochat/evaluation/eval_data")
     parser.add_argument("--eval_sets", type=str, nargs="+", default=[])
