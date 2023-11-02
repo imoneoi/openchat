@@ -21,21 +21,19 @@ dependencies = [
     "tqdm", 
     "wandb", 
     "numba", 
-    "deepspeed", 
     "datasets", 
     "orjson", 
     "torch", 
     "ray", 
     "sentencepiece", 
-    "transformers", 
+    "transformers>=4.34.1", 
     "accelerate", 
-    "protobuf<3.21", 
+    "protobuf",
     "fastapi", 
     "pydantic", 
     "shortuuid", 
     "uvicorn", 
-    "vllm",
-    "flash-attn"
+    "vllm"
 ]
 
 [project.urls]

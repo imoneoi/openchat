@@ -6,12 +6,15 @@ wandb/
 
 # Old
 old/
+temp/
+profiler/
 
 # Logs
 logs/
 
 # eval
 eval_results/
+evalplus_codegen/
 
 # All datasets
 dataset/

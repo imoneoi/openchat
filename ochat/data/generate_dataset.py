@@ -1,22 +1,21 @@
 """
 Generate training data based on conversations
 
-Usage: python -m ochat.data.generate_data --in-file sharegpt_gpt4.json --tokenizer-name HF_REPO_NAME --out-dir .
+Usage: python -m ochat.data.generate_data --in-file sharegpt_gpt4.jsonl --tokenizer-name HF_REPO_NAME --out-dir .
 """
 
+from typing import Optional
 import argparse
 import os
 import random
 
-import orjson
 import ray
+import orjson
 import pyarrow
 from pyarrow import parquet
 
-from ochat.data.unwanted_words import contains_unwanted_words
 
-
-IGNORE_TOKEN_ID = -100
+PAD_TOKEN_ID = 0
 
 
 def _split(a, n):
@@ -26,29 +25,23 @@ def _split(a, n):
     return [a[i*k+min(i, m): (i+1)*k+min(i+1, m)] for i in range(n)]
 
 
-def conversation_properties(c, gpt3_weight):
-    is_gpt4 = c.get("model", "") == "Model: GPT-4"
-    return {
-        "is_gpt4": is_gpt4,
-        "weight": 1.0 if is_gpt4 else gpt3_weight
-    }
+def truncate_trailing_zero_weighted(tokens, weights):
+    non_zero_index = len(weights) - 1
+    while non_zero_index >= 0 and weights[non_zero_index] == 0:
+        non_zero_index -= 1
+
+    return tokens[:non_zero_index + 1], weights[:non_zero_index + 1]
 
 
-def add_single_conv(output, tokens, masks, weights):
-    # sanity check
-    for m, w in zip(masks, weights):
-        assert m == (w != 0)
-
-    # length
-    length = len(tokens)
-    assert len(masks) == length
-    assert len(weights) == length
-
-    if sum(masks) == 0:
+def add_single_conv(output, tokens, weights):
+    # truncate trailing zero weighted tokens
+    tokens, weights = truncate_trailing_zero_weighted(tokens, weights)
+    if not tokens:
         return
 
     # labels
-    labels = [(t if m else IGNORE_TOKEN_ID) for t, m in zip(tokens, masks)]
+    length = len(tokens)
+    labels = [(t if w != 0 else PAD_TOKEN_ID) for t, w in zip(tokens, weights)]
 
     # populate results
     results = {
@@ -58,7 +51,7 @@ def add_single_conv(output, tokens, masks, weights):
         "nz_input_ids": tokens,
         "nz_position_ids": list(range(length)),
 
-        "nz_shifted_label_ids":    labels[1:]  + [IGNORE_TOKEN_ID],
+        "nz_shifted_label_ids":    labels[1:]  + [PAD_TOKEN_ID],
         "nz_shifted_loss_weights": weights[1:] + [0.0]
     }
     results["num_seqs"] = sum(results["nz_shifted_loss_weights"])
@@ -68,51 +61,43 @@ def add_single_conv(output, tokens, masks, weights):
 
 
 @ray.remote
-def convert_conversation_batch(model_type: str, model_path: str, batch: list, field_names: list, gpt3_weight: float):
-    from ochat.config.model_config import MODEL_CONFIG_MAP
+def convert_conversation_batch(model_type: str, model_path: str, batch: list, schema: pyarrow.Schema, per_sequence_loss: bool):
+    from ochat.config import MODEL_CONFIG_MAP, Conversation
 
     # Tokenization
     model_config = MODEL_CONFIG_MAP[model_type]
     tokenizer = model_config.model_tokenizer_create(model_path)
+    conv_template = model_config.conversation_template(tokenizer=tokenizer)
 
-    def _tokenize(text):
-        """Tokenize text-only, ignoring all special tokens."""
-        return tokenizer.convert_tokens_to_ids(tokenizer._tokenize(text))
+    # Decode data
+    print ("Decoding JSON ...")
+    batch = [Conversation(**orjson.loads(json_line)) for json_line in batch]
 
-    def _tokenize_special(special_name):
-        return tokenizer.convert_tokens_to_ids(special_name)
+    # Tokenize
+    print ("Tokenizing ...")
+    tokens_list, weights_list = conv_template.tokenize_conversations(batch, inference=False, seq_level_weight=per_sequence_loss)
 
     # Generate data
-    outputs = {k: [] for k in field_names}
-    for c in batch:
-        props = conversation_properties(c, gpt3_weight)
-        message_list = c["items"]
-        for msg in message_list:
-            assert msg["from"] in {"human", "gpt"}
+    print ("Generating ...")
+    max_context = model_config.model_max_context
 
-            if msg["from"] == "gpt":
-                msg["use_loss"] = not contains_unwanted_words(msg["value"])
-
-        # Generate template
-        tokens, masks, weights = model_config.generate_conversation_template(_tokenize, _tokenize_special,
-                                                                             system_prompt=c.get("system_message", ""),
-                                                                             message_list=message_list,
-                                                                             message_props=props)
+    outputs = {k: [] for k in schema.names}
+    for tokens, weights in zip(tokens_list, weights_list):
+        assert len(tokens) == len(weights)
 
         # Truncate to specified tokens
-        max_context = model_config.model_max_context
-        if max_context is not None:
-            tokens  = tokens[:max_context]
-            masks   = masks[:max_context]
-            weights = weights[:max_context]
+        tokens  = tokens[:max_context]
+        weights = weights[:max_context]
 
         # Add to results
-        add_single_conv(outputs, tokens, masks, weights)
+        add_single_conv(outputs, tokens, weights)
 
-    return outputs
+    print ("Chunk finish")
+
+    return pyarrow.Table.from_pydict(outputs, schema=schema)
 
 
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, gpt3_weight: float, num_cpus: int = os.cpu_count()):
+def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, per_sequence_loss: bool):
     # schema
     metadata = {
         "model_type": model_type
@@ -131,36 +116,27 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
     schema = pyarrow.schema(schema, metadata={"metadata_json": orjson.dumps(metadata)})
 
     # launch remote workers
-    ray.init(num_cpus=num_cpus)
+    if not ray.is_initialized():
+        ray.init(ignore_reinit_error=True, num_cpus=os.cpu_count())
 
     handles = [convert_conversation_batch.remote(
-        model_type=model_type,
+        model_type=model_type,  # type: ignore
         model_path=model_path,
         batch=batch,
-        field_names=schema.names,
-        gpt3_weight=gpt3_weight
-    ) for batch in _split(conversations, num_cpus)]
-
-    # aggegrate results
-    results = {k: [] for k in schema.names}
-    for handle in handles:
-        batch_result = ray.get(handle)
-
-        for k, v in batch_result.items():
-            results[k].extend(v)
+        schema=schema,
+        per_sequence_loss=per_sequence_loss
+    ) for batch in _split(conversations, int(ray.available_resources()["CPU"]))]
 
     # write
-    parquet.write_table(pyarrow.Table.from_pydict(results, schema=schema), f"{out_prefix}.{split_name}.parquet")
-
-    ray.shutdown()
+    parquet.write_table(pyarrow.concat_tables([ray.get(handle) for handle in handles]), f"{out_prefix}.{split_name}.parquet")
 
 
-def generate_dataset(model_type, model_path, in_files, out_prefix, gpt3_weight, seed, eval_ratio):
+def generate_dataset(model_type, model_path, in_files, out_prefix, per_sequence_loss, seed, eval_ratio):
     # Load conversations
     conversations = []
     for filename in in_files:
-        with open(filename, "rb") as f:
-            conversations.extend(orjson.loads(f.read()))
+        with open(filename, "rt") as f:
+            conversations.extend(f.readlines())
 
     # Train-test split
     random.seed(seed)
@@ -170,9 +146,9 @@ def generate_dataset(model_type, model_path, in_files, out_prefix, gpt3_weight, 
     train_conversations = conversations[eval_num:]
     eval_conversations  = conversations[:eval_num]
 
-    generate_split(model_type, model_path, train_conversations, "train", out_prefix, gpt3_weight)
+    generate_split(model_type, model_path, train_conversations, "train", out_prefix, per_sequence_loss)
     if eval_num > 0:
-        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix, gpt3_weight)
+        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix, per_sequence_loss)
 
 
 if __name__ == "__main__":
@@ -181,12 +157,11 @@ if __name__ == "__main__":
     parser.add_argument("--model-path", type=str, required=True)
 
     parser.add_argument("--in-files", type=str, nargs="+", required=True)
-    parser.add_argument("--out-prefix", type=str,required=True)
+    parser.add_argument("--out-prefix", type=str, required=True)
 
-    parser.add_argument("--gpt3_weight", type=float, default=0.1)
-
+    parser.add_argument("--per-sequence-loss", action="store_true")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--eval-ratio", type=float, default=0.0)
+    parser.add_argument("--eval-ratio", type=float, default=0.005)
     args = parser.parse_args()
 
     generate_dataset(**vars(args))

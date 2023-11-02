@@ -24,7 +24,6 @@ from typing import Optional, Tuple
 import torch
 import torch.utils.checkpoint
 from torch import nn
-from torch.nn import CrossEntropyLoss
 
 from transformers.activations import ACT2FN
 from transformers.modeling_outputs import CausalLMOutputWithPast
@@ -42,12 +41,17 @@ except ImportError:
 logger = logging.get_logger(__name__)
 
 
-@torch.jit.script
+@torch.jit.script  # type: ignore
+def weighted_token_accuracy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
+    return (weights * (torch.argmax(logits, dim=-1) == labels)).sum()
+
+
+@torch.jit.script  # type: ignore
 def weighted_cross_entropy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
     return (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
 
 
-@torch.jit.script
+@torch.jit.script  # type: ignore
 def rms_norm(hidden_states: torch.Tensor, weight: torch.Tensor, variance_epsilon: float):
     input_dtype = hidden_states.dtype
     hidden_states = hidden_states.to(torch.float32)
@@ -76,7 +80,7 @@ def apply_rotary_pos_emb(q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, si
 
 
 class UnpaddedLlamaRMSNorm(nn.Module):
-    def __init__(self, hidden_size, eps=1e-6):
+    def __init__(self, hidden_size, eps):
         """
         UnpaddedLlamaRMSNorm is equivalent to T5LayerNorm
         """
@@ -90,24 +94,12 @@ class UnpaddedLlamaRMSNorm(nn.Module):
 
 
 class UnpaddedLlamaRotaryEmbedding(torch.nn.Module):
-    def __init__(self, dim, max_position_embeddings=2048, extend_context_to=None, base=10000.0, device=None):
+    def __init__(self, dim, max_position_embeddings, base, device=None):
         super().__init__()
-
-        # Extension and calculate factor
-        if extend_context_to is None:
-            extend_context_to = max_position_embeddings
-
-        # FIXME: Currently do not interpolate RoPE (performance on Vicuna GPT-4 and MMLU will drop significantly)
-        # Needs mixing with training data.
-        # self.extend_factor = max_position_embeddings / extend_context_to
-        self.extend_factor = 1
-        self.max_seq_len_cached = max(max_position_embeddings, extend_context_to)
-
-        print (f"LLaMA context extended from {max_position_embeddings} to {extend_context_to}, factor {self.extend_factor}")
 
         # RoPE
         inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, dtype=torch.float32, device=device) / dim))
-        t = self.extend_factor * torch.arange(self.max_seq_len_cached, dtype=torch.float32, device=device)
+        t = torch.arange(max_position_embeddings, dtype=torch.float32, device=device)
         freqs = torch.outer(t, inv_freq)
 
         # Different from paper, but it uses a different permutation in order to obtain the same calculation
@@ -188,7 +180,7 @@ class UnpaddedLlamaAttention(nn.Module):
             dropout_p=0.0, causal=True)
 
         # attn_output: [total_nnz, num_heads, head_dim]
-        attn_output = attn_output.view(-1, self.hidden_size)
+        attn_output = attn_output.view(-1, self.hidden_size)  # type: ignore
         return self.o_proj(attn_output)
 
 
@@ -214,7 +206,7 @@ class UnpaddedLlamaDecoderLayer(nn.Module):
         nz_position_ids: torch.Tensor,
         cu_seqlens: torch.Tensor,
         max_seqlen: int
-    ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
+    ) -> torch.Tensor:
         # Self Attention
         residual = nz_hidden_states
 
@@ -269,7 +261,7 @@ class UnpaddedLlamaModel(UnpaddedLlamaPreTrainedModel):
         config: LlamaConfig
     """
 
-    def __init__(self, config: LlamaConfig, extend_context_to=None):
+    def __init__(self, config: LlamaConfig):
         super().__init__(config)
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
@@ -277,7 +269,7 @@ class UnpaddedLlamaModel(UnpaddedLlamaPreTrainedModel):
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.rotary_emb   = UnpaddedLlamaRotaryEmbedding(config.hidden_size // config.num_attention_heads,
                                                          max_position_embeddings=config.max_position_embeddings,
-                                                         extend_context_to=extend_context_to)
+                                                         base=config.rope_theta)
 
         self.layers = nn.ModuleList([UnpaddedLlamaDecoderLayer(config) for _ in range(config.num_hidden_layers)])
         self.norm = UnpaddedLlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -342,9 +334,9 @@ class LlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
     # Ignore rotary emb inv_freq on load, as they will be calculated on creation
     _keys_to_ignore_on_load_unexpected = [r"model\.layers\.\d+\.self_attn\.rotary_emb\.inv_freq"]
 
-    def __init__(self, config, extend_context_to=None):
+    def __init__(self, config):
         super().__init__(config)
-        self.model = UnpaddedLlamaModel(config, extend_context_to=extend_context_to)
+        self.model = UnpaddedLlamaModel(config)
 
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
@@ -391,13 +383,13 @@ class LlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
 
         loss = None
         if nz_shifted_label_ids is not None:
-            if nz_shifted_loss_weights is not None:
-                loss = weighted_cross_entropy(logits, nz_shifted_label_ids, nz_shifted_loss_weights)
-            else:
-                loss = CrossEntropyLoss(reduction="sum")(logits, nz_shifted_label_ids)
+            assert nz_shifted_loss_weights is not None
+
+            loss = weighted_cross_entropy(logits, nz_shifted_label_ids, nz_shifted_loss_weights), \
+                   weighted_token_accuracy(logits.detach(), nz_shifted_label_ids, nz_shifted_loss_weights)
 
         return CausalLMOutputWithPast(
-            loss=loss,
+            loss=loss,  # type: ignore
             logits=logits
         )
 
@@ -423,8 +415,8 @@ class PaddedLlamaForCausalLM(LlamaForCausalLM):
         # get indices
         seqlens_in_batch = attention_mask.sum(dim=-1, dtype=torch.int32)
         indices = torch.nonzero(attention_mask.flatten(), as_tuple=False).flatten()
-        max_seqlen_in_batch = seqlens_in_batch.max().item()
-        cu_seqlens = torch.nn.functional.pad(torch.cumsum(seqlens_in_batch, dim=0, dtype=torch.torch.int32), (1, 0))
+        max_seqlen_in_batch = int(seqlens_in_batch.max().item())
+        cu_seqlens = torch.nn.functional.pad(torch.cumsum(seqlens_in_batch, dim=0, dtype=torch.int32), (1, 0))
 
         # Unpad inputs
         nz_input_ids    = torch.take_along_dim(input_ids,    indices)
@@ -441,7 +433,7 @@ class PaddedLlamaForCausalLM(LlamaForCausalLM):
         # Pad logits
         logits = pad_input(logits, indices, batch_size, seq_len)
 
-        return CausalLMOutputWithPast(logits=logits)
+        return CausalLMOutputWithPast(logits=logits)  # type: ignore
 
     def prepare_inputs_for_generation(self,
                                       input_ids: torch.Tensor,

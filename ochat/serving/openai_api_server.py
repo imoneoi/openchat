@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
 
 import uvicorn
+import ray
 
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -26,7 +27,7 @@ from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
-from ochat.config.model_config import MODEL_CONFIG_MAP
+from ochat.config import MODEL_CONFIG_MAP
 from ochat.serving import openai_api_protocol, async_tokenizer
 
 from transformers.utils.hub import cached_file
@@ -37,11 +38,13 @@ TIMEOUT_KEEP_ALIVE = 5  # seconds
 
 @dataclass
 class ModelConfig:
-    name: str = None
+    names: set = None
 
     max_length: int = None
     stream_period: int = None
+    eot_tokens: list = None
 
+    enable_sys_prompt: bool = None
     api_keys: list = None
 
 
@@ -52,11 +55,36 @@ model = ModelConfig()
 tokenizer = None
 
 
+def _strip_first_space(s: str):
+    if s[0] == " ":
+        return s[1:]
+    return s
+
+
+def log_request(created_time: int, request: openai_api_protocol.ChatCompletionRequest, output: RequestOutput):
+    if logger is not None:
+        logger.info(openai_api_protocol.LoggingRecord(
+            time=created_time,
+            request=request,
+            outputs=[o.text for o in output.outputs]
+        ).json(exclude_unset=True, ensure_ascii=False))
+
+
 def create_error_response(status_code: HTTPStatus,
                           message: str) -> JSONResponse:
     return JSONResponse(openai_api_protocol.ErrorResponse(message=message,
                                                           type="invalid_request_error").dict(),
                         status_code=status_code.value)
+
+
+def check_model(request) -> Optional[JSONResponse]:
+    if request.model in model.names:
+        return
+
+    return create_error_response(
+        HTTPStatus.NOT_FOUND,
+        f"The model `{request.model}` does not exist.",
+    )
 
 
 @app.exception_handler(RequestValidationError)
@@ -84,37 +112,18 @@ async def check_api_key(
         )
 
 
-def log_request(created_time: int, request: openai_api_protocol.ChatCompletionRequest, output: RequestOutput):
-    if logger is not None:
-        logger.info(openai_api_protocol.LoggingRecord(
-            time=created_time,
-            request=request,
-            outputs=[o.text for o in output.outputs]
-        ).json(exclude_unset=True, ensure_ascii=False))
-
-
-async def check_model(request) -> Optional[JSONResponse]:
-    if request.model.startswith(model.name):
-        return
-
-    return create_error_response(
-        HTTPStatus.NOT_FOUND,
-        f"The model `{request.model}` does not exist.",
-    )
-
-
 @app.get("/v1/models", dependencies=[fastapi.Depends(check_api_key)])
 async def show_available_models():
     """Show available models. Right now we only have one model."""
     return openai_api_protocol.ModelList(data=[
-        openai_api_protocol.ModelCard(id=model.name,
-                                      root=model.name,
+        openai_api_protocol.ModelCard(id=name,
+                                      root=name,
                                       permission=[openai_api_protocol.ModelPermission()])
-    ])
+    for name in model.names])
 
 
 @app.post("/v1/chat/completions", dependencies=[fastapi.Depends(check_api_key)])
-async def create_chat_completion(raw_request: Request):
+async def create_chat_completion(raw_request: Request, background_tasks: BackgroundTasks):
     """Completion API similar to OpenAI's API.
 
     See  https://platform.openai.com/docs/api-reference/chat/create
@@ -127,26 +136,32 @@ async def create_chat_completion(raw_request: Request):
 
     request = openai_api_protocol.ChatCompletionRequest(**await raw_request.json())
 
-    error_check_ret = await check_model(request)
+    error_check_ret = check_model(request)
     if error_check_ret is not None:
         return error_check_ret
 
-    if request.logit_bias is not None:
+    if request.logit_bias is not None and len(request.logit_bias) > 0:
         # TODO: support logit_bias in vLLM engine.
         return create_error_response(HTTPStatus.BAD_REQUEST,
                                      "logit_bias is not currently supported")
 
     # input ids
-    input_ids = await tokenizer.tokenize.remote(request.messages)
+    input_ids = await tokenizer.tokenize.remote(request.messages, condition=request.condition,
+                                                enable_sys_prompt=model.enable_sys_prompt)
+    input_num_tokens = len(input_ids)
 
     # check length
-    request.max_tokens = min(request.max_tokens, model.max_length - len(input_ids))
-    if request.max_tokens <= 0:
-        return create_error_response(
+    if request.max_tokens is None:
+        request.max_tokens = model.max_length - input_num_tokens
+
+    if input_num_tokens + request.max_tokens > model.max_length:
+        return input_ids, create_error_response(
             HTTPStatus.BAD_REQUEST,
             f"This model's maximum context length is {model.max_length} tokens. "
-            f"However, you requested {len(input_ids)} tokens. "
-            f"Please reduce the length of the messages.",
+            f"However, you requested {input_num_tokens + request.max_tokens} tokens "
+            f"({input_num_tokens} in the messages, "
+            f"{request.max_tokens} in the completion). "
+            f"Please reduce the length of the messages or completion.",
         )
 
     # completion
@@ -161,8 +176,10 @@ async def create_chat_completion(raw_request: Request):
             frequency_penalty=request.frequency_penalty,
             temperature=request.temperature,
             top_p=request.top_p,
-            stop=request.stop,
-            max_tokens=request.max_tokens
+            max_tokens=request.max_tokens,
+            # Override stop tokens
+            stop_token_ids=model.eot_tokens,
+            ignore_eos=True
         )
     except ValueError as e:
         return create_error_response(HTTPStatus.BAD_REQUEST, str(e))
@@ -171,9 +188,6 @@ async def create_chat_completion(raw_request: Request):
                                        prompt_token_ids=input_ids,
                                        sampling_params=sampling_params,
                                        request_id=request_id)
-
-    async def abort_request() -> None:
-        await engine.abort(request_id)
 
     def create_stream_response_json(
         index: int,
@@ -212,6 +226,7 @@ async def create_chat_completion(raw_request: Request):
 
         stream_index = 0
         final_res = None
+        is_first = True
         async for res in result_generator:
             stream_index += 1
             final_res = res
@@ -225,6 +240,11 @@ async def create_chat_completion(raw_request: Request):
                         previous_texts[i] = output.text
                         previous_num_tokens[i] = len(output.token_ids)
 
+                        if is_first:
+                            # Strip first space
+                            is_first = False
+                            delta_text = _strip_first_space(delta_text)
+
                         yield f"data: {create_stream_response_json(index=i, text=delta_text)}\n\n"
                         if output.finish_reason is not None:
                             yield f"data: {create_stream_response_json(index=i, text='', finish_reason=output.finish_reason)}\n\n"
@@ -232,23 +252,19 @@ async def create_chat_completion(raw_request: Request):
         yield "data: [DONE]\n\n"
 
         # Log request
-        log_request(created_time, request, final_res)
+        background_tasks.add_task(log_request, created_time, request, final_res)
 
     # Streaming response
     if request.stream:
-        background_tasks = BackgroundTasks()
-        # Abort the request if the client disconnects.
-        background_tasks.add_task(abort_request)
         return StreamingResponse(completion_stream_generator(),
-                                 media_type="text/event-stream",
-                                 background=background_tasks)
+                                 media_type="text/event-stream")
 
     # Non-streaming response
     final_res: RequestOutput = None
     async for res in result_generator:
         if await raw_request.is_disconnected():
             # Abort the request if the client disconnects.
-            await abort_request()
+            await engine.abort(request_id)
             return create_error_response(HTTPStatus.BAD_REQUEST,
                                          "Client disconnected")
         final_res = res
@@ -257,7 +273,7 @@ async def create_chat_completion(raw_request: Request):
     for output in final_res.outputs:
         choice_data = openai_api_protocol.ChatCompletionResponseChoice(
             index=output.index,
-            message=openai_api_protocol.ChatMessage(role="assistant", content=output.text),
+            message=openai_api_protocol.ChatMessage(role="assistant", content=_strip_first_space(output.text)),
             finish_reason=output.finish_reason,
         )
         choices.append(choice_data)
@@ -279,7 +295,7 @@ async def create_chat_completion(raw_request: Request):
     )
 
     # Log request
-    log_request(created_time, request, final_res)
+    background_tasks.add_task(log_request, created_time, request, final_res)
 
     return response
 
@@ -290,6 +306,7 @@ if __name__ == "__main__":
     # Model
     parser.add_argument("--stream-period", type=int, default=6, help="Number of tokens per stream event")
     parser.add_argument("--api-keys", type=str, nargs="*", default=[], help="Allowed API Keys. Leave blank to not verify")
+    parser.add_argument("--enable-sys-prompt", default=False, action="store_true")
 
     # Server
     parser.add_argument("--host", type=str, default="localhost", help="Host name")
@@ -325,6 +342,7 @@ if __name__ == "__main__":
             maxBytes=args.log_max_mb * 1048576,
             backupCount=args.log_max_count)
         )
+        logger.propagate = False
 
     # Load model type
     with open(cached_file(path_or_repo_id=args.model, filename="openchat.json"), "r") as f:
@@ -334,14 +352,16 @@ if __name__ == "__main__":
     tokenizer = async_tokenizer.AsyncTokenizer.remote(model_type, args.model)
 
     # Model config
-    model.name = model_type
+    model.names = set(list(MODEL_CONFIG_MAP[model_type].serving_aliases) + [model_type])
     model.max_length = MODEL_CONFIG_MAP[model_type].model_max_context
+    model.eot_tokens = ray.get(tokenizer.get_eot_tokens.remote())
 
+    model.enable_sys_prompt = args.enable_sys_prompt
     model.stream_period = args.stream_period
     model.api_keys = args.api_keys
 
     # Set max num batched tokens
-    args.max_num_batched_tokens = max(args.max_num_batched_tokens, model.max_length)
+    args.max_num_batched_tokens = max(args.max_num_batched_tokens or model.max_length, model.max_length)
 
     # Load model engine
     engine_args = AsyncEngineArgs.from_cli_args(args)
