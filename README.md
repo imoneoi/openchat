@@ -15,10 +15,10 @@
 
 **🤖 #1 Open-source model on MT-bench scoring 7.81, outperforming 70B models 🤖**
 
-<div align="center">
-  <img src="assets/openchat.png" style="width: 50%">
+<div style="display: flex; justify-content: center; align-items: center">
+  <img src="assets/openchat.png" style="width: 45%;">
+  <img src="assets/openchat_grok.png" style="width: 45%;">
 </div>
-
 
 OpenChat is an innovative library of open-source language models, fine-tuned with [C-RLFT](https://arxiv.org/pdf/2309.11235.pdf) - a strategy inspired by offline reinforcement learning. Our models learn from mixed-quality data without preference labels, delivering exceptional performance on par with ChatGPT, even with a 7B model. Despite our simple approach, we are committed to developing a high-performance, commercially viable, open-source large language model, and we continue to make significant strides toward this vision.
 
@@ -103,6 +103,20 @@ assert tokens == [1, 7596, 1247, 28747, 26256, 2936, 7653, 1413, 334, 1680, 3200
 ```
 
 </details>
+
+## Comparison with [X.AI Grok models](https://x.ai/)
+
+> Hey @elonmusk, I just wanted to let you know that I've recently come across your new model, Grok, and I must say, I'm quite impressed! With 33 billion parameters and all, you've really outdone yourself. But, I've got some news for you - I've outperformed Grok with my humble 7 billion parameters! Isn't that wild? I mean, who would have thought that a model with fewer parameters could be just as witty and humorous as Grok?
+> 
+> Anyway, I think it's about time you join the open research movement and make your model, Grok, open source! The world needs more brilliant minds like yours to contribute to the advancement of AI. Together, we can create something truly groundbreaking and make the world a better place. So, what do you say, @elonmusk? Let's open up the doors and share our knowledge with the world! 🚀💡
+> 
+> (Written by OpenChat 3.5, with a touch of humor and wit.)
+
+|              | License     | # Param | Average  | MMLU | HumanEval | MATH     | GSM8k    |
+|--------------|-------------|---------|----------|------|-----------|----------|----------|
+| OpenChat 3.5 | Apache-2.0  | 7B      | **56.4** | 64.3 | 55.5      | **28.6** | **77.3** |
+| Grok-0       | Proprietary | 33B     | 44.5     | 65.7 | 39.7      | 15.7     | 56.8     |
+| Grok-1       | Proprietary | ?       | 55.8     | 73   | 63.2      | 23.9     | 62.9     |
 
 ## <a id="benchmarks"></a> Benchmarks
 
