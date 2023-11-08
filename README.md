@@ -5,20 +5,21 @@
 </div>
 
 <p align="center">
-  <a href="https://openchat.team">Online Demo</a> |
-  <a href="https://huggingface.co/openchat">Huggingface</a> |
-  <a href="https://arxiv.org/pdf/2309.11235.pdf">Paper</a> |
-  <a href="https://discord.gg/pQjnXvNKHY">Discord</a> 
+  <a href="https://openchat.team">💻Online Demo</a> |
+  <a href="https://huggingface.co/openchat">🤗Huggingface</a> |
+  <a href="https://arxiv.org/pdf/2309.11235.pdf">📃Paper</a> |
+  <a href="https://discord.gg/pQjnXvNKHY">💭Discord</a> 
 </p>
 
-**🔥 The first 7B model that Achieves Comparable Results with ChatGPT (March)! 🔥**
 
-**🤖 #1 Open-source model on MT-bench scoring 7.81, outperforming 70B models 🤖**
 
 ---
+**🔥 First 7B model that Achieves Comparable Results with ChatGPT (March)! 🔥**
+
+**🤖 #1 Open-source model on MT-bench scoring 7.81, outperforming 70B models 🤖**
 <div style="display: flex; justify-content: center; align-items: center">
   <img src="assets/openchat.png" style="width: 45%;">
-  <img src="assets/openchat_grok.png" style="width: 45%;">
+  <img src="assets/openchat_grok.png" style="width: 47%;">
 </div>
 
 ---
@@ -29,7 +30,7 @@
 
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
-# News
+# ✨News
 
 - [2023/11/01] We released the [OpenChat-3.5-7B](https://huggingface.co/openchat/openchat_3.5) model, surpassing ChatGPT on various benchmarks 🔥.
 
@@ -49,7 +50,7 @@
 
 
 
-# Benchmarks
+# 🏷️Benchmarks
 
 | Model              | # Params | Average  | MT-Bench     | AGIEval  | BBH MC   | TruthfulQA    | MMLU         | HumanEval       | BBH CoT     | GSM8K        |
 |--------------------|----------|----------|--------------|----------|----------|---------------|--------------|-----------------|-------------|--------------|
@@ -126,9 +127,9 @@ python gen_judgment.py --model-list openchat_3.5 --parallel 8 --mode single
 
 
 
-# Installation
+# ⬇️Installation
 > [!NOTE]
-> Noted that you need [`pytorch`](https://pytorch.org/get-started/locally/#start-locally) to run OpenChat
+> Need [`pytorch`](https://pytorch.org/get-started/locally/#start-locally) to run OpenChat
 
 
 
@@ -167,7 +168,7 @@ pip3 install -e .
 
 
 
-# Deploy API server
+# 🚀 Deploy API server
 
 ### For single GPU (e.g. RTX 3090, 4090)
 ```
@@ -222,7 +223,7 @@ curl http://localhost:18888/v1/chat/completions \
 
 
 
-# <a id="web-ui"></a> Web UI - [OpenChat-UI](https://github.com/imoneoi/openchat-ui)
+# <a id="web-ui"></a> 🌐Web UI - [OpenChat-UI](https://github.com/imoneoi/openchat-ui)
 
 After launching the API server, OpenChat provide user interface that easy to interact with. [Click here to check Web UI](https://github.com/imoneoi/openchat-ui)
 
@@ -230,7 +231,7 @@ After launching the API server, OpenChat provide user interface that easy to int
 
 
 
-# Inference with Huggingface
+# 🤗Inference with Huggingface
 
 > [!WARNING]
 > Slow and not recommended
@@ -260,7 +261,7 @@ assert tokens == [1, 7596, 1247, 28747, 26256, 2936, 7653, 1413, 334, 1680, 3200
 
 
 
-# <a id="training"></a> Training
+# <a id="training"></a> 🛠️Training
 
 The OpenChat training system utilizes padding-free training and the [Multipack Sampler](https://github.com/imoneoi/multipack_sampler), achieving a **3~10x** speedup compared to the conventional padded training.
 
@@ -399,9 +400,9 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 | OpenChat 3.2 SUPER | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray` |
 
 
-# Contact
+# 💌Contact
 
-💌 We are a student team from Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
+We are a student team from Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
 
 * Wang Guan [imonenext at gmail dot com]
 * Cheng Sijie [csj23 at mails dot tsinghua dot edu dot cn]
