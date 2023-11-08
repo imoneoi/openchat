@@ -49,7 +49,7 @@
 
 
 
-# <a id="benchmarks"></a> Benchmarks
+# Benchmarks
 
 | Model              | # Params | Average  | MT-Bench     | AGIEval  | BBH MC   | TruthfulQA    | MMLU         | HumanEval       | BBH CoT     | GSM8K        |
 |--------------------|----------|----------|--------------|----------|----------|---------------|--------------|-----------------|-------------|--------------|
@@ -126,7 +126,7 @@ python gen_judgment.py --model-list openchat_3.5 --parallel 8 --mode single
 
 
 
-# <a id="installation"></a> Installation
+# Installation
 > [!NOTE]
 > Noted that you need [`pytorch`](https://pytorch.org/get-started/locally/#start-locally) to run OpenChat
 
@@ -138,7 +138,7 @@ python gen_judgment.py --model-list openchat_3.5 --parallel 8 --mode single
 pip3 install ochat
 ```
 > [!IMPORTANT]
-> If you facing issue using pip, try Anaconda way below
+> If you facing issue using pip, try Anaconda way below or check [issue](https://github.com/imoneoi/openchat/issues/41)
 
 ## Anaconda
 
@@ -154,7 +154,7 @@ pip3 install ochat
 
 
 <details>
-  <summary>Install from source</summary>
+  <summary>Install ochat from source</summary>
 
 ```bash
 git clone https://github.com/imoneoi/openchat
@@ -165,9 +165,11 @@ pip3 install -e .
 ```
 </details>
 
+
+
 # Deploy API server
 
-### For single GPT (e.g. RTX 3090, 4090)
+### For single GPU (e.g. RTX 3090, 4090)
 ```
 python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --tensor-parallel-size 1
 ```
