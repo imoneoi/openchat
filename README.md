@@ -9,20 +9,18 @@
   <a href="https://huggingface.co/openchat">🤗Huggingface</a> |
   <a href="https://arxiv.org/pdf/2309.11235.pdf">📃Paper</a> |
   <a href="https://discord.gg/pQjnXvNKHY">💭Discord</a> 
+  <br>
+  <strong>🔥 First 7B model that Achieves Comparable Results with ChatGPT (March)! 🔥</strong>
+  <br>
+  <strong>🤖 #1 Open-source model on MT-bench scoring 7.81, outperforming 70B models 🤖</strong>
 </p>
 
 
-
----
-**🔥 First 7B model that Achieves Comparable Results with ChatGPT (March)! 🔥**
-
-**🤖 #1 Open-source model on MT-bench scoring 7.81, outperforming 70B models 🤖**
-<div style="display: flex; justify-content: center; align-items: center">
+<div align="center">
   <img src="assets/openchat.png" style="width: 45%;">
   <img src="assets/openchat_grok.png" style="width: 47%;">
 </div>
 
----
 
 - OpenChat is an innovative library of **open-source language models**, fine-tuned with [**C-RLFT**](https://arxiv.org/pdf/2309.11235.pdf) - a strategy inspired by offline reinforcement learning.
 - Our models learn from mixed-quality data without preference labels, delivering exceptional performance on par with `ChatGPT`, even with a `7B` model which can be run on a **consumer GPU (e.g. RTX 3090)**.
