@@ -9,18 +9,17 @@
   <a href="https://huggingface.co/openchat">🤗Huggingface</a> |
   <a href="https://arxiv.org/pdf/2309.11235.pdf">📃Paper</a> |
   <a href="https://discord.gg/pQjnXvNKHY">💭Discord</a> 
-  <br>
+  <br><br>
   <strong>🔥 First 7B model that Achieves Comparable Results with ChatGPT (March)! 🔥</strong>
   <br>
   <strong>🤖 #1 Open-source model on MT-bench scoring 7.81, outperforming 70B models 🤖</strong>
+  <br>
 </p>
-
 
 <div align="center">
   <img src="assets/openchat.png" style="width: 45%;">
   <img src="assets/openchat_grok.png" style="width: 47%;">
 </div>
-
 
 - OpenChat is an innovative library of **open-source language models**, fine-tuned with [**C-RLFT**](https://arxiv.org/pdf/2309.11235.pdf) - a strategy inspired by offline reinforcement learning.
 - Our models learn from mixed-quality data without preference labels, delivering exceptional performance on par with `ChatGPT`, even with a `7B` model which can be run on a **consumer GPU (e.g. RTX 3090)**.
@@ -44,10 +43,6 @@
 
 - [2023/07/01] We released the [OpenChat V1 model series](#legacy-models).
 
-
-
-
-
 # 🏷️Benchmarks
 
 | Model              | # Params | Average  | MT-Bench     | AGIEval  | BBH MC   | TruthfulQA    | MMLU         | HumanEval       | BBH CoT     | GSM8K        |
@@ -63,7 +58,7 @@
 |                    |          |          | WizardLM 70B | Orca 13B | Orca 13B | Platypus2 70B | WizardLM 70B | WizardCoder 34B | Flan-T5 11B | MetaMath 70B |
 
 <details>
-  <summary>Evaluation detail</summary>
+  <summary>Evaluation details</summary>
 *: ChatGPT (March) results are from GPT-4 Technical Report, Chain-of-Thought Hub, and our evaluation.
 
 ^: Zephyr-β often fails to follow few-shot CoT instructions, likely because it was aligned with only chat data but not trained on few-shot data.
@@ -74,7 +69,7 @@ All models are evaluated in chat mode (e.g. with the respective conversation tem
 </details>
 
 <details>
-  <summary>Reproduce benchmark</summary>
+  <summary>Reproducing benchmarks</summary>
 
 Reasoning:
 
@@ -122,14 +117,9 @@ python gen_judgment.py --model-list openchat_3.5 --parallel 8 --mode single
 | Grok-0       | Proprietary | 33B     | 44.5     | 65.7 | 39.7      | 15.7     | 56.8     |
 | Grok-1       | Proprietary | ?       | 55.8     | 73   | 63.2      | 23.9     | 62.9     |
 
-
-
-
 # ⬇️Installation
 > [!NOTE]
 > Need [`pytorch`](https://pytorch.org/get-started/locally/#start-locally) to run OpenChat
-
-
 
 ## pip
 
@@ -150,10 +140,10 @@ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.o
 pip3 install ochat
 ```
 
-
+## From source
 
 <details>
-  <summary>Install ochat from source</summary>
+  <summary>Installing ochat from source</summary>
 
 ```bash
 git clone https://github.com/imoneoi/openchat
@@ -168,25 +158,23 @@ pip3 install -e .
 
 # 🚀 Deploy API server
 
-### For single GPU (e.g. RTX 3090, 4090)
-```
-python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --tensor-parallel-size 1
-```
-### For cluster with multiple GPUs
-```
-python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --engine-use-ray --worker-use-ray
+### For a single GPU (e.g. RTX 3090, 4090)
+
+```bash
+python -m ochat.serving.openai_api_server --model openchat/openchat_3.5
 ```
 
-use `-h` to see more setting
+### For multiple GPUs (tensor parallel)
+
+```bash
+# N is the number of tensor parallel GPUs
+python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --engine-use-ray --worker-use-ray --tensor-parallel-size N
 ```
+
+use `-h` to see more settings
+```bash
 python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 -h
 ```
-
-## Request example
-
-
-Once started, the server listens at `localhost:18888` for requests and is compatible with the [OpenAI ChatCompletion API specifications](https://platform.openai.com/docs/api-reference/chat). 
-
 
 <details>
   <summary>Deploy as online service</summary>
@@ -195,6 +183,10 @@ If you want to deploy the server as an online service, you can use `--api-keys s
 
 </details>
 
+## Request example
+
+
+Once started, the server listens at `localhost:18888` for requests and is compatible with the [OpenAI ChatCompletion API specifications](https://platform.openai.com/docs/api-reference/chat). 
 
 ```bash
 curl http://localhost:18888/v1/chat/completions \
@@ -219,21 +211,14 @@ curl http://localhost:18888/v1/chat/completions \
 
 </details>
 
-
-
 # <a id="web-ui"></a> 🌐Web UI - [OpenChat-UI](https://github.com/imoneoi/openchat-ui)
 
 After launching the API server, OpenChat provide user interface that easy to interact with. [Click here to check Web UI](https://github.com/imoneoi/openchat-ui)
-
-
-
-
 
 # 🤗Inference with Huggingface
 
 > [!WARNING]
 > Slow and not recommended
-
 
 ```python
 import transformers
@@ -251,13 +236,6 @@ assert tokens == [1, 420, 6316, 28781, 3198, 3123, 1247, 28747, 22557, 32000, 42
 tokens = tokenizer("Code User: Implement quicksort using C++<|end_of_turn|>Code Assistant:").input_ids
 assert tokens == [1, 7596, 1247, 28747, 26256, 2936, 7653, 1413, 334, 1680, 32000, 7596, 21631, 28747]
 ```
-
-
-
-
-
-
-
 
 # <a id="training"></a> 🛠️Training
 
@@ -384,19 +362,15 @@ Our OpenChat 3.5 `code` and `models` are distributed under the **Apache License 
 |--------------|------|---------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | OpenChat 3.5 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat_3.5) | `python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --engine-use-ray --worker-use-ray` |
 
-
-
 ## <a id="legacy-models"></a> Legacy Models
 
 The following models are older versions of OpenChat and have inferior performance compared to the latest version. They will be deprecated in the next release. Please note that OpenChat V1 and V2 series are now deprecated, [please install 3.1.x for using V1 and V2 models](https://github.com/imoneoi/openchat/tree/83a683c775c77867cc45937fafdf48e8dcb68daa)
 
 To run the models on multiple GPUs with smaller VRAM, you can enable tensor parallelization, for example, using the `--tensor-parallel-size 2` flag.
 
-
 | Model        | Size | Context | Weights                                                      | Serving                                                                                                      |
 |--------------|------|---------|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
 | OpenChat 3.2 SUPER | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray` |
-
 
 # 💌Contact
 
