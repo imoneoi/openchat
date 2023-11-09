@@ -285,8 +285,8 @@ For basic SFT, assign `weight` as `0` for human messages and `1` for assistant r
 SFT example:
 
 ```json
-{"items":[{"from":"user","content":"Hello","weight":0.0},{"from":"assistant","content":"Hi","weight":1.0},{"from":"user","content":"How are you today?","weight":0.0},{"from":"assistant","content":"I'm fine.","weight":1.0}],"system":""}
-{"items":[{"from":"user","content":"Who are you?","weight":0.0},{"from":"assistant","content":"I'm OpenChat.","weight":1.0}],"system":"You are a helpful assistant named OpenChat."}
+{"items":[{"role":"user","content":"Hello","weight":0.0},{"role":"assistant","content":"Hi","weight":1.0},{"role":"user","content":"How are you today?","weight":0.0},{"role":"assistant","content":"I'm fine.","weight":1.0}],"system":""}
+{"items":[{"role":"user","content":"Who are you?","weight":0.0},{"role":"assistant","content":"I'm OpenChat.","weight":1.0}],"system":"You are a helpful assistant named OpenChat."}
 ```
 
 For C-RLFT, `condition` should be set as the class the conversation belongs to (e.g. `GPT3` or `GPT4`). The `weight` is assigned as `0` for human messages and `w` for assistant responses, where `w` is the weight of the class (e.g. `0.1` for `GPT3` and `1` for `GPT4`, as found in our C-RLFT paper).
@@ -294,8 +294,8 @@ For C-RLFT, `condition` should be set as the class the conversation belongs to (
 C-RLFT example:
 
 ```json
-{"items":[{"from":"user","content":"What is C-RLFT?","weight":0.0},{"from":"assistant","content":"C-RLFT is a method for improving open-source LLMs with mixed-quality data.","weight":1.0}],"condition":"GPT4","system":""}
-{"items":[{"from":"user","content":"What is C-RLFT?","weight":0.0},{"from":"assistant","content":"I don't know.","weight":0.1}],"condition":"GPT3","system":""}
+{"items":[{"role":"user","content":"What is C-RLFT?","weight":0.0},{"role":"assistant","content":"C-RLFT is a method for improving open-source LLMs with mixed-quality data.","weight":1.0}],"condition":"GPT4","system":""}
+{"items":[{"role":"user","content":"What is C-RLFT?","weight":0.0},{"role":"assistant","content":"I don't know.","weight":0.1}],"condition":"GPT3","system":""}
 ```
 
 ### Pre-tokenizing the Dataset
@@ -347,7 +347,7 @@ Despite its advanced capabilities, OpenChat is still bound by the limitations in
  - Programming and coding challenges
 
 ## Hallucination of Non-existent Information
-OpenChat may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained from the model.
+OpenChat may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained  the model.
 
 ## Safety
 OpenChat may sometimes generate harmful, hate speech, biased responses, or answer unsafe questions. It's crucial to apply additional AI safety measures in use cases that require safe and moderated responses.
@@ -374,12 +374,12 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 
 # 💌Contact
 
-We are a student team from Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
+We are a student team  Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
 
 * Wang Guan [imonenext at gmail dot com]
 * Cheng Sijie [csj23 at mails dot tsinghua dot edu dot cn]
 
-We look forward to hearing from you and collaborating on this exciting project!
+We look forward to hearing  you and collaborating on this exciting project!
 
 # Citation
 
@@ -396,6 +396,6 @@ We look forward to hearing from you and collaborating on this exciting project!
 
 We extend our heartfelt gratitude to Alignment Lab AI, Nous Research, and Pygmalion AI for their substantial contributions to data collection and model training.
 
-Special thanks go to Changling Liu from GPT Desk Pte. Ltd., Qiying Yu at Tsinghua University, Baochang Ma, and Hao Wan from 01.AI company for their generous provision of resources. We are also deeply grateful to Jianxiong Li and Peng Li at Tsinghua University for their insightful discussions.
+Special thanks go to Changling Liu  GPT Desk Pte. Ltd., Qiying Yu at Tsinghua University, Baochang Ma, and Hao Wan from 01.AI company for their generous provision of resources. We are also deeply grateful to Jianxiong Li and Peng Li at Tsinghua University for their insightful discussions.
 
 Furthermore, we appreciate the developers behind the following projects for their significant contributions to our research: [Mistral](https://mistral.ai/), [Chain-of-Thought Hub](https://github.com/FranxYao/chain-of-thought-hub), [Llama 2](https://ai.meta.com/llama/), [Self-Instruct](https://arxiv.org/abs/2212.10560), [FastChat (Vicuna)](https://github.com/lm-sys/FastChat), [Alpaca](https://github.com/tatsu-lab/stanford_alpaca.git), and [StarCoder](https://github.com/bigcode-project/starcoder). Their work has been instrumental in driving our research forward.
