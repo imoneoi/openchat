@@ -140,6 +140,24 @@ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.o
 pip3 install ochat
 ```
 
+## Windows (WSL 1.x, Ubuntu-22.04)
+
+```bash
+sudo apt update
+sudo apt install build-essential
+
+sudo apt install -y curl
+curl -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash miniconda.sh
+
+# Restart WSL terminal if the following conda command does not work
+
+conda create -y --name openchat python=3.11
+conda activate openchat - enter environment
+
+pip3 install ochat
+```
+
 ## From source
 
 <details>
