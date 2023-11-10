@@ -180,6 +180,8 @@ pip3 install -e .
 python -m ochat.serving.openai_api_server --model openchat/openchat_3.5
 ```
 
+📎 Note: For 20 series or older GPUs that do not support `bfloat16`, add `--dtype float16` to the command.
+
 ### For multiple GPUs (tensor parallel)
 
 ```bash
