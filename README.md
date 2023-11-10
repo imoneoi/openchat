@@ -135,8 +135,6 @@ pip3 install ochat
 conda create -y --name openchat python=3.11
 conda activate openchat
 
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
 pip3 install ochat
 ```
 
