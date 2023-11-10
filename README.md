@@ -151,7 +151,7 @@ bash miniconda.sh
 # Restart WSL terminal if the following conda command does not work
 
 conda create -y --name openchat python=3.11
-conda activate openchat - enter environment
+conda activate openchat
 
 pip3 install ochat
 ```
