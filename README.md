@@ -27,7 +27,7 @@
 
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
-# ✨News
+# ✨ News
 
 - [2023/11/01] We released the [OpenChat-3.5-7B](https://huggingface.co/openchat/openchat_3.5) model, surpassing ChatGPT on various benchmarks 🔥.
 
@@ -43,7 +43,7 @@
 
 - [2023/07/01] We released the [OpenChat V1 model series](#legacy-models).
 
-# 🏷️Benchmarks
+# 🏷️ Benchmarks
 
 | Model              | # Params | Average  | MT-Bench     | AGIEval  | BBH MC   | TruthfulQA    | MMLU         | HumanEval       | BBH CoT     | GSM8K        |
 |--------------------|----------|----------|--------------|----------|----------|---------------|--------------|-----------------|-------------|--------------|
@@ -109,7 +109,7 @@ python gen_judgment.py --model-list openchat_3.5 --parallel 8 --mode single
 
 </details>
 
-## Comparison with [X.AI Grok](https://x.ai/)
+## 🎇 Comparison with [X.AI Grok](https://x.ai/)
 
 |              | License     | # Param | Average  | MMLU | HumanEval | MATH     | GSM8k    |
 |--------------|-------------|---------|----------|------|-----------|----------|----------|
@@ -117,7 +117,7 @@ python gen_judgment.py --model-list openchat_3.5 --parallel 8 --mode single
 | Grok-0       | Proprietary | 33B     | 44.5     | 65.7 | 39.7      | 15.7     | 56.8     |
 | Grok-1       | Proprietary | ?       | 55.8     | 73   | 63.2      | 23.9     | 62.9     |
 
-# ⬇️Installation
+# ⬇️ Installation
 > [!NOTE]
 > Need [`pytorch`](https://pytorch.org/get-started/locally/#start-locally) to run OpenChat
 
@@ -127,9 +127,9 @@ python gen_judgment.py --model-list openchat_3.5 --parallel 8 --mode single
 pip3 install ochat
 ```
 > [!IMPORTANT]
-> If you facing issue using pip, try Anaconda way below or check [issue](https://github.com/imoneoi/openchat/issues/41)
+> If you are facing package compatibility issues with pip, try the conda method below or check [this issue](https://github.com/imoneoi/openchat/issues/41)
 
-## Anaconda
+## conda
 
 ```bash
 conda create -y --name openchat python=3.11
@@ -170,17 +170,17 @@ pip3 install -e .
 ```
 </details>
 
+# 🚀 Deploying API server
 
+⚡ Our API server is ready for production use and compatible with the OpenAI API protocol. It is highly optimized with vLLM and can dynamically batch requests.
 
-# 🚀 Deploy API server
+📎 Note: For 20 series or older GPUs that do not support `bfloat16`, add `--dtype float16` to the server args.
 
 ### For a single GPU (e.g. RTX 3090, 4090)
 
 ```bash
 python -m ochat.serving.openai_api_server --model openchat/openchat_3.5
 ```
-
-📎 Note: For 20 series or older GPUs that do not support `bfloat16`, add `--dtype float16` to the command.
 
 ### For multiple GPUs (tensor parallel)
 
@@ -202,7 +202,6 @@ If you want to deploy the server as an online service, you can use `--api-keys s
 </details>
 
 ## Request example
-
 
 Once started, the server listens at `localhost:18888` for requests and is compatible with the [OpenAI ChatCompletion API specifications](https://platform.openai.com/docs/api-reference/chat). 
 
@@ -229,33 +228,28 @@ curl http://localhost:18888/v1/chat/completions \
 
 </details>
 
-# <a id="web-ui"></a> 🌐Web UI - [OpenChat-UI](https://github.com/imoneoi/openchat-ui)
+# <a id="web-ui"></a> 🌐 Web UI - [OpenChat-UI](https://github.com/imoneoi/openchat-ui)
 
 After launching the API server, OpenChat provide user interface that easy to interact with. [Click here to check Web UI](https://github.com/imoneoi/openchat-ui)
 
-# 🤗Inference with Huggingface
+# 🤗 Inference with Transformers
 
 > [!WARNING]
-> Slow and not recommended
+> It's recommeded to use our optimized API server for deployment. Inferencing with Transformers will be slower.
 
-```python
-import transformers
-tokenizer = transformers.AutoTokenizer.from_pretrained("openchat/openchat_3.5")
+The default conversation template is shown below:
 
-# Single-turn
-tokens = tokenizer("GPT4 Correct User: Hello<|end_of_turn|>GPT4 Correct Assistant:").input_ids
-assert tokens == [1, 420, 6316, 28781, 3198, 3123, 1247, 28747, 22557, 32000, 420, 6316, 28781, 3198, 3123, 21631, 28747]
-
-# Multi-turn
-tokens = tokenizer("GPT4 Correct User: Hello<|end_of_turn|>GPT4 Correct Assistant: Hi<|end_of_turn|>GPT4 Correct User: How are you today?<|end_of_turn|>GPT4 Correct Assistant:").input_ids
-assert tokens == [1, 420, 6316, 28781, 3198, 3123, 1247, 28747, 22557, 32000, 420, 6316, 28781, 3198, 3123, 21631, 28747, 15359, 32000, 420, 6316, 28781, 3198, 3123, 1247, 28747, 1602, 460, 368, 3154, 28804, 32000, 420, 6316, 28781, 3198, 3123, 21631, 28747]
-
-# Coding Mode
-tokens = tokenizer("Code User: Implement quicksort using C++<|end_of_turn|>Code Assistant:").input_ids
-assert tokens == [1, 7596, 1247, 28747, 26256, 2936, 7653, 1413, 334, 1680, 32000, 7596, 21631, 28747]
+```
+GPT4 Correct User: Hello<|end_of_turn|>GPT4 Correct Assistant: Hi<|end_of_turn|>GPT4 Correct User: How are you today?<|end_of_turn|>GPT4 Correct Assistant:
 ```
 
-# <a id="training"></a> 🛠️Training
+The following is coding mode template, which may improve performance on coding tasks.
+
+```
+Code User: Implement quicksort using C++<|end_of_turn|>Code Assistant:
+```
+
+# <a id="training"></a> 🛠️ Training
 
 The OpenChat training system utilizes padding-free training and the [Multipack Sampler](https://github.com/imoneoi/multipack_sampler), achieving a **3~10x** speedup compared to the conventional padded training.
 
