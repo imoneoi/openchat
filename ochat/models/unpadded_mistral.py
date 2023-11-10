@@ -248,10 +248,6 @@ class UnpaddedMistralPreTrainedModel(PreTrainedModel):
             if module.padding_idx is not None:
                 module.weight.data[module.padding_idx].zero_()
 
-    def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, UnpaddedMistralModel):
-            module.gradient_checkpointing = value
-
 
 class UnpaddedMistralModel(UnpaddedMistralPreTrainedModel):
     """
@@ -298,16 +294,8 @@ class UnpaddedMistralModel(UnpaddedMistralPreTrainedModel):
         # decoder layers
         for decoder_layer in self.layers:
             if self.gradient_checkpointing and self.training:
-
-                def create_custom_forward(module):
-                    def custom_forward(*inputs):
-                        # None for past_key_value
-                        return module(*inputs)
-
-                    return custom_forward
-
-                nz_hidden_states = torch.utils.checkpoint.checkpoint(
-                    create_custom_forward(decoder_layer),
+                nz_hidden_states = self._gradient_checkpointing_func(
+                    decoder_layer.__call__,
 
                     cos_sin,
                     nz_hidden_states,
@@ -317,12 +305,12 @@ class UnpaddedMistralModel(UnpaddedMistralPreTrainedModel):
                 )
             else:
                 nz_hidden_states = decoder_layer(
-                    cos_sin=cos_sin,
+                    cos_sin,
                     
-                    nz_hidden_states=nz_hidden_states,
-                    nz_position_ids=nz_position_ids,
-                    cu_seqlens=cu_seqlens,
-                    max_seqlen=max_seqlen
+                    nz_hidden_states,
+                    nz_position_ids,
+                    cu_seqlens,
+                    max_seqlen
                 )
 
         nz_hidden_states = self.norm(nz_hidden_states)
