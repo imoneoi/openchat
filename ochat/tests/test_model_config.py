@@ -49,7 +49,7 @@ def test_conv_template():
     testcases = [
         {
             "type": "openchat_v3.2",
-            "model": "openchat/openchat_v3.2_super",
+            "model": ("imone/Llama2_13B_with_EOT_token", "openchat/openchat_v3.2_super"),
             "expected_tokens": [
                 [1, 402, 7982, 29946, 4911, 29901, 1724, 29915, 29879, 278, 14826, 763, 29973, 32000, 402, 7982, 29946, 4007, 22137, 29901, 306, 29915, 29885, 385, 319, 29902, 322, 1016, 29915, 29873, 505, 2130, 304, 1855, 29899, 2230, 848, 29889, 32000, 402, 7982, 29946, 4911, 29901, 6439, 29892, 1492, 29889, 1128, 508, 306, 1073, 29973, 32000, 402, 7982, 29946, 4007, 22137, 29901, 887, 508, 1423, 263, 14826, 4700, 470, 623, 363, 278, 1556, 1857, 2472, 29889, 32000],
                 [1, 402, 7982, 29941, 4911, 29901, 1724, 338, 319, 29902, 29973, 32000, 402, 7982, 29941, 4007, 22137, 29901, 319, 29902, 15028, 363, 3012, 928, 616, 3159, 28286, 29889, 739, 14637, 304, 278, 17402, 310, 5199, 21082, 10174, 491, 14884, 29889, 32000, 402, 7982, 29941, 4911, 29901, 1815, 366, 5110, 29973, 32000, 402, 7982, 29941, 4007, 22137, 29901, 306, 508, 29915, 29873, 5110, 470, 6456, 2472, 763, 25618, 29889, 306, 5706, 20890, 2729, 373, 758, 29899, 735, 15423, 848, 29889, 32000],
@@ -65,7 +65,7 @@ def test_conv_template():
         },
         {
             "type": "openchat_v3.2_mistral",
-            "model": "imone/Mistral_7B_with_EOT_token",
+            "model": ("imone/Mistral_7B_with_EOT_token", "openchat/openchat_3.5"),
             "expected_tokens": [
                 [1, 420, 6316, 28781, 1247, 28747, 1824, 28742, 28713, 272, 8086, 737, 28804, 32000, 420, 6316, 28781, 21631, 28747, 315, 28742, 28719, 396, 16107, 304, 949, 28742, 28707, 506, 2735, 298, 1353, 28733, 1536, 1178, 28723, 32000, 420, 6316, 28781, 1247, 28747, 5434, 28725, 1103, 28723, 1602, 541, 315, 873, 28804, 32000, 420, 6316, 28781, 21631, 28747, 995, 541, 1877, 264, 8086, 4400, 442, 954, 354, 272, 1080, 1868, 1871, 28723, 32000],
                 [1, 420, 6316, 28770, 1247, 28747, 1824, 349, 16107, 28804, 32000, 420, 6316, 28770, 21631, 28747, 16107, 10969, 354, 3951, 14773, 23091, 28723, 661, 15654, 298, 272, 17230, 302, 2930, 10895, 9537, 486, 12155, 28723, 32000, 420, 6316, 28770, 1247, 28747, 2418, 368, 2822, 28804, 32000, 420, 6316, 28770, 21631, 28747, 315, 541, 28742, 28707, 2822, 442, 3229, 1871, 737, 10589, 28723, 315, 8270, 14915, 2818, 356, 710, 28733, 24049, 1178, 28723, 32000],
@@ -82,14 +82,15 @@ def test_conv_template():
     ]
 
     for case in testcases:
-        config = MODEL_CONFIG_MAP[case["type"]]
-        tokenizer = config.model_tokenizer_create(case["model"])
-        conv_template = config.conversation_template(tokenizer=tokenizer)
+        for model in case["model"]:
+            config = MODEL_CONFIG_MAP[case["type"]]
+            tokenizer = config.model_tokenizer_create(model)
+            conv_template = config.conversation_template(tokenizer=tokenizer)
 
-        tokens, weights = conv_template.tokenize_conversations([Conversation(**conv) for conv in conversations], inference=False)
+            tokens, weights = conv_template.tokenize_conversations([Conversation(**conv) for conv in conversations], inference=False)
 
-        assert tokens == case["expected_tokens"]
-        assert weights == case["expected_weights"]
+            assert tokens == case["expected_tokens"]
+            assert weights == case["expected_weights"]
 
     # Inference mode
     conversations = [
@@ -105,25 +106,26 @@ def test_conv_template():
     testcases = [
         {
             "type": "openchat_v3.2",
-            "model": "openchat/openchat_v3.2_super",
+            "model": ("imone/Llama2_13B_with_EOT_token", "openchat/openchat_v3.2_super"),
             "expected_tokens": [
                 [1, 402, 7982, 29946, 4911, 29901, 11644, 2113, 278, 29871, 29906, 29900, 29896, 29947, 2787, 6536, 29973, 32000, 402, 7982, 29946, 4007, 22137, 29901, 450, 29871, 29906, 29900, 29896, 29947, 21581, 2787, 6536, 471, 2113, 491, 3444, 29889, 32000, 402, 7982, 29946, 4911, 29901, 20419, 29892, 1058, 2113, 278, 29871, 29906, 29900, 29906, 29906, 2787, 6536, 29973, 32000, 402, 7982, 29946, 4007, 22137, 29901],
             ]
         },
         {
             "type": "openchat_v3.2_mistral",
-            "model": "imone/Mistral_7B_with_EOT_token",
+            "model": ("imone/Mistral_7B_with_EOT_token", "openchat/openchat_3.5"),
             "expected_tokens": [
-                [1, 420, 6316, 28781, 1247, 28747, 6526, 1747, 272, 28705, 28750, 28734, 28740, 28783, 3304, 7440, 28804, 32000, 420, 6316, 28781, 21631, 28747, 415, 28705, 28750, 28734, 28740, 28783, 28702, 3304, 7440, 403, 1747, 486, 4843, 28723, 32000, 420, 6316, 28781, 1247, 28747, 19811, 28725, 693, 1747, 272, 28705, 28750, 28734, 28750, 28750, 3304, 7440, 28804, 32000, 420, 6316, 28781, 21631, 28747]
+                [1, 420, 6316, 28781, 3198, 3123, 1247, 28747, 6526, 1747, 272, 28705, 28750, 28734, 28740, 28783, 3304, 7440, 28804, 32000, 420, 6316, 28781, 3198, 3123, 21631, 28747, 415, 28705, 28750, 28734, 28740, 28783, 28702, 3304, 7440, 403, 1747, 486, 4843, 28723, 32000, 420, 6316, 28781, 3198, 3123, 1247, 28747, 19811, 28725, 693, 1747, 272, 28705, 28750, 28734, 28750, 28750, 3304, 7440, 28804, 32000, 420, 6316, 28781, 3198, 3123, 21631, 28747],
             ]
         }
     ]
 
     for case in testcases:
-        config = MODEL_CONFIG_MAP[case["type"]]
-        tokenizer = config.model_tokenizer_create(case["model"])
-        conv_template = config.conversation_template(tokenizer=tokenizer)
+        for model in case["model"]:
+            config = MODEL_CONFIG_MAP[case["type"]]
+            tokenizer = config.model_tokenizer_create(model)
+            conv_template = config.conversation_template(tokenizer=tokenizer)
 
-        tokens, _ = conv_template.tokenize_conversations([Conversation(**conv) for conv in conversations], inference=True)  # type: ignore
+            tokens, _ = conv_template.tokenize_conversations([Conversation(**conv) for conv in conversations], inference=True)  # type: ignore
 
-        assert tokens == case["expected_tokens"]
+            assert tokens == case["expected_tokens"]
