@@ -41,7 +41,6 @@ def parse_args():
     parser.add_argument("--local_rank", type=int, required=True)
 
     # Model type and data
-    parser.add_argument("--model_path", type=str, required=True)
     parser.add_argument("--data_prefix", type=str, required=True)
     parser.add_argument("--save_path",  type=str, required=True)
     parser.add_argument("--save_every", type=int, default=None)
@@ -233,6 +232,7 @@ def train():
 
     # Load model type
     args.model_type = train_dataset.metadata["model_type"]
+    args.model_path = train_dataset.metadata["model_path"]
 
     # Data Loader
     train_loader      = create_distributed_dataloader(args, train_dataset)

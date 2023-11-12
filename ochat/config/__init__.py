@@ -20,6 +20,10 @@ def _v3_2_role_prefix(from_role, condition):
     return f"{condition} {_V3_2_PREFIXES[from_role]}".strip()
 
 
+def _sft_role_prefix(from_role, condition):
+    return _V3_2_PREFIXES[from_role]
+
+
 MODEL_CONFIG_MAP = {
     # OpenChat V3.2
     "openchat_v3.2": ModelConfig(
@@ -52,5 +56,22 @@ MODEL_CONFIG_MAP = {
                                       role_prefix=_v3_2_role_prefix,
                                       eot="<|end_of_turn|>",
                                       inference_condition="GPT4 Correct")
+    ),
+
+    ## Baselines
+    # SFT only
+    "openchat_llama2_sft": ModelConfig(
+        # Model
+        model_max_context=4096,
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
+        model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
+
+        # Conversation Template
+        conversation_template=partial(ConversationTemplate,
+                                      role_prefix=_sft_role_prefix,
+                                      eot="<|end_of_turn|>",
+                                      inference_condition="")
     ),
 }

@@ -100,7 +100,8 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
 def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, per_sequence_loss: bool):
     # schema
     metadata = {
-        "model_type": model_type
+        "model_type": model_type,
+        "model_path": model_path
     }
     schema = [
         pyarrow.field("total_length", pyarrow.int32()),
