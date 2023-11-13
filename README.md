@@ -235,7 +235,7 @@ After launching the API server, OpenChat provide user interface that easy to int
 # 🤗 Inference with Transformers
 
 > [!WARNING]
-> It's recommeded to use our optimized API server for deployment. Inferencing with Transformers will be slower.
+> It's recommended to use our optimized API server for deployment. Inferencing with Transformers will be slower.
 
 The default conversation template is shown below:
 
