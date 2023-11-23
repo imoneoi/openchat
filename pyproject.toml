@@ -33,7 +33,8 @@ dependencies = [
     "pydantic", 
     "shortuuid", 
     "uvicorn", 
-    "vllm"
+    "vllm",
+    "pytest"
 ]
 
 [project.urls]
