@@ -304,6 +304,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OpenChat OpenAI-Compatible RESTful API server.")
 
     # Model
+    parser.add_argument("--model-type", type=str, default=None, help="Model type. Leave empty to auto-detect.")
+
     parser.add_argument("--stream-period", type=int, default=6, help="Number of tokens per stream event")
     parser.add_argument("--api-keys", type=str, nargs="*", default=[], help="Allowed API Keys. Leave blank to not verify")
     parser.add_argument("--enable-sys-prompt", default=False, action="store_true")
@@ -345,15 +347,16 @@ if __name__ == "__main__":
         logger.propagate = False
 
     # Load model type
-    with open(cached_file(path_or_repo_id=args.model, filename="openchat.json"), "r") as f:
-        model_type = json.load(f)["model_type"]
+    if args.model_type is None:
+        with open(cached_file(path_or_repo_id=args.model, filename="openchat.json"), "r") as f:
+            args.model_type = json.load(f)["model_type"]
 
     # Load tokenizer
-    tokenizer = async_tokenizer.AsyncTokenizer.remote(model_type, args.model)
+    tokenizer = async_tokenizer.AsyncTokenizer.remote(args.model_type, args.model)
 
     # Model config
-    model.names = set(list(MODEL_CONFIG_MAP[model_type].serving_aliases) + [model_type])
-    model.max_length = MODEL_CONFIG_MAP[model_type].model_max_context
+    model.names = set(list(MODEL_CONFIG_MAP[args.model_type].serving_aliases) + [args.model_type])
+    model.max_length = MODEL_CONFIG_MAP[args.model_type].model_max_context
     model.eot_tokens = ray.get(tokenizer.get_eot_tokens.remote())
 
     model.enable_sys_prompt = args.enable_sys_prompt
@@ -362,6 +365,7 @@ if __name__ == "__main__":
 
     # Set max num batched tokens
     args.max_num_batched_tokens = max(args.max_num_batched_tokens or model.max_length, model.max_length)
+    args.max_model_len = model.max_length
 
     # Load model engine
     engine_args = AsyncEngineArgs.from_cli_args(args)
