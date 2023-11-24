@@ -38,8 +38,8 @@ class ConversationTemplate(BaseModel):
 
         super().__init__(**data, bos_tokens_=bos_tokens_, eot_tokens_=eot_tokens_)
 
-    def _safe_tokenize(self, strings: Iterable[str]) -> List[List[int]]:
-        return self.tokenizer(strings, split_special_tokens=True, return_attention_mask=False, add_special_tokens=False).input_ids
+    def _tokenize(self, strings: Iterable[str], ignore_special: bool = True) -> List[List[int]]:
+        return self.tokenizer(strings, split_special_tokens=ignore_special, return_attention_mask=False, add_special_tokens=False).input_ids
 
     def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_weight: bool = False):
         # Pre-tokenize all conversations
@@ -58,9 +58,9 @@ class ConversationTemplate(BaseModel):
         role_mappings = list(role_mappings)
 
         # Tokenize
-        sys_mappings = dict(zip(sys_mappings, self._safe_tokenize(sys_mappings)))
-        role_mappings = dict(zip(role_mappings, self._safe_tokenize([self.role_prefix(*args) for args in role_mappings])))
-        all_text = self._safe_tokenize(all_text)
+        sys_mappings = dict(zip(sys_mappings, self._tokenize(sys_mappings)))
+        role_mappings = dict(zip(role_mappings, self._tokenize([self.role_prefix(*args) for args in role_mappings], ignore_special=False)))
+        all_text = self._tokenize(all_text)
 
         # Convert
         result_tokens = []

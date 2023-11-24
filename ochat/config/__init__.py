@@ -57,4 +57,38 @@ MODEL_CONFIG_MAP = {
                                       eot="<|end_of_turn|>",
                                       inference_condition="GPT4 Correct")
     ),
+
+    ### Other models
+    "chatml_mistral": ModelConfig(
+        # Model
+        model_max_context=8192,
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False,
+                                       legacy=True),
+        model_create_for_training=partial(ochat.models.MistralForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
+
+        # Conversation Template
+        conversation_template=partial(ConversationTemplate,
+                                      role_prefix=lambda from_role, condition: f"<|im_start|>{from_role}\n",
+                                      eot="<|im_end|>",
+                                      inference_condition="")
+    ),
+    "zephyr_mistral": ModelConfig(
+        # Model
+        model_max_context=8192,
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
+                                       use_fast=False,
+                                       legacy=True),
+        model_create_for_training=partial(ochat.models.MistralForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
+
+        # Conversation Template
+        conversation_template=partial(ConversationTemplate,
+                                      role_prefix=lambda from_role, condition: f"<|{from_role}|>\n",
+                                      eot="</s>",
+                                      inference_condition="")
+    ),
 }

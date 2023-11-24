@@ -90,7 +90,7 @@ async def get_openai_answers(
     return questions
 
 
-def tokenize_questions(model_config: object, conv_template: object, questions: list, condition: Optional[str], system_msg: str):
+def tokenize_questions(model_config: object, conv_template: object, questions: list, condition: str, system_msg: str):
     from ochat.config import Conversation, Message
 
     # Construct conversation
@@ -120,22 +120,23 @@ def tokenize_questions(model_config: object, conv_template: object, questions: l
 def get_model_answers(
     model: str,
     questions: list,
-    condition: Optional[str],
+    condition: str,
     system_msg: str,
-    template_type: str
+    model_type: str
 ):
     # Load model config
-    if template_type == "openchat":
+    if model_type is None:
         with open(cached_file(path_or_repo_id=model, filename="openchat.json"), "r") as f:
             model_type = orjson.loads(f.read())["model_type"]
 
-        model_config = MODEL_CONFIG_MAP[model_type]
-        tokenizer = model_config.model_tokenizer_create(model)
-        conv_template = model_config.conversation_template(tokenizer=tokenizer)
+    model_config = MODEL_CONFIG_MAP[model_type]
+    tokenizer = model_config.model_tokenizer_create(model)
+    conv_template = model_config.conversation_template(tokenizer=tokenizer)
 
     # Init vLLM engine
     engine = LLM(model,
-                 max_num_batched_tokens=model_config.model_max_context)
+                 max_num_batched_tokens=model_config.model_max_context,
+                 max_model_len=model_config.model_max_context)
     sampling_params = SamplingParams(temperature=0,
                                      max_tokens=model_config.model_max_context,
                                      stop_token_ids=conv_template.eot_tokens_,  # Override stop tokens
@@ -156,9 +157,9 @@ def get_model_answers(
 
 async def run_eval(
     model: str,
-    condition: Optional[str],
+    condition: str,
     system_msg: str,
-    template_type: str,
+    model_type: str,
 
     data_path: str,
     eval_sets: list,
@@ -168,7 +169,7 @@ async def run_eval(
 
     parallel: int
 ):
-    print (f"Evaluating (Template: {template_type})...\n\nCondition: {condition}\nSystem Prompt: {system_msg}\n")
+    print (f"Evaluating ({model_type})...\n\nCondition: {condition}\nSystem Prompt: {system_msg}\n")
 
     if continue_from is not None:
         # Load continue
@@ -200,7 +201,7 @@ async def run_eval(
     if model.startswith("gpt-3.5-turbo") or model.startswith("gpt-4"):
         questions = await get_openai_answers(model, questions, parallel)
     else:
-        questions = get_model_answers(model, questions, condition, system_msg, template_type)
+        questions = get_model_answers(model, questions, condition, system_msg, model_type)
 
     # Calculate accuracy
     for q in questions:
@@ -225,9 +226,9 @@ async def main():
 
     # Input / output
     parser.add_argument("--model", type=str, default=None)
-    parser.add_argument("--condition", type=str, default=None)
+    parser.add_argument("--condition", type=str, default="")
     parser.add_argument("--system-msg", type=str, default="")
-    parser.add_argument("--template-type", type=str, default="openchat")
+    parser.add_argument("--model-type", type=str, default=None)
 
     parser.add_argument("--data_path", type=str, default="ochat/evaluation/eval_data")
     parser.add_argument("--eval_sets", type=str, nargs="+", default=[])
