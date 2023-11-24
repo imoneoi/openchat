@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://openchat.team">💻Online Demo</a> |
-  <a href="https://huggingface.co/openchat">🤗Huggingface</a> |
+  <a href="https://huggingface.co/openchat">🤗Hugging Face</a> |
   <a href="https://arxiv.org/pdf/2309.11235.pdf">📃Paper</a> |
   <a href="https://discord.gg/pQjnXvNKHY">💭Discord</a> 
   <br><br>
@@ -372,7 +372,7 @@ Our OpenChat 3.5 `code` and `models` are distributed under the **Apache License 
 
 | Model        | Size | Context | Weights                                                     | Serving                                                                                                     |
 |--------------|------|---------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.5 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat_3.5) | `python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --engine-use-ray --worker-use-ray` |
+| OpenChat 3.5 | 7B   | 8192    | [Hugging Face](https://huggingface.co/openchat/openchat_3.5) | `python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --engine-use-ray --worker-use-ray` |
 
 ## <a id="legacy-models"></a> Legacy Models
 
@@ -382,7 +382,7 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 
 | Model        | Size | Context | Weights                                                      | Serving                                                                                                      |
 |--------------|------|---------|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.2 SUPER | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray` |
+| OpenChat 3.2 SUPER | 13B  | 4096    | [Hugging Face](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray` |
 
 # 💌Contact
 
