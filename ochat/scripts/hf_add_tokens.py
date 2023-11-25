@@ -14,10 +14,10 @@ def add_tokens_to_embedding(added_special_tokens, embedding):
 
 
 def mistral_add_tokens(model_path, output_dir, added_special_tokens):
-    tokenizer = transformers.LlamaTokenizerFast.from_pretrained(model_path, legacy=False)
-    model = transformers.MistralForCausalLM.from_pretrained(model_path,
-                                                            low_cpu_mem_usage=True,
-                                                            torch_dtype=torch.bfloat16)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
+    model = transformers.AutoModelForCausalLM.from_pretrained(model_path,
+                                                              low_cpu_mem_usage=True,
+                                                              torch_dtype=torch.bfloat16)
     # Add tokens (tokenizer)
     tokenizer.add_special_tokens({"additional_special_tokens": added_special_tokens})
 
@@ -30,9 +30,12 @@ def mistral_add_tokens(model_path, output_dir, added_special_tokens):
 
     model.config.vocab_size += len(added_special_tokens)
 
-    # Fix model config (actual token length is 8192)
-    assert model.config.max_position_embeddings == 32768
-    model.config.max_position_embeddings = 8192
+    # Fix model config (Mistral's actual token length is 8192)
+    if "mistral" in model_path.lower():
+        assert model.config.max_position_embeddings == 32768
+        model.config.max_position_embeddings = 8192
+
+    print ({k: v.shape for k, v in model.state_dict().items()})
 
     # Save
     tokenizer.save_pretrained(output_dir)

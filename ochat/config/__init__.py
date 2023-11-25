@@ -58,9 +58,7 @@ MODEL_CONFIG_MAP = {
     "chatml_mistral": ModelConfig(
         # Model
         model_max_context=8192,
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False,
-                                       legacy=True),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
         model_create_for_training=partial(ochat.models.MistralForCausalLM.from_pretrained,
                                           low_cpu_mem_usage=True,
                                           torch_dtype=torch.bfloat16),
@@ -74,9 +72,7 @@ MODEL_CONFIG_MAP = {
     "zephyr_mistral": ModelConfig(
         # Model
         model_max_context=8192,
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False,
-                                       legacy=True),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
         model_create_for_training=partial(ochat.models.MistralForCausalLM.from_pretrained,
                                           low_cpu_mem_usage=True,
                                           torch_dtype=torch.bfloat16),
