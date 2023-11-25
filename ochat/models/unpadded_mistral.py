@@ -31,6 +31,8 @@ from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import logging
 from transformers.models.mistral.configuration_mistral import MistralConfig
 
+from ochat.models.losses import weighted_token_accuracy, LOSS_FUNCTIONS
+
 try:
     from flash_attn.flash_attn_interface import flash_attn_varlen_func
     from flash_attn.bert_padding import pad_input
@@ -39,16 +41,6 @@ except ImportError:
 
 
 logger = logging.get_logger(__name__)
-
-
-@torch.jit.script  # type: ignore
-def weighted_token_accuracy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
-    return (weights * (torch.argmax(logits, dim=-1) == labels)).sum()
-
-
-@torch.jit.script  # type: ignore
-def weighted_cross_entropy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
-    return (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
 
 
 @torch.jit.script  # type: ignore
@@ -367,7 +359,9 @@ class MistralForCausalLM(UnpaddedMistralPreTrainedModel):
         max_seqlen: int,
         # Unpadded labels
         nz_shifted_label_ids: Optional[torch.Tensor] = None,
-        nz_shifted_loss_weights:      Optional[torch.Tensor] = None
+        nz_shifted_loss_weights: Optional[torch.Tensor] = None,
+        # Loss type
+        loss_type: Optional[str] = None
     ) -> CausalLMOutputWithPast:
         # Model logits
         hidden_states = self.model(
@@ -382,7 +376,7 @@ class MistralForCausalLM(UnpaddedMistralPreTrainedModel):
         if nz_shifted_label_ids is not None:
             assert nz_shifted_loss_weights is not None
 
-            loss = weighted_cross_entropy(logits, nz_shifted_label_ids, nz_shifted_loss_weights), \
+            loss = LOSS_FUNCTIONS[loss_type](logits, nz_shifted_label_ids, nz_shifted_loss_weights), \
                    weighted_token_accuracy(logits.detach(), nz_shifted_label_ids, nz_shifted_loss_weights)
 
         return CausalLMOutputWithPast(

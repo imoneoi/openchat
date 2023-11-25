@@ -50,6 +50,8 @@ def parse_args():
     parser.add_argument("--batch_max_len",      type=int, default=81920)
     parser.add_argument("--epochs",             type=int,   default=5)
 
+    parser.add_argument("--loss_type",          type=str,   default="weighted_cross_entropy")
+
     # Set lr to None to automatically estimate from LLaMA pretraining parameters (e.g. lr ~ sqrt(batch_size))
     parser.add_argument("--lr",                 type=float, default=None)
     parser.add_argument("--lr_min_ratio",       type=float, default=0.1)
@@ -277,7 +279,7 @@ def train():
             batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
 
             # Update
-            loss, acc = model_engine(**batch_tensor, **batch_info).loss
+            loss, acc = model_engine(**batch_tensor, **batch_info, loss_type=args.loss_type).loss
             loss = (1 / all_numseq) * loss
             acc  = (1 / all_numseq) * acc
 
@@ -318,7 +320,7 @@ def train():
                     batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
 
                     # Eval
-                    eval_loss, eval_acc = model_engine(**batch_tensor, **batch_info).loss
+                    eval_loss, eval_acc = model_engine(**batch_tensor, **batch_info, loss_type=args.loss_type).loss
                     
                     # Accumulate eval loss
                     eval_total_metric.add_((1 / all_numseq) * torch.stack([eval_loss, eval_acc]))
