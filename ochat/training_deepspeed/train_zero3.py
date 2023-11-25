@@ -144,13 +144,6 @@ def create_model(args):
     model.gradient_checkpointing_enable()
 
     # Optimizer
-    # optimizer = torch.optim.AdamW(model.parameters(),
-    #                               lr=args.lr,
-    #                               weight_decay=args.weight_decay,
-    #                               betas=(args.beta1, args.beta2),
-    #                               eps=args.eps,
-    #                               fused=True)
-
     optimizer =  deepspeed.ops.adam.DeepSpeedCPUAdam(model.parameters(),
                                   lr=args.lr,
                                   weight_decay=args.weight_decay,
@@ -343,19 +336,6 @@ def train():
         # https://deepspeed.readthedocs.io/en/latest/model-checkpointing.html
         if (epoch + 1 == args.epochs) or (args.save_every and ((epoch + 1) % args.save_every == 0)):
             dist.barrier()
-
-            # if RANK == 0:
-            #     save_path = os.path.join(args.save_path, f"ep_{epoch}")
-
-            #     model_engine.module.save_pretrained(save_path,
-            #                                         state_dict=deepspeed.checkpoint.utils.clone_tensors_for_torch_save(model_engine.module.state_dict()))  # type: ignore
-            #     model_engine.save_checkpoint(save_path)
-
-            #     # Also save tokenizer from base model
-            #     save_tokenizer(args, save_path)
-
-            #     # Write metadata
-            #     save_openchat_metadata(args, epoch, save_path)
 
             save_path = os.path.join(args.save_path, f"ep_{epoch}")
 
