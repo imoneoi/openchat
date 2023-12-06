@@ -20,6 +20,10 @@ def _v3_2_role_prefix(from_role, condition):
     return f"{condition} {_V3_2_PREFIXES[from_role]}".strip()
 
 
+def _sft_role_prefix(from_role, condition):
+    return _V3_2_PREFIXES[from_role]
+
+
 MODEL_CONFIG_MAP = {
     # OpenChat V3.2
     "openchat_v3.2": ModelConfig(
@@ -85,6 +89,20 @@ MODEL_CONFIG_MAP = {
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=lambda from_role, condition: f"<|{from_role}|>\n",
                                       eot="</s>",
+                                      inference_condition="")
+    ),
+    "openchat_v3.2_mistral_sft": ModelConfig(
+        # Model
+        model_max_context=8192,
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
+        model_create_for_training=partial(ochat.models.MistralForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
+
+        # Conversation Template
+        conversation_template=partial(ConversationTemplate,
+                                      role_prefix=_sft_role_prefix,
+                                      eot="<|end_of_turn|>",
                                       inference_condition="")
     ),
 }
