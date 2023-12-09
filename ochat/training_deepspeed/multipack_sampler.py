@@ -1,7 +1,3 @@
-from typing import Any, Optional, List, Callable
-
-import torch.distributed as dist
-
 import numpy as np
 import numba
 
@@ -96,61 +92,42 @@ def allocate(lengths: np.ndarray, numseqs: np.ndarray, lengths_cumsum: np.ndarra
     return result, result_totseqs, s, len(result) * c * n
 
 
-class MultipackDistributedDataloader:
+class MultipackDistributedSampler:
     """Unpadded data loading using Multipack.
        Approximate (at most ~1.22x) the optimal solution of the identical-machines scheduling problem, which is NP-hard."""
     
     def __init__(
         self,
-        dataset: Any,
         lengths: np.ndarray,
         numseqs: np.ndarray,
 
         batch_max_length: int,
-        collate_fn: Callable,
 
-        num_replicas: Optional[int] = None,
-        rank: Optional[int] = None,
+        num_replicas: int,
+        rank: int,
 
-        seed: int = 0,
+        seed: int,
     ):
         # Dataset
-        self.dataset = dataset
         self.lengths = lengths
         self.numseqs = numseqs
         assert isinstance(self.lengths, np.ndarray)
 
         self.batch_max_length = batch_max_length
-        self.collate_fn = collate_fn
 
         # Get rank
-        if num_replicas is None:
-            if not dist.is_available():
-                raise RuntimeError("Requires distributed package to be available")
-            num_replicas = dist.get_world_size()
-        if rank is None:
-            if not dist.is_available():
-                raise RuntimeError("Requires distributed package to be available")
-            rank = dist.get_rank()
-
         self.num_replicas = num_replicas
         self.rank = rank
 
         # Seed
         self.seed = seed
 
-        # Epoch
-        self.epoch = 0
-
         # statistics
         self.eff_total_used = 0
         self.eff_total_slots = 0
 
-    def set_epoch(self, epoch: int):
-        self.epoch = epoch
-
-    def generate_batches(self, set_stats=False):
-        indices = np.random.default_rng(seed=self.seed + self.epoch).permutation(len(self.lengths))
+    def generate_batches(self, epoch, set_stats=False):
+        indices = np.random.default_rng(seed=self.seed + epoch).permutation(len(self.lengths))
 
         lengths        = self.lengths[indices]
         numseqs        = self.numseqs[indices]
@@ -173,14 +150,14 @@ class MultipackDistributedDataloader:
 
         return batches, totseqs, curseqs
     
-    def __iter__(self):
-        all_batches, all_totseqs, all_curseqs = self.generate_batches(set_stats=True)
+    def iter(self, epoch):
+        all_batches, all_totseqs, all_curseqs = self.generate_batches(epoch, set_stats=True)
 
         for batch, totseq, curseq in zip(all_batches, all_totseqs, all_curseqs):
-            yield self.collate_fn(self.dataset[batch]), totseq, curseq
+            yield batch, totseq, curseq
 
-    def num_batches(self):
-        batches, _, _ = self.generate_batches()
+    def estimate_num_batches(self):
+        batches, _, _ = self.generate_batches(epoch=0)
         return len(batches)
 
     def efficiency(self):
