@@ -215,8 +215,7 @@ async def run_eval(
     if output_file is None:
         output_file = os.path.join(os.path.dirname(data_path), "eval_results", f"{os.path.basename(model)}_{condition}.json")
 
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, "wb") as f:
         f.write(orjson.dumps(questions, option=orjson.OPT_INDENT_2))
 

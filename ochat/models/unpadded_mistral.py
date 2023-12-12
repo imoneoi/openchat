@@ -51,16 +51,6 @@ def weighted_cross_entropy(logits: torch.Tensor, labels: torch.Tensor, weights: 
     return (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
 
 
-@torch.jit.script  # type: ignore
-def rms_norm(hidden_states: torch.Tensor, weight: torch.Tensor, variance_epsilon: float):
-    input_dtype = hidden_states.dtype
-    hidden_states = hidden_states.to(torch.float32)
-
-    variance = (hidden_states * hidden_states).mean(-1, keepdim=True)
-    hidden_states = hidden_states * torch.rsqrt(variance + variance_epsilon)
-    return weight * hidden_states.to(input_dtype)
-
-
 def rotate_half(x: torch.Tensor):
     """Rotates half the hidden dims of the input."""
     x1 = x[..., : x.shape[-1] // 2]
@@ -80,6 +70,18 @@ def apply_rotary_pos_emb(q: torch.Tensor, k: torch.Tensor, cos: torch.Tensor, si
 
 
 # Copied from transformers.models.llama.modeling_llama.LlamaRMSNorm with Llama->Mistral
+RMS_NORM_TRACED = None
+
+
+def rms_norm(hidden_states: torch.Tensor, weight: torch.Tensor, variance_epsilon: torch.Tensor):
+    input_dtype = hidden_states.dtype
+    hidden_states = hidden_states.to(torch.float32)
+
+    variance = (hidden_states * hidden_states).mean(-1, keepdim=True)
+    hidden_states = hidden_states * torch.rsqrt(variance + variance_epsilon)
+    return weight * hidden_states.to(input_dtype)
+
+
 class UnpaddedMistralRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps):
         """
@@ -88,10 +90,15 @@ class UnpaddedMistralRMSNorm(nn.Module):
         super().__init__()
 
         self.weight = nn.Parameter(torch.ones(hidden_size))
-        self.variance_epsilon = eps
+        self.variance_epsilon = torch.tensor(eps, dtype=torch.get_default_dtype())
+
+        global RMS_NORM_TRACED
+        if RMS_NORM_TRACED is None:
+            RMS_NORM_TRACED = torch.jit.trace(rms_norm, (torch.ones(hidden_size), torch.ones(hidden_size), self.variance_epsilon))
 
     def forward(self, hidden_states):
-        return rms_norm(hidden_states, self.weight, self.variance_epsilon)
+        global RMS_NORM_TRACED
+        return RMS_NORM_TRACED(hidden_states, self.weight, self.variance_epsilon)
 
 
 # Copied from transformers.models.llama.modeling_llama.LlamaRotaryEmbedding with Llama->Mistral
