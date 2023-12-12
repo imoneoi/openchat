@@ -391,6 +391,7 @@ Our OpenChat 3.5 `code` and `models` are distributed under the **Apache License 
 
 | Model        | Size | Context | Weights                                                     | Serving                                                                                                     |
 |--------------|------|---------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| OpenChat 3.5 1210 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat_3.5_1210) | `python -m ochat.serving.openai_api_server --model openchat/openchat_3.5_1210 --engine-use-ray --worker-use-ray` |
 | OpenChat 3.5 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat_3.5) | `python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --engine-use-ray --worker-use-ray` |
 
 ## <a id="legacy-models"></a> Legacy Models
