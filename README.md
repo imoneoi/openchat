@@ -10,15 +10,14 @@
   <a href="https://arxiv.org/pdf/2309.11235.pdf">📃Paper</a> |
   <a href="https://discord.gg/pQjnXvNKHY">💭Discord</a> 
   <br><br>
-  <strong>🔥 First 7B model that Achieves Comparable Results with ChatGPT (March)! 🔥</strong>
+  <strong>🏆 The Overall Best Performing Open Source 7B Model 🏆</strong>
   <br>
-  <strong>🤖 #1 Open-source model on MT-bench scoring 7.81, outperforming 70B models 🤖</strong>
+  <strong>🤖 Outperforms ChatGPT (March) and Grok-1 🤖</strong>
   <br>
 </p>
 
 <div align="center">
-  <img src="assets/openchat.png" style="width: 45%;">
-  <img src="assets/openchat_grok.png" style="width: 47%;">
+  <img src="https://github.com/alpayariyak/openchat/blob/master/assets/1210bench.png?raw=true" style="width: 95%;">
 </div>
 
 - OpenChat is an innovative library of **open-source language models**, fine-tuned with [**C-RLFT**](https://arxiv.org/pdf/2309.11235.pdf) - a strategy inspired by offline reinforcement learning.
