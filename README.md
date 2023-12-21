@@ -111,8 +111,8 @@ Note: Due to non-zero temperature and GPT-4 API changes over time, there might b
 
 ```bash
 cd fastchat/llm_judge
-python gen_api_answer.py --model openchat_3.5_1210 --max-tokens 4096 --parallel 128 --openai-api-base http://localhost:18888/v1
-python gen_judgment.py --model-list openchat_3.5_1210 --parallel 8 --mode single
+python gen_api_answer.py --model openchat-3.5-1210 --max-tokens 4096 --parallel 128 --openai-api-base http://localhost:18888/v1
+python gen_judgment.py --model-list openchat-3.5-1210 --parallel 8 --mode single
 ```
 
 </details>
@@ -391,7 +391,7 @@ Our OpenChat 3.5 `code` and `models` are distributed under the **Apache License 
 
 | Model        | Size | Context | Weights                                                     | Serving                                                                                                     |
 |--------------|------|---------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.5 1210 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat_3.5_1210) | `python -m ochat.serving.openai_api_server --model openchat/openchat_3.5_1210 --engine-use-ray --worker-use-ray` |
+| OpenChat 3.5 1210 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat-3.5-1210) | `python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-1210 --engine-use-ray --worker-use-ray` |
 | OpenChat 3.5 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat_3.5) | `python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --engine-use-ray --worker-use-ray` |
 
 ## <a id="legacy-models"></a> Legacy Models
