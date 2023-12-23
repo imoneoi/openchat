@@ -409,7 +409,6 @@ We are a student team  Tsinghua University, working on OpenChat, a project that 
 
 * Wang Guan [imonenext at gmail dot com]
 * Cheng Sijie [csj23 at mails dot tsinghua dot edu dot cn]
-* Alpay Ariyak [aariyak at wpi.edu]
 
 We look forward to hearing  you and collaborating on this exciting project!
 
