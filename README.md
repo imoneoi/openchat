@@ -403,16 +403,6 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 |--------------|------|---------|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
 | OpenChat 3.2 SUPER | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray` |
 
-
-# 💌Contact
-
-We are a student team at Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
-
-* Wang Guan [imonenext at gmail dot com]
-* Cheng Sijie [csj23 at mails dot tsinghua dot edu dot cn]
-
-We look forward to hearing  you and collaborating on this exciting project!
-
 # Citation
 
 ```
@@ -424,10 +414,16 @@ We look forward to hearing  you and collaborating on this exciting project!
 }
 ```
 
-# Acknowledgements (Continuously updating)
+# 💌Contact
+
+We are a student team at Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
+
+**Project Leader:**
+- Wang Guan [imonenext at gmail dot com]
+- [Cheng Sijie](https://adacheng.github.io/) [csj23 at mails dot tsinghua dot edu dot cn]
 
 **Main Contributors:**
-- [Xianyuan Zhan](https://scholar.google.com.hk/citations?user=pDMnGloAAAAJ&hl=zh-CN): Provided invaluable advice on paper writing.
+- [Xianyuan Zhan](https://scholar.google.com.hk/citations?user=pDMnGloAAAAJ&hl=zh-CN) (Tsinghua University): Provided invaluable advice on paper writing.
 - [Alpay Ariyak](https://github.com/alpayariyak): Responsible for data collection and PR for `openchat-3.5-1210`, including updates to model and organization cards.
 - LDJ: Tasked with partial data collection for `openchat-3.5`.
 
