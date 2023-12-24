@@ -419,8 +419,8 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 We are a student team at Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
 
 **Project Leader:**
-- Wang Guan [imonenext at gmail dot com]
-- [Cheng Sijie](https://adacheng.github.io/) [csj23 at mails dot tsinghua dot edu dot cn]
+- Guan Wang [imonenext at gmail dot com]
+- [Sijie Cheng](https://adacheng.github.io/) [csj23 at mails dot tsinghua dot edu dot cn]
 
 **Main Contributors:**
 - [Xianyuan Zhan](https://scholar.google.com.hk/citations?user=pDMnGloAAAAJ&hl=zh-CN) (Tsinghua University): Provided invaluable advice on paper writing.
