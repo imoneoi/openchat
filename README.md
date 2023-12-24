@@ -403,9 +403,10 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 |--------------|------|---------|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
 | OpenChat 3.2 SUPER | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray` |
 
+
 # 💌Contact
 
-We are a student team  Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
+We are a student team at Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
 
 * Wang Guan [imonenext at gmail dot com]
 * Cheng Sijie [csj23 at mails dot tsinghua dot edu dot cn]
@@ -423,10 +424,16 @@ We look forward to hearing  you and collaborating on this exciting project!
 }
 ```
 
-# Acknowledgements
+# Acknowledgements (Continuously updating)
 
-We extend our heartfelt gratitude to Alignment Lab AI, Nous Research, and Pygmalion AI for their substantial contributions to data collection and model training.
+**Main Contributors:**
+- [Xianyuan Zhan](https://scholar.google.com.hk/citations?user=pDMnGloAAAAJ&hl=zh-CN): Provided invaluable advice on paper writing.
+- [Alpay Ariyak](https://github.com/alpayariyak): Responsible for data collection and PR for `openchat-3.5-1210`, including updates to model and organization cards.
+- LDJ: Tasked with partial data collection for `openchat-3.5`.
 
-Special thanks go to Changling Liu  GPT Desk Pte. Ltd., Qiying Yu at Tsinghua University, Baochang Ma, and Hao Wan from 01.AI company for their generous provision of resources. We are also deeply grateful to Jianxiong Li and Peng Li at Tsinghua University for their insightful discussions.
+**Sponsors:**
+- [Sen Song](https://scholar.google.com/citations?user=cYgtRP4AAAAJ&hl=en) (Tsinghua University), [Yang Liu](https://nlp.csai.tsinghua.edu.cn/~ly/) (Tsinghua University), [01.AI Company](https://www.lingyiwanwu.com/en), [RunPod](https://www.runpod.io/), Changling Liu (GPT Desk Pte. Ltd.), Qiying Yu (Tsinghua University), AutoMeta (Alignment Lab AI).
 
-Furthermore, we appreciate the developers behind the following projects for their significant contributions to our research: [Mistral](https://mistral.ai/), [Chain-of-Thought Hub](https://github.com/FranxYao/chain-of-thought-hub), [Llama 2](https://ai.meta.com/llama/), [Self-Instruct](https://arxiv.org/abs/2212.10560), [FastChat (Vicuna)](https://github.com/lm-sys/FastChat), [Alpaca](https://github.com/tatsu-lab/stanford_alpaca.git), and [StarCoder](https://github.com/bigcode-project/starcoder). Their work has been instrumental in driving our research forward.
+**Special Thanks:**
+- We express our profound gratitude to Alignment Lab AI, Nous Research, and Pygmalion AI for their significant contributions to data collection and model training. We also extend our special thanks to Xiangang Li, Baochang Ma, and Hao Wan from 01.AI company for their generous provision of resources. We also thank Jianxiong Li and Peng Li at Tsinghua University for their insightful discussions that have enriched our work.
+- We acknowledge and thank the developers behind these projects: [Mistral](https://mistral.ai/), [Chain-of-Thought Hub](https://github.com/FranxYao/chain-of-thought-hub), [Llama 2](https://ai.meta.com/llama/), [Self-Instruct](https://arxiv.org/abs/2212.10560), [FastChat (Vicuna)](https://github.com/lm-sys/FastChat), [Alpaca](https://github.com/tatsu-lab/stanford_alpaca.git), and [StarCoder](https://github.com/bigcode-project/starcoder). Their work has been instrumental in driving our research forward.
