@@ -21,6 +21,20 @@ def _v3_2_role_prefix(from_role, condition):
 
 
 MODEL_CONFIG_MAP = {
+    # OpenChat V3.6 (MoE)
+    "openchat_3.6": ModelConfig(
+        # Model
+        model_max_context=8192,
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
+        model_create_for_training=None,  # NOTE(one): MoE trainer decoupled from the codebase
+
+        # Conversation Template
+        conversation_template=partial(ConversationTemplate,
+                                      role_prefix=_v3_2_role_prefix,
+                                      eot="</s>",
+                                      inference_condition="GPT4 Correct")
+    ),
+
     # OpenChat V3.2
     "openchat_v3.2": ModelConfig(
         # Model
