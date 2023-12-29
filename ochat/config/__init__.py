@@ -26,7 +26,7 @@ MODEL_CONFIG_MAP = {
         # Model
         model_max_context=8192,
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
-        model_create_for_training=None,  # NOTE(one): MoE trainer decoupled from the codebase
+        model_create_for_training=lambda: None,  # NOTE(one): MoE trainer decoupled from the codebase
 
         # Conversation Template
         conversation_template=partial(ConversationTemplate,
