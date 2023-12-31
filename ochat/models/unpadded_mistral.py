@@ -298,8 +298,16 @@ class UnpaddedMistralModel(UnpaddedMistralPreTrainedModel):
         nz_position_ids: torch.Tensor,
         cu_seqlens: torch.Tensor,
         max_seqlen: int,
+        image_embeds: torch.Tensor = None
     ) -> torch.Tensor:
         nz_hidden_states = self.embed_tokens(nz_input_ids)
+        
+        if image_embeds is not None:
+            if len(image_embeds.shape) == 3:
+                image_embeds = image_embeds.view(-1, image_embeds.shape[-1])
+            idx = nz_input_ids == 32002  # TODO: <image> special token id, no hard code
+            nz_hidden_states[idx] = image_embeds
+
         cos_sin          = self.rotary_emb()
 
         # decoder layers
@@ -394,7 +402,18 @@ class MultimodalMistralForCausalLM(UnpaddedMistralPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.model = UnpaddedMistralModel(config)
-
+        
+        # vision encoder
+        from transformers import CLIPVisionModel, CLIPVisionConfig
+        self.vision_cfg = CLIPVisionConfig.from_pretrained("openai/clip-vit-large-patch14-336")
+        self.vision_encoder = CLIPVisionModel.from_pretrained("openai/clip-vit-large-patch14-336")
+        # self.vision_encoder = CLIPVisionModel(self.vision_cfg)
+        self.vl_bridge = nn.Sequential(
+            nn.Linear(self.vision_cfg.hidden_size, self.model.config.hidden_size),
+            nn.GELU(),
+            nn.Linear(self.model.config.hidden_size, self.model.config.hidden_size)
+        )
+        
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
         # Initialize weights and apply final processing
@@ -418,6 +437,14 @@ class MultimodalMistralForCausalLM(UnpaddedMistralPreTrainedModel):
     def get_decoder(self):
         return self.model
     
+    def encode_image(self, images):
+        # test
+        # return torch.randn((2, 577, 4096), dtype=images.dtype, device=images.device)
+        
+        emb = self.vision_encoder(images, output_hidden_states=True).hidden_states[-2]  # [b, n_patch, c]
+        emb = self.vl_bridge(emb)
+        return emb
+    
     def forward(
         self,
         # Unpadded inputs
@@ -430,12 +457,18 @@ class MultimodalMistralForCausalLM(UnpaddedMistralPreTrainedModel):
         nz_shifted_label_ids: Optional[torch.Tensor] = None,
         nz_shifted_loss_weights:      Optional[torch.Tensor] = None,
     ) -> CausalLMOutputWithPast:
+        """
+        image_tensor: [B, 3, 224, 224]
+        """
         # Model logits
+        image_embeds = self.encode_image(image_tensor)
+        
         hidden_states = self.model(
             nz_input_ids=nz_input_ids,
             nz_position_ids=nz_position_ids,
             cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen
+            max_seqlen=max_seqlen,
+            image_embeds=image_embeds
         )
         logits = self.lm_head(hidden_states)
 

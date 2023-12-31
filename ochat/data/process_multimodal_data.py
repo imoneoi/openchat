@@ -26,13 +26,15 @@ def convert_llava_data_to_ochat_format(file_path, save_path):
         
         ochat_data_list.append(ochat_sample)
 
-    with open(os.path.join(save_path, "blip_laion_cc_sbu_558k_ochat.jsonl"), "w") as f:
+    with open(save_path, "w") as f:
         for entry in ochat_data_list:
             json_string = json.dumps(entry)
             f.write(json_string + '\n')
-            
+
+# llava pretrain data, downloaded from https://huggingface.co/datasets/liuhaotian/LLaVA-Pretrain
 file_path = "/share/project/qiying/datasets/llava/blip_laion_cc_sbu_558k.json"
-save_path = "/share/project/qiying/datasets/llava"
+# save to ochat jsonl format
+save_path = "/share/project/qiying/datasets/llava/blip_laion_cc_sbu_558k_ochat.jsonl"
 convert_llava_data_to_ochat_format(file_path, save_path)
 
 

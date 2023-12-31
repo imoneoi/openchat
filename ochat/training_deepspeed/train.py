@@ -253,6 +253,9 @@ def train():
 
             # To device
             batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
+            
+            if batch_tensor.get('image_tensor') is not None:
+                batch_tensor['image_tensor'] = batch_tensor['image_tensor'].to(model_engine.dtype)
 
             # Update
             loss, acc = model_engine(**batch_tensor, **batch_info).loss
