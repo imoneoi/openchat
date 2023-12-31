@@ -50,6 +50,7 @@ def parse_args():
     # multimodal
     parser.add_argument("--multimodal",         action='store_true', default=False)
     parser.add_argument("--image_root",         type=str, default="/share/project/qiying/datasets/llava/pretrain")
+    parser.add_argument("--image_size",         type=int, default=224)
 
     # DeepSpeed parameters
     parser = deepspeed.add_config_arguments(parser)
@@ -70,6 +71,7 @@ def create_dataset_and_dataloader(args, split_name):
         dataset = OpenchatMultimodalDataset(
             dataset_filename=filename,
             image_root=args.image_root,
+            image_size=args.image_size,
             batch_max_length=args.batch_max_len,
             rank=dist.get_rank(),
             num_replicas=dist.get_world_size()

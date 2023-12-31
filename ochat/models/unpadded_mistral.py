@@ -421,6 +421,7 @@ class MultimodalMistralForCausalLM(UnpaddedMistralPreTrainedModel):
     def forward(
         self,
         # Unpadded inputs
+        image_tensor: torch.Tensor,
         nz_input_ids: torch.Tensor,
         nz_position_ids: torch.Tensor,
         cu_seqlens: torch.Tensor,
@@ -428,7 +429,6 @@ class MultimodalMistralForCausalLM(UnpaddedMistralPreTrainedModel):
         # Unpadded labels
         nz_shifted_label_ids: Optional[torch.Tensor] = None,
         nz_shifted_loss_weights:      Optional[torch.Tensor] = None,
-        image_list = None
     ) -> CausalLMOutputWithPast:
         # Model logits
         hidden_states = self.model(
