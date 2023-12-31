@@ -33,7 +33,7 @@ def truncate_trailing_zero_weighted(tokens, weights):
     return tokens[:non_zero_index + 1], weights[:non_zero_index + 1]
 
 
-def add_single_conv(output, tokens, weights):
+def add_single_conv(output, tokens, weights, image_file=None):
     # truncate trailing zero weighted tokens
     tokens, weights = truncate_trailing_zero_weighted(tokens, weights)
     if not tokens:
@@ -55,6 +55,9 @@ def add_single_conv(output, tokens, weights):
         "nz_shifted_loss_weights": weights[1:] + [0.0]
     }
     results["num_seqs"] = sum(results["nz_shifted_loss_weights"])
+    
+    if image_file is not None:
+        results['image_file'] = image_file
 
     for k, v in results.items():
         output[k].append(v)
@@ -62,7 +65,7 @@ def add_single_conv(output, tokens, weights):
 
 @ray.remote
 def convert_conversation_batch(model_type: str, model_path: str, batch: list, schema: pyarrow.Schema, per_sequence_loss: bool):
-    from ochat.config import MODEL_CONFIG_MAP, Conversation
+    from ochat.config import MODEL_CONFIG_MAP, Conversation, MultimodalConversation
 
     # Tokenization
     model_config = MODEL_CONFIG_MAP[model_type]
@@ -71,7 +74,8 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
 
     # Decode data
     print ("Decoding JSON ...")
-    batch = [Conversation(**orjson.loads(json_line)) for json_line in batch]
+    ConversationCls = MultimodalConversation if "image" in batch[0] else Conversation
+    batch = [ConversationCls(**orjson.loads(json_line)) for json_line in batch]
 
     # Tokenize
     print ("Tokenizing ...")
@@ -82,7 +86,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
     max_context = model_config.model_max_context
 
     outputs = {k: [] for k in schema.names}
-    for tokens, weights in zip(tokens_list, weights_list):
+    for tokens, weights, conv in zip(tokens_list, weights_list, batch):
         assert len(tokens) == len(weights)
 
         # Truncate to specified tokens
@@ -90,7 +94,7 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
         weights = weights[:max_context]
 
         # Add to results
-        add_single_conv(outputs, tokens, weights)
+        add_single_conv(outputs, tokens, weights, conv.image if hasattr(conv, "image") else None)
 
     print ("Chunk finish")
 
@@ -112,6 +116,9 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         pyarrow.field(f"nz_shifted_label_ids", pyarrow.list_(pyarrow.int32())),
         pyarrow.field(f"nz_shifted_loss_weights", pyarrow.list_(pyarrow.float32()))
     ]
+    
+    if "image" in conversations[0]: # multimodal data
+        schema.append(pyarrow.field(f"image_file", pyarrow.list_(pyarrow.string())))
 
     schema = pyarrow.schema(schema, metadata={"metadata_json": orjson.dumps(metadata)})
 

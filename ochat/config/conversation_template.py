@@ -15,6 +15,14 @@ class Conversation(BaseModel):
 
     condition: str = ""
     system: str = ""
+    
+
+class MultimodalConversation(BaseModel):
+    items: List[Message]
+    
+    image: str = ""
+    condition: str = ""
+    system: str = ""
 
 
 class ConversationTemplate(BaseModel):
