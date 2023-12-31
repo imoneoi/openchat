@@ -218,6 +218,8 @@ class UnpaddedMistralDecoderLayer(nn.Module):
         residual = nz_hidden_states
 
         nz_hidden_states = self.input_layernorm(nz_hidden_states)
+        nz_hidden_states = nz_hidden_states.to(torch.bfloat16)
+        
         nz_hidden_states = self.self_attn(
             cos_sin=cos_sin,
 
@@ -232,6 +234,8 @@ class UnpaddedMistralDecoderLayer(nn.Module):
         residual = nz_hidden_states
 
         nz_hidden_states = self.post_attention_layernorm(nz_hidden_states)
+        nz_hidden_states = nz_hidden_states.to(torch.bfloat16)
+        
         nz_hidden_states = self.mlp(nz_hidden_states)
         nz_hidden_states = residual + nz_hidden_states
 
@@ -321,6 +325,7 @@ class UnpaddedMistralModel(UnpaddedMistralPreTrainedModel):
                 )
 
         nz_hidden_states = self.norm(nz_hidden_states)
+        nz_hidden_states = nz_hidden_states.to(torch.bfloat16)
 
         return nz_hidden_states
 
