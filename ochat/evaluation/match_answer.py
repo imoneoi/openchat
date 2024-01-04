@@ -155,12 +155,11 @@ def coding_humaneval_match_answer(task_data, response):
         return False
 
     def _try_match(content, prefix, entrypoint):
-        for block in content.split("```"):
-            # Sanitize block
-            block = block.strip()
-            if block.startswith("python"):
-                block = block[len("python"):]
+        # All markdown code blocks, as well as raw
+        code_blocks = [m[1] for m in re.findall(r"(\`{3}.*?\n+)([\s\S]*?)(\n+\`{3})", content)] \
+                    + [content]
 
+        for block in code_blocks:
             # Check syntax
             try:
                 code_completion = prefix + block
