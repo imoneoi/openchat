@@ -13,7 +13,7 @@ def add_tokens_to_embedding(added_special_tokens, embedding):
     return torch.cat([embedding, new_token_embeddings], dim=0)
 
 
-def mistral_add_tokens(model_path, output_dir, added_special_tokens):
+def hf_add_tokens(model_path, output_dir, added_special_tokens):
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
     model = transformers.AutoModelForCausalLM.from_pretrained(model_path,
                                                               low_cpu_mem_usage=True,
@@ -59,7 +59,7 @@ def main():
         help="Special token list to add"
     )
 
-    mistral_add_tokens(**vars(parser.parse_args()))
+    hf_add_tokens(**vars(parser.parse_args()))
 
 
 if __name__ == "__main__":
