@@ -186,6 +186,7 @@ def state_dict_to_cpu(item, device=torch.device('cpu')):
 def train():
     deepspeed.init_distributed(dist_backend="nccl")
     RANK = dist.get_rank()
+    WORLD_SIZE = dist.get_world_size()
 
     # Args
     args       = parse_args()
@@ -221,7 +222,7 @@ def train():
     step = 0
     lr_this_step = None
     for epoch in range(args.epochs):
-        print (f"[rank {RANK}]: Epoch {epoch}")
+        print (f"[rank {RANK} of {WORLD_SIZE}]: Epoch {epoch}")
 
         ############ Train Epoch
         model_engine.train()
@@ -235,8 +236,8 @@ def train():
 
             # Update
             loss, acc = model_engine(**batch_tensor, **batch_info).loss
-            loss = (1 / all_numseq) * loss
-            acc  = (1 / all_numseq) * acc
+            loss = (WORLD_SIZE / all_numseq) * loss
+            acc  = (WORLD_SIZE / all_numseq) * acc
 
             model_engine.backward(loss)
 
@@ -251,8 +252,8 @@ def train():
             # Logging
             if RANK == 0:
                 wandb.log({
-                    "train/loss": loss.item() * (all_numseq / cur_numseq),
-                    "train/acc":  acc.item()  * (all_numseq / cur_numseq),
+                    "train/loss": loss.item() * (all_numseq / (cur_numseq * WORLD_SIZE)),
+                    "train/acc":  acc.item()  * (all_numseq / (cur_numseq * WORLD_SIZE)),
                     "train/lr": lr_this_step
                 }, step=step)
                 progress_bar.update()  # type: ignore
