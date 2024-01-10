@@ -17,7 +17,7 @@
 </p>
 
 <div align="center">
-  <img src="https://github.com/imone/openchat/blob/master/assets/openchat-bench-0106.png?raw=true" style="width: 95%;">
+  <img src="https://raw.githubusercontent.com/imoneoi/openchat/master/assets/openchat-bench-0106.png" style="width: 95%;">
 </div>
 
 - OpenChat is an innovative library of **open-source language models**, fine-tuned with [**C-RLFT**](https://arxiv.org/pdf/2309.11235.pdf) - a strategy inspired by offline reinforcement learning.
