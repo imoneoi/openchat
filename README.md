@@ -57,7 +57,7 @@
 | **OpenChat-3.5-0106** | **7B**   | **64.5** | 7.8          | **71.3**        | **51.5** | **49.1** | 61.0          | 65.8         | **77.4**     | 62.2        |
 | OpenChat-3.5-1210     | **7B**   | 63.8     | 7.76         | 68.9            | 49.5     | 48.0     | **61.8**      | 65.3         | 77.3         | 61.8        |
 | OpenChat-3.5          | **7B**   | 61.6     | 7.81         | 55.5            | 47.6     | 47.4     | 59.1          | 64.3         | 77.3         | 63.5        |
-| ChatGPT (March)*      | ?        | 61.5     | **7.94**     | 48.1            | 47.6     | 47.1     | 57.7          | **67.3**     | 74.9         | **70.1**    |
+| ChatGPT (March)*      | ???B     | 61.5     | **7.94**     | 48.1            | 47.6     | 47.1     | 57.7          | **67.3**     | 74.9         | **70.1**    |
 |                       |          |          |              |                 |          |          |               |              |              |             |
 | OpenHermes 2.5        | 7B       | 59.3     | 7.54         | 48.2            | 49.4     | 46.5     | 57.5          | 63.8         | 73.5         | 59.9        |
 | OpenOrca Mistral      | 7B       | 52.7     | 6.86         | 38.4            | 49.4     | 42.9     | 45.9          | 59.3         | 59.1         | 58.1        |
@@ -383,7 +383,7 @@ Despite its advanced capabilities, OpenChat is still bound by the limitations in
  - Programming and coding challenges
 
 ## Hallucination of Non-existent Information
-OpenChat may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained  the model.
+OpenChat may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained the model.
 
 ## Safety
 OpenChat may sometimes generate harmful, hate speech, biased responses, or answer unsafe questions. It's crucial to apply additional AI safety measures in use cases that require safe and moderated responses.
