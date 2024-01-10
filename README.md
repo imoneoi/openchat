@@ -121,12 +121,15 @@ python gen_judgment.py --model-list openchat-3.5-0106 --parallel 8 --mode single
 
 ## 🎇 Comparison with [X.AI Grok](https://x.ai/)
 
-|                   | License     | # Param | Average  | MMLU | HumanEval | MATH     | GSM8k    |
-|-------------------|-------------|---------|----------|------|-----------|----------|----------|
-| OpenChat 3.5 1210 | Apache-2.0  | **7B**  | **60.1** | 65.3 | **68.9**  | **28.9** | **77.3** |
-| OpenChat 3.5      | Apache-2.0  | **7B**  | 56.4     | 64.3 | 55.5      | 28.6     | **77.3** |
-| Grok-0            | Proprietary | 33B     | 44.5     | 65.7 | 39.7      | 15.7     | 56.8     |
-| Grok-1            | Proprietary | ???B    | 55.8     | 73   | 63.2      | 23.9     | 62.9     |
+🔥 OpenChat-3.5-0106 (7B) now outperforms Grok-0 (33B) on **all 4 benchmarks** and Grok-1 (???B) on average and **3/4 benchmarks**.
+
+|                       | License     | # Param | Average  | MMLU   | HumanEval | MATH     | GSM8k    |
+|-----------------------|-------------|---------|----------|--------|-----------|----------|----------|
+| **OpenChat-3.5-0106** | Apache-2.0  | **7B**  | **61.0** | 65.8   | **71.3**  | **29.3** | **77.4** |
+| OpenChat-3.5-1210     | Apache-2.0  | **7B**  | 60.1     | 65.3   | 68.9      | 28.9     | 77.3     |
+| OpenChat-3.5          | Apache-2.0  | **7B**  | 56.4     | 64.3   | 55.5      | 28.6     | 77.3     |
+| Grok-0                | Proprietary | 33B     | 44.5     | 65.7   | 39.7      | 15.7     | 56.8     |
+| Grok-1                | Proprietary | ???B    | 55.8     | **73** | 63.2      | 23.9     | 62.9     |
 
 # ⬇️ Installation
 > [!NOTE]
