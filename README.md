@@ -17,7 +17,7 @@
 </p>
 
 <div align="center">
-  <img src="https://github.com/alpayariyak/openchat/blob/master/assets/1210bench.png?raw=true" style="width: 95%;">
+  <img src="https://github.com/imone/openchat/blob/master/assets/openchat-bench-0106.png?raw=true" style="width: 95%;">
 </div>
 
 - OpenChat is an innovative library of **open-source language models**, fine-tuned with [**C-RLFT**](https://arxiv.org/pdf/2309.11235.pdf) - a strategy inspired by offline reinforcement learning.
@@ -28,7 +28,9 @@
 
 # ✨ News
 
-- [2023/12/10] We released the first update of [OpenChat 3.5](openchat/openchat-3.5-1210), improved coding by 15 points 🚀.
+- [2023/12/10] We released the second update, [OpenChat 3.5 0106](openchat/openchat-3.5-0106), further improved coding and overall performance 🏆.
+
+- [2023/12/10] We released the first update, [OpenChat 3.5 1210](openchat/openchat-3.5-1210), improved coding by 15 points 🚀.
 
 - [2023/11/01] We released the [OpenChat-3.5-7B](https://huggingface.co/openchat/openchat_3.5) model, surpassing ChatGPT on various benchmarks 🔥.
 
@@ -50,18 +52,19 @@
 
 # 🏷️ Benchmarks
 
-| Model              | # Params | Average  | MT-Bench     | HumanEval       | BBH MC   | AGIEval  | TruthfulQA    | MMLU         | GSM8K        | BBH CoT     |
-|--------------------|----------|----------|--------------|-----------------|----------|----------|---------------|--------------|--------------|-------------|
-| OpenChat-3.5-1210  | **7B**   | **63.8** | 7.76         | **68.9**        | **49.5** | **48.0** | **61.8**      | 65.3         | **77.3**     | 61.8        |
-| OpenChat-3.5       | **7B**   | 61.6     | 7.81         | 55.5            | 47.6     | 47.4     | 59.1          | 64.3         | **77.3**     | 63.5        |
-| ChatGPT (March)*   | ?        | 61.5     | **7.94**     | 48.1            | 47.6     | 47.1     | 57.7          | **67.3**     | 74.9         | **70.1**    |
-|                    |          |          |              |                 |          |          |               |              |              |             |
-| OpenHermes 2.5     | 7B       | 59.3     | 7.54         | 48.2            | 49.4     | 46.5     | 57.5          | 63.8         | 73.5         | 59.9        |
-| OpenOrca Mistral   | 7B       | 52.7     | 6.86         | 38.4            | 49.4     | 42.9     | 45.9          | 59.3         | 59.1         | 58.1        |
-| Zephyr-β^          | 7B       | 34.6     | 7.34         | 22.0            | 40.6     | 39.0     | 40.8          | 39.8         | 5.1          | 16.0        |
-| Mistral            | 7B       | -        | 6.84         | 30.5            | 39.0     | 38.0     | -             | 60.1         | 52.2         | -           |
-| Open-source SOTA** | 13B-70B  | 61.4     | 7.71         | 73.2            | 49.7     | 41.7     | 62.3          | 63.7         | 82.3         | 41.4        |
-|                    |          |          | WizardLM 70B | WizardCoder 34B | Orca 13B | Orca 13B | Platypus2 70B | WizardLM 70B | MetaMath 70B | Flan-T5 11B |
+| Model                 | # Params | Average  | MT-Bench     | HumanEval       | BBH MC   | AGIEval  | TruthfulQA    | MMLU         | GSM8K        | BBH CoT     |
+|-----------------------|----------|----------|--------------|-----------------|----------|----------|---------------|--------------|--------------|-------------|
+| **OpenChat-3.5-0106** | **7B**   | **64.5** | 7.8          | **71.3**        | **51.5** | **49.1** | 61.0          | 65.8         | **77.4**     | 62.2        |
+| OpenChat-3.5-1210     | **7B**   | 63.8     | 7.76         | 68.9            | 49.5     | 48.0     | **61.8**      | 65.3         | 77.3         | 61.8        |
+| OpenChat-3.5          | **7B**   | 61.6     | 7.81         | 55.5            | 47.6     | 47.4     | 59.1          | 64.3         | 77.3         | 63.5        |
+| ChatGPT (March)*      | ?        | 61.5     | **7.94**     | 48.1            | 47.6     | 47.1     | 57.7          | **67.3**     | 74.9         | **70.1**    |
+|                       |          |          |              |                 |          |          |               |              |              |             |
+| OpenHermes 2.5        | 7B       | 59.3     | 7.54         | 48.2            | 49.4     | 46.5     | 57.5          | 63.8         | 73.5         | 59.9        |
+| OpenOrca Mistral      | 7B       | 52.7     | 6.86         | 38.4            | 49.4     | 42.9     | 45.9          | 59.3         | 59.1         | 58.1        |
+| Zephyr-β^             | 7B       | 34.6     | 7.34         | 22.0            | 40.6     | 39.0     | 40.8          | 39.8         | 5.1          | 16.0        |
+| Mistral               | 7B       | -        | 6.84         | 30.5            | 39.0     | 38.0     | -             | 60.1         | 52.2         | -           |
+| Open-source SOTA**    | 13B-70B  | 61.4     | 7.71         | 73.2            | 49.7     | 41.7     | 62.3          | 63.7         | 82.3         | 41.4        |
+|                       |          |          | WizardLM 70B | WizardCoder 34B | Orca 13B | Orca 13B | Platypus2 70B | WizardLM 70B | MetaMath 70B | Flan-T5 11B |
 
 <details>
   <summary>Evaluation details</summary>
@@ -82,7 +85,7 @@ Reasoning and Coding:
 Note: Please run the following commands at the base directory of this repository.
 
 ```bash
-python -m ochat.evaluation.run_eval --condition "GPT4 Correct" --model openchat/openchat-3.5-1210 --eval_sets coding fs_cothub/bbh zs/agieval zs/bbh_mc_orca zs/truthfulqa_orca
+python -m ochat.evaluation.run_eval --condition "GPT4 Correct" --model openchat/openchat-3.5-0106 --eval_sets coding fs_cothub/bbh fs_cothub/mmlu zs/agieval zs/bbh_mc_orca zs/truthfulqa_orca
 python ochat/evaluation/view_results.py
 python ochat/evaluation/convert_to_evalplus.py
 ```
@@ -98,7 +101,7 @@ Mathematical Reasoning:
 Note: Please run the following commands at the base directory of this repository.
 
 ```bash
-python -m ochat.evaluation.run_eval --condition "Math Correct" --model openchat/openchat-3.5-1210 --eval_sets fs_cothub/gsm8k zs/math
+python -m ochat.evaluation.run_eval --condition "Math Correct" --model openchat/openchat-3.5-0106 --eval_sets fs_cothub/gsm8k zs/math
 python ochat/evaluation/view_results.py
 ```
 
@@ -110,8 +113,8 @@ Note: Due to non-zero temperature and GPT-4 API changes over time, there might b
 
 ```bash
 cd fastchat/llm_judge
-python gen_api_answer.py --model openchat-3.5-1210 --max-tokens 4096 --parallel 128 --openai-api-base http://localhost:18888/v1
-python gen_judgment.py --model-list openchat-3.5-1210 --parallel 8 --mode single
+python gen_api_answer.py --model openchat-3.5-0106 --max-tokens 4096 --parallel 128 --openai-api-base http://localhost:18888/v1
+python gen_judgment.py --model-list openchat-3.5-0106 --parallel 8 --mode single
 ```
 
 </details>
@@ -167,14 +170,14 @@ pip3 install ochat
 ## From source
 
 <details>
-  <summary>Installing ochat from source</summary>
+  <summary>Clone this repo and install openchat from source in editable mode</summary>
 
 ```bash
 git clone https://github.com/imoneoi/openchat
 cd openchat
 
 pip3 install --upgrade pip  # enable PEP 660 support
-pip3 install -e .
+pip3 install -e .  # Editable mode, you can make changes in this cloned repo
 ```
 </details>
 
@@ -187,19 +190,19 @@ pip3 install -e .
 ### For a single GPU (e.g. RTX 3090, 4090)
 
 ```bash
-python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-1210
+python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-0106
 ```
 
 ### For multiple GPUs (tensor parallel)
 
 ```bash
 # N is the number of tensor parallel GPUs
-python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-1210 --engine-use-ray --worker-use-ray --tensor-parallel-size N
+python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-0106 --engine-use-ray --worker-use-ray --tensor-parallel-size N
 ```
 
 use `-h` to see more settings
 ```bash
-python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-1210 -h
+python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-0106 -h
 ```
 
 <details>
@@ -390,6 +393,7 @@ Our OpenChat 3.5 `code` and `models` are distributed under the **Apache License 
 
 | Model        | Size | Context | Weights                                                     | Serving                                                                                                     |
 |--------------|------|---------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| OpenChat 3.5 0106 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat-3.5-0106) | `python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-0106 --engine-use-ray --worker-use-ray` |
 | OpenChat 3.5 1210 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat-3.5-1210) | `python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-1210 --engine-use-ray --worker-use-ray` |
 | OpenChat 3.5 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat_3.5) | `python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --engine-use-ray --worker-use-ray` |
 
@@ -424,7 +428,7 @@ We are a student team at Tsinghua University, working on OpenChat, a project tha
 
 **Main Contributors:**
 - [Xianyuan Zhan](https://scholar.google.com.hk/citations?user=pDMnGloAAAAJ&hl=zh-CN) (Tsinghua University): Provided invaluable advice on paper writing.
-- [Alpay Ariyak](https://github.com/alpayariyak): Responsible for data collection and PR for `openchat-3.5-1210`, including updates to model and organization cards.
+- [Alpay Ariyak](https://github.com/alpayariyak): Responsible for data collection, documentation, model cards and PR for `openchat-3.5-1210`, `openchat-3.5-0106`.
 - LDJ: Tasked with partial data collection for `openchat-3.5`.
 
 **Sponsors:**
