@@ -3,24 +3,23 @@
 
 import argparse
 import asyncio
-from http import HTTPStatus
 import json
-import time
 import logging
+import time
+from dataclasses import dataclass
+from http import HTTPStatus
 from logging.handlers import RotatingFileHandler
 from typing import AsyncGenerator, Optional
-from dataclasses import dataclass
 
 import fastapi
+import ray
+import uvicorn
 from fastapi import BackgroundTasks, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security.http import HTTPAuthorizationCredentials, HTTPBearer
-
-import uvicorn
-import ray
-
+from transformers.utils.hub import cached_file
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.outputs import RequestOutput
@@ -28,10 +27,7 @@ from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
 from ochat.config import MODEL_CONFIG_MAP
-from ochat.serving import openai_api_protocol, async_tokenizer
-
-from transformers.utils.hub import cached_file
-
+from ochat.serving import async_tokenizer, openai_api_protocol
 
 TIMEOUT_KEEP_ALIVE = 5  # seconds
 

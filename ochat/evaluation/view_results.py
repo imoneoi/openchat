@@ -1,10 +1,10 @@
 import argparse
 import os
+from glob import glob
 from pathlib import Path
 
 import orjson
 import pandas as pd
-from glob import glob
 
 
 def view_results(result_path: str):

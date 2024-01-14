@@ -1,5 +1,5 @@
-import re
 import ast
+import re
 
 from ochat.evaluation.grading.math_grader import grade_answer
 
@@ -50,7 +50,7 @@ def zs_math_match_answer(task_data, response):
                     break
 
             i += 1
-        
+
         if left_brace_idx is None or right_brace_idx is None:
             return None
 
@@ -119,7 +119,7 @@ def fs_cothub_gsm8k_match_answer(task_data, response):
     # CoT hub match answer for GSM8k, match last numeric value
     # https://github.com/FranxYao/chain-of-thought-hub/blob/main/gsm8k/gpt3.5turbo_gsm8k_complex.ipynb
 
-    pattern = '\d*\.?\d+'
+    pattern = r'\d*\.?\d+'
     pred = re.findall(pattern, response)
     if len(pred) >= 1:
         return True, pred[-1]
@@ -135,7 +135,7 @@ def fs_cothub_mmlu_match_answer(task_data, response):
         return False, "(C)"
     else:
         ans = ans_line[-1].strip()
-        
+
     options = ['(A)', '(B)', '(C)', '(D)']
     for option in options:
         if option in ans:
@@ -174,12 +174,12 @@ def coding_humaneval_match_answer(task_data, response):
     include_prefix = humaneval_task['prompt'].split('def')[0].strip() + "\n\n"
 
     result = _try_match(response, include_prefix, humaneval_task["entry_point"])
-    if result: 
+    if result:
         return True, {"task_id": humaneval_task["task_id"], "completion": result}
 
     # If fail then match with function signature
     result = _try_match(response, humaneval_task["prompt"], humaneval_task["entry_point"])
-    if result: 
+    if result:
         return True, {"task_id": humaneval_task["task_id"], "completion": result}
 
     return False, {"task_id": humaneval_task["task_id"], "completion": response}

@@ -1,14 +1,13 @@
-from typing import OrderedDict
-import signal
-import os
-import json
-import subprocess
 import argparse
-import time
-import requests
+import os
 import re
-import coolname
+import signal
+import subprocess
+import time
+from typing import OrderedDict
 
+import coolname
+import requests
 
 MAX_CONTEXT = 4096
 

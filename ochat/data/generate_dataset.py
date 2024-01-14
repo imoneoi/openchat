@@ -4,16 +4,14 @@ Generate training data based on conversations
 Usage: python -m ochat.data.generate_data --in-file sharegpt_gpt4.jsonl --tokenizer-name HF_REPO_NAME --out-dir .
 """
 
-from typing import Optional
 import argparse
 import os
 import random
 
-import ray
 import orjson
 import pyarrow
+import ray
 from pyarrow import parquet
-
 
 PAD_TOKEN_ID = 0
 
@@ -106,11 +104,11 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
         pyarrow.field("total_length", pyarrow.int32()),
         pyarrow.field("num_seqs", pyarrow.float32()),
 
-        pyarrow.field(f"seqlens", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field(f"nz_input_ids", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field(f"nz_position_ids", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field(f"nz_shifted_label_ids", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field(f"nz_shifted_loss_weights", pyarrow.list_(pyarrow.float32()))
+        pyarrow.field("seqlens", pyarrow.list_(pyarrow.int32())),
+        pyarrow.field("nz_input_ids", pyarrow.list_(pyarrow.int32())),
+        pyarrow.field("nz_position_ids", pyarrow.list_(pyarrow.int32())),
+        pyarrow.field("nz_shifted_label_ids", pyarrow.list_(pyarrow.int32())),
+        pyarrow.field("nz_shifted_loss_weights", pyarrow.list_(pyarrow.float32()))
     ]
 
     schema = pyarrow.schema(schema, metadata={"metadata_json": orjson.dumps(metadata)})

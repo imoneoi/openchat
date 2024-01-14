@@ -1,16 +1,15 @@
 import argparse
-import os
-import math
 import json
+import math
+import os
 from functools import partial
 
+import numpy as np
 import torch
 import torch.distributed as dist
-from torch.utils.data import DataLoader
-
 import tqdm
 import wandb
-import numpy as np
+from torch.utils.data import DataLoader
 
 from ochat.config import MODEL_CONFIG_MAP
 from ochat.training_deepspeed.openchat_dataset import OpenchatDataset
@@ -151,7 +150,7 @@ def save_openchat_metadata(args, epoch, save_path):
 def calculate_auto_lr(lr, batch_max_len, model_type, train_dataset):
     if lr is not None:
         return lr
-    
+
     # Llama hyperparameters
     # FIXME: Only 7B/13B is supported
     base_lr = 3e-4
