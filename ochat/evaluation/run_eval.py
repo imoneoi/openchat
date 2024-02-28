@@ -18,7 +18,7 @@ from ochat.config import MODEL_CONFIG_MAP
 
 
 def _strip_first_space(s: str):
-    if s[0] == " ":
+    if len(s) and s[0] == " ":
         return s[1:]
     return s
 
