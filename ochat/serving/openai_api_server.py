@@ -177,6 +177,7 @@ async def create_chat_completion(raw_request: Request, background_tasks: Backgro
             temperature=request.temperature,
             top_p=request.top_p,
             max_tokens=request.max_tokens,
+            seed=request.seed,
             # Override stop tokens
             stop_token_ids=model.eot_tokens,
             ignore_eos=True
