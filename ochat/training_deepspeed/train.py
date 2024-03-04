@@ -13,7 +13,7 @@ import wandb
 import numpy as np
 
 from ochat.config import MODEL_CONFIG_MAP
-from ochat.training_deepspeed.openchat_dataset import OpenchatDataset
+from ochat.training_deepspeed.openchat_dataset import OpenchatDataset, OpenchatMultimodalDataset
 
 try:
     import deepspeed
@@ -46,6 +46,11 @@ def parse_args():
     parser.add_argument("--beta1",              type=float, default=0.9)
     parser.add_argument("--beta2",              type=float, default=0.95)
     parser.add_argument("--eps",                type=float, default=1e-5)
+    
+    # multimodal
+    parser.add_argument("--multimodal",         action='store_true', default=False)
+    parser.add_argument("--image_root",         type=str, default="/share/project/qiying/datasets/llava/pretrain")
+    parser.add_argument("--image_size",         type=int, default=224)
 
     # DeepSpeed parameters
     parser = deepspeed.add_config_arguments(parser)
@@ -62,13 +67,24 @@ def create_dataset_and_dataloader(args, split_name):
     # Create dataset and dataloader
     print(f"Loading {split_name} data from {filename}...")
 
-    dataset = OpenchatDataset(
-        dataset_filename=filename,
+    if args.multimodal:
+        dataset = OpenchatMultimodalDataset(
+            dataset_filename=filename,
+            image_root=args.image_root,
+            image_size=args.image_size,
+            batch_max_length=args.batch_max_len,
+            rank=dist.get_rank(),
+            num_replicas=dist.get_world_size()
+        )
+    else:
+        dataset = OpenchatDataset(
+            dataset_filename=filename,
 
-        batch_max_length=args.batch_max_len,
-        rank=dist.get_rank(),
-        num_replicas=dist.get_world_size()
-    )
+            batch_max_length=args.batch_max_len,
+            rank=dist.get_rank(),
+            num_replicas=dist.get_world_size()
+        )
+
     dataloader = DataLoader(
         dataset,
         batch_size=None,
@@ -86,7 +102,12 @@ def create_model(args):
     print(f"Loading model {args.model_type} from {args.model_path}...")
 
     # Create model + optimizer + lr scheduler
-    model = MODEL_CONFIG_MAP[args.model_type].model_create_for_training(args.model_path)
+    # model = MODEL_CONFIG_MAP[args.model_type].model_create_for_training(args.model_path)
+    import transformers, ochat
+    model=ochat.models.MultimodalMistralForCausalLM(transformers.models.mistral.configuration_mistral.MistralConfig.from_pretrained(args.model_path))
+    
+    # MistralForCausalLM
+    
     # Model to assigned cuda device
     model = model.to(args.local_rank)
     # Enable gradient checkpointing
@@ -233,6 +254,9 @@ def train():
 
             # To device
             batch_tensor = {k: (v.to(args.device) if v is not None else None) for k, v in batch_tensor.items()}
+            
+            if batch_tensor.get('image_tensor') is not None:
+                batch_tensor['image_tensor'] = batch_tensor['image_tensor'].to(model_engine.dtype)
 
             # Update
             loss, acc = model_engine(**batch_tensor, **batch_info).loss
