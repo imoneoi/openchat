@@ -109,7 +109,7 @@ def fs_cothub_bbh_match_answer(task_data, response):
         return False, ans
     else:
         # Free form, direct return
-        if ans[-1] == '.':
+        if len(ans) and ans[-1] == '.':
             ans = ans[:-1]
 
         return True, ans

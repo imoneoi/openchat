@@ -146,7 +146,7 @@ def get_model_answers(
                  max_model_len=model_config.model_max_context,
                  tensor_parallel_size=tensor_parallel_size)
     sampling_params = SamplingParams(temperature=0,
-                                     max_tokens=model_config.model_max_context,
+                                     max_tokens=None,
                                      stop_token_ids=conv_template.eot_tokens_,  # Override stop tokens
                                      ignore_eos=True)
 
