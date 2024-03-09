@@ -74,23 +74,6 @@ MODEL_CONFIG_MAP = {
                                       inference_condition="GPT4 Correct")
     ),
 
-    "openchat_v3.2_gemma": ModelConfig(
-        serving_aliases=("openchat_3.5_gemma", ),
-
-        # Model
-        model_max_context=8192,
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
-        model_create_for_training=partial(ochat.models.GemmaForCausalLM.from_pretrained,
-                                          low_cpu_mem_usage=True,
-                                          torch_dtype=torch.bfloat16),
-
-        # Conversation Template
-        conversation_template=partial(ConversationTemplate,
-                                      role_prefix=_v3_2_role_prefix,
-                                      eot="<eos>",
-                                      inference_condition="GPT4 Correct")
-    ),
-
     "openchat_v3.2_gemma_new": ModelConfig(
         serving_aliases=("openchat_3.5_gemma_new", ),
 
