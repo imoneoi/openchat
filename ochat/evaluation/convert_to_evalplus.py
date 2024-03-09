@@ -1,8 +1,8 @@
 import argparse
 import os
-import orjson
-
 from glob import glob
+
+import orjson
 
 
 def convert_to_evalplus(results_path: str, output_path: str):

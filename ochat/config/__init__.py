@@ -3,10 +3,9 @@ from functools import partial
 import torch
 import transformers
 
-from ochat.config.model_config import ModelConfig
-from ochat.config.conversation_template import Message, Conversation, ConversationTemplate
 import ochat.models
-
+from ochat.config.conversation_template import Conversation, ConversationTemplate, Message
+from ochat.config.model_config import ModelConfig
 
 _V3_2_PREFIXES = {
     # OpenAI mapping

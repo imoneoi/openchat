@@ -24,16 +24,15 @@ from typing import Optional, Tuple
 import torch
 import torch.utils.checkpoint
 from torch import nn
-
 from transformers.activations import ACT2FN
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.modeling_utils import PreTrainedModel
-from transformers.utils import logging
 from transformers.models.llama.configuration_llama import LlamaConfig
+from transformers.utils import logging
 
 try:
-    from flash_attn.flash_attn_interface import flash_attn_varlen_func
     from flash_attn.bert_padding import pad_input
+    from flash_attn.flash_attn_interface import flash_attn_varlen_func
 except ImportError:
     print ("FlashAttention not found. Install it if you need to train models.")
 
@@ -313,7 +312,7 @@ class UnpaddedLlamaModel(UnpaddedLlamaPreTrainedModel):
             else:
                 nz_hidden_states = decoder_layer(
                     cos_sin,
-                    
+
                     nz_hidden_states,
                     nz_position_ids,
                     cu_seqlens,
@@ -355,7 +354,7 @@ class LlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
 
     def get_decoder(self):
         return self.model
-    
+
     def forward(
         self,
         # Unpadded inputs

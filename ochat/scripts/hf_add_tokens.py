@@ -1,7 +1,7 @@
 import argparse
 
-import transformers
 import torch
+import transformers
 
 
 def add_tokens_to_embedding(added_special_tokens, embedding):

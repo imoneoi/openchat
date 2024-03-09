@@ -1,6 +1,6 @@
 import ray
 
-from ochat.config import Message, Conversation
+from ochat.config import Conversation, Message
 
 
 @ray.remote
@@ -38,7 +38,7 @@ class AsyncTokenizer:
         tokens, _ = self.conv_template.tokenize_conversations([Conversation(items=items, system=system_message, condition=condition)],
                                                               inference=True)
         return tokens[0]
-    
+
     def get_eot_tokens(self):
         assert len(self.conv_template.eot_tokens_) == 1
 

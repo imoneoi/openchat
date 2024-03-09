@@ -9,11 +9,10 @@ import os
 import gc
 import random
 
-import ray
 import orjson
 import pyarrow
+import ray
 from pyarrow import parquet
-
 
 PAD_TOKEN_ID = 0
 
@@ -117,11 +116,11 @@ def generate_epoch(seed: int, model_type: str, model_path: str, in_filename: str
         pyarrow.field("total_length", pyarrow.int32()),
         pyarrow.field("num_seqs", pyarrow.float32()),
 
-        pyarrow.field(f"seqlens", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field(f"nz_input_ids", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field(f"nz_position_ids", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field(f"nz_shifted_label_ids", pyarrow.list_(pyarrow.int32())),
-        pyarrow.field(f"nz_shifted_loss_weights", pyarrow.list_(pyarrow.float32()))
+        pyarrow.field("seqlens", pyarrow.list_(pyarrow.int32())),
+        pyarrow.field("nz_input_ids", pyarrow.list_(pyarrow.int32())),
+        pyarrow.field("nz_position_ids", pyarrow.list_(pyarrow.int32())),
+        pyarrow.field("nz_shifted_label_ids", pyarrow.list_(pyarrow.int32())),
+        pyarrow.field("nz_shifted_loss_weights", pyarrow.list_(pyarrow.float32()))
     ]
 
     schema = pyarrow.schema(schema, metadata={"metadata_json": orjson.dumps(metadata)})
