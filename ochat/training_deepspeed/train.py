@@ -55,12 +55,12 @@ def parse_args():
     return args
 
 
-def create_dataset_and_dataloader(args, split_name):
+def create_dataset_and_dataloader(args, epoch: int):
     # Find data
-    filename = f"{args.data_prefix}.{split_name}.parquet"
+    filename = f"{args.data_prefix}.{epoch}.parquet"
 
     # Create dataset and dataloader
-    print(f"Loading {split_name} data from {filename}...")
+    print(f"Loading epoch {epoch} data from {filename}...")
 
     dataset = OpenchatDataset(
         dataset_filename=filename,
@@ -76,8 +76,7 @@ def create_dataset_and_dataloader(args, split_name):
         num_workers=1,
         prefetch_factor=8,
 
-        pin_memory=True,
-        persistent_workers=True
+        pin_memory=True
     )
     return dataset, dataloader
 
@@ -158,6 +157,8 @@ def calculate_auto_lr(lr, batch_max_len, model_type, train_dataset):
     base_bs = 4_000_000
     if "mistral" in model_type.lower():
         base_lr /= 6.0
+    elif "gemma" in model_type.lower():
+        base_lr /= 5.5  # NOTE(one): Maybe MLP and Attn layers are using different lr?
 
     loss_weights = np.concatenate(train_dataset.dataset["nz_shifted_loss_weights"])
     supervised_ratio = np.sum(loss_weights != 0) / len(loss_weights)
@@ -192,7 +193,7 @@ def train():
     args       = parse_args()
 
     # Dataset
-    train_dataset, train_loader = create_dataset_and_dataloader(args, "train")
+    train_dataset, train_loader = create_dataset_and_dataloader(args, 0)
 
     if train_dataset is None:
         raise RuntimeError("Training data not found.")
@@ -223,6 +224,12 @@ def train():
     lr_this_step = None
     for epoch in range(args.epochs):
         print (f"[rank {RANK} of {WORLD_SIZE}]: Epoch {epoch}")
+
+        ############ Load Dataset
+        if epoch != 0:
+            del train_dataset, train_loader
+
+            train_dataset, train_loader = create_dataset_and_dataloader(args, epoch)
 
         ############ Train Epoch
         model_engine.train()

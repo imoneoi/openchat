@@ -4,9 +4,9 @@ Generate training data based on conversations
 Usage: python -m ochat.data.generate_data --in-file sharegpt_gpt4.jsonl --tokenizer-name HF_REPO_NAME --out-dir .
 """
 
-from typing import Optional
 import argparse
 import os
+import gc
 import random
 
 import ray
@@ -77,6 +77,9 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
     print ("Tokenizing ...")
     tokens_list, weights_list = conv_template.tokenize_conversations(batch, inference=False, seq_level_weight=per_sequence_loss)
 
+    del batch
+    gc.collect()
+
     # Generate data
     print ("Generating ...")
     max_context = model_config.model_max_context
@@ -92,12 +95,20 @@ def convert_conversation_batch(model_type: str, model_path: str, batch: list, sc
         # Add to results
         add_single_conv(outputs, tokens, weights)
 
+    del tokens_list, weights_list
+    gc.collect()
+
+    print ("To table ...")
+    table = pyarrow.Table.from_pydict(outputs, schema=schema)
+
+    del outputs
+    gc.collect()
+
     print ("Chunk finish")
+    return table
 
-    return pyarrow.Table.from_pydict(outputs, schema=schema)
 
-
-def generate_split(model_type: str, model_path: str, conversations: list, split_name: str, out_prefix: str, per_sequence_loss: bool):
+def generate_epoch(seed: int, model_type: str, model_path: str, in_filename: str, out_filename: str, per_sequence_loss: bool):
     # schema
     metadata = {
         "model_type": model_type
@@ -115,40 +126,52 @@ def generate_split(model_type: str, model_path: str, conversations: list, split_
 
     schema = pyarrow.schema(schema, metadata={"metadata_json": orjson.dumps(metadata)})
 
-    # launch remote workers
-    if not ray.is_initialized():
-        ray.init(ignore_reinit_error=True, num_cpus=os.cpu_count())
+    # Load data
+    with open(in_filename, "rb") as f:
+        batches = f.readlines()
 
+        random.seed(seed)  # Randomized load balancing
+        random.shuffle(batches)
+
+        batches = _split(batches, int(ray.available_resources()["CPU"]))
+
+    # launch remote workers
     handles = [convert_conversation_batch.remote(
         model_type=model_type,  # type: ignore
         model_path=model_path,
         batch=batch,
         schema=schema,
         per_sequence_loss=per_sequence_loss
-    ) for batch in _split(conversations, int(ray.available_resources()["CPU"]))]
+    ) for batch in batches]
 
     # write
-    parquet.write_table(pyarrow.concat_tables([ray.get(handle) for handle in handles]), f"{out_prefix}.{split_name}.parquet")
+    parquet.write_table(pyarrow.concat_tables([ray.get(handle) for handle in handles]), out_filename)
 
 
-def generate_dataset(model_type, model_path, in_files, out_prefix, per_sequence_loss, seed, eval_ratio):
-    # Load conversations
-    conversations = []
-    for filename in in_files:
-        with open(filename, "rt") as f:
-            conversations.extend(f.readlines())
+def generate_dataset(model_type, model_path, in_prefix, out_prefix, per_sequence_loss, seed):
+    # Initialize Ray
+    if not ray.is_initialized():
+        ray.init(ignore_reinit_error=True, num_cpus=os.cpu_count())
 
-    # Train-test split
-    random.seed(seed)
-    random.shuffle(conversations)
-    eval_num = int(eval_ratio * len(conversations))
+    # Load epochs and tokenize
+    epoch = 0
+    while True:
+        in_filename = f"{in_prefix}.{epoch}.jsonl"
+        if not os.path.exists(in_filename):
+            break
 
-    train_conversations = conversations[eval_num:]
-    eval_conversations  = conversations[:eval_num]
+        out_filename = f"{out_prefix}.{epoch}.parquet"
+        generate_epoch(
+            seed=seed + epoch,
+            model_type=model_type,
+            model_path=model_path,
+            in_filename=in_filename,
+            out_filename=out_filename,
+            per_sequence_loss=per_sequence_loss
+        )
+        gc.collect()
 
-    generate_split(model_type, model_path, train_conversations, "train", out_prefix, per_sequence_loss)
-    if eval_num > 0:
-        generate_split(model_type, model_path, eval_conversations, "eval", out_prefix, per_sequence_loss)
+        epoch += 1
 
 
 if __name__ == "__main__":
@@ -156,12 +179,11 @@ if __name__ == "__main__":
     parser.add_argument("--model-type", type=str, required=True)
     parser.add_argument("--model-path", type=str, required=True)
 
-    parser.add_argument("--in-files", type=str, nargs="+", required=True)
+    parser.add_argument("--in-prefix", type=str, required=True)
     parser.add_argument("--out-prefix", type=str, required=True)
 
     parser.add_argument("--per-sequence-loss", action="store_true")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--eval-ratio", type=float, default=0.005)
     args = parser.parse_args()
 
     generate_dataset(**vars(args))

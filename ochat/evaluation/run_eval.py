@@ -17,6 +17,12 @@ from ochat.evaluation.match_answer import MATCH_ANSWER_FUNCTION
 from ochat.config import MODEL_CONFIG_MAP
 
 
+def _strip_first_space(s: str):
+    if len(s) and s[0] == " ":
+        return s[1:]
+    return s
+
+
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(20), retry=retry_if_exception_type((RateLimitError, ServiceUnavailableError, )))
 async def _chat_completion_with_backoff(**kwargs):
     return await openai.ChatCompletion.acreate(**kwargs)
@@ -122,7 +128,8 @@ def get_model_answers(
     questions: list,
     condition: str,
     system_msg: str,
-    model_type: str
+    model_type: str,
+    tensor_parallel_size: int
 ):
     # Load model config
     if model_type is None:
@@ -136,9 +143,10 @@ def get_model_answers(
     # Init vLLM engine
     engine = LLM(model,
                  max_num_batched_tokens=model_config.model_max_context,
-                 max_model_len=model_config.model_max_context)
+                 max_model_len=model_config.model_max_context,
+                 tensor_parallel_size=tensor_parallel_size)
     sampling_params = SamplingParams(temperature=0,
-                                     max_tokens=model_config.model_max_context,
+                                     max_tokens=None,
                                      stop_token_ids=conv_template.eot_tokens_,  # Override stop tokens
                                      ignore_eos=True)
 
@@ -149,8 +157,7 @@ def get_model_answers(
     # calculate & fill in responses
     responses = engine.generate(prompt_token_ids=prompts, sampling_params=sampling_params)
     for idx, resp in zip(prompt_indices, responses):
-        questions[idx]["response"] = resp.outputs[0].text
-
+        questions[idx]["response"] = _strip_first_space(resp.outputs[0].text)
 
     return questions
 
@@ -167,7 +174,8 @@ async def run_eval(
     continue_from: Optional[str],
     output_file: str,
 
-    parallel: int
+    parallel: int,
+    tensor_parallel_size: int
 ):
     print (f"Evaluating ({model_type})...\n\nCondition: {condition}\nSystem Prompt: {system_msg}\n")
 
@@ -201,7 +209,7 @@ async def run_eval(
     if model.startswith("gpt-3.5-turbo") or model.startswith("gpt-4"):
         questions = await get_openai_answers(model, questions, parallel)
     else:
-        questions = get_model_answers(model, questions, condition, system_msg, model_type)
+        questions = get_model_answers(model, questions, condition, system_msg, model_type, tensor_parallel_size)
 
     # Calculate accuracy
     for q in questions:
@@ -235,6 +243,7 @@ async def main():
     parser.add_argument("--continue_from", type=str, default=None)
     parser.add_argument("--output_file",   type=str, default=None)
     parser.add_argument("--parallel",      type=int, default=16)
+    parser.add_argument("--tensor-parallel-size", type=int, default=1)
 
     args = parser.parse_args()
 
