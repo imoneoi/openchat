@@ -16,6 +16,12 @@ _V3_2_PREFIXES = {
 }
 
 
+_GEMMA_IT_PREFIXES = {
+    "user": "user",
+    "assistant": "model"
+}
+
+
 def _v3_2_role_prefix(from_role, condition):
     return f"{condition} {_V3_2_PREFIXES[from_role]}".strip()
 
@@ -106,9 +112,7 @@ MODEL_CONFIG_MAP = {
     "chatml_mistral": ModelConfig(
         # Model
         model_max_context=8192,
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False,
-                                       legacy=True),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
         model_create_for_training=partial(ochat.models.MistralForCausalLM.from_pretrained,
                                           low_cpu_mem_usage=True,
                                           torch_dtype=torch.bfloat16),
@@ -122,9 +126,7 @@ MODEL_CONFIG_MAP = {
     "zephyr_mistral": ModelConfig(
         # Model
         model_max_context=8192,
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained,
-                                       use_fast=False,
-                                       legacy=True),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
         model_create_for_training=partial(ochat.models.MistralForCausalLM.from_pretrained,
                                           low_cpu_mem_usage=True,
                                           torch_dtype=torch.bfloat16),
@@ -133,6 +135,20 @@ MODEL_CONFIG_MAP = {
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=lambda from_role, condition: f"<|{from_role}|>\n",
                                       eot="</s>",
+                                      inference_condition="")
+    ),
+    "gemma_it": ModelConfig(
+        # Model
+        model_max_context=8192,
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
+        model_create_for_training=partial(ochat.models.GemmaForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
+
+        # Conversation Template
+        conversation_template=partial(ConversationTemplate,
+                                      role_prefix=lambda from_role, condition: f"<start_of_turn>{_GEMMA_IT_PREFIXES[from_role]}\n",
+                                      eot="<end_of_turn>",
                                       inference_condition="")
     ),
 }
