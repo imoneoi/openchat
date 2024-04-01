@@ -423,20 +423,29 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 
 # 💌Contact
 
-We are a student team at Tsinghua University, working on OpenChat, a project that requires additional computing power or LLMs API keys for further development. If you are interested in our project and would like to offer support, please feel free to reach out to us:
-
-**Project Leader:**
+**Project Lead:**
 - Guan Wang [imonenext at gmail dot com]
-- [Sijie Cheng](https://adacheng.github.io/) [csj23 at mails dot tsinghua dot edu dot cn]
+- [Alpay Ariyak](https://github.com/alpayariyak) [aariyak at wpi dot edu]
 
 **Main Contributors:**
-- [Xianyuan Zhan](https://scholar.google.com.hk/citations?user=pDMnGloAAAAJ&hl=zh-CN) (Tsinghua University): Provided invaluable advice on paper writing.
-- [Alpay Ariyak](https://github.com/alpayariyak): Responsible for data collection, documentation, model cards and PR for `openchat-3.5-1210`, `openchat-3.5-0106`.
-- LDJ: Tasked with partial data collection for `openchat-3.5`.
+- [Sijie Cheng](https://adacheng.github.io/) [csj23 at mails dot tsinghua dot edu dot cn]
+- [Xianyuan Zhan](https://scholar.google.com.hk/citations?user=pDMnGloAAAAJ) (Tsinghua University)
+- Qiying Yu (Tsinghua University)
+- Changling Liu (GPT Desk Pte. Ltd.)
+- LDJ
+- AutoMeta (Alignment Lab AI)
 
 **Sponsors:**
-- [Sen Song](https://scholar.google.com/citations?user=cYgtRP4AAAAJ&hl=en) (Tsinghua University), [Yang Liu](https://nlp.csai.tsinghua.edu.cn/~ly/) (Tsinghua University), [01.AI Company](https://www.lingyiwanwu.com/en), [RunPod](https://www.runpod.io/), Changling Liu (GPT Desk Pte. Ltd.), Qiying Yu (Tsinghua University), AutoMeta (Alignment Lab AI).
+- [Sen Song](https://scholar.google.com/citations?user=cYgtRP4AAAAJ) (Tsinghua University)
+- [Yang Liu](https://nlp.csai.tsinghua.edu.cn/~ly/) (Tsinghua University)
+- [01.AI Company](https://www.lingyiwanwu.com/en)
+- [RunPod](https://www.runpod.io/)
 
 **Special Thanks:**
-- We express our profound gratitude to Alignment Lab AI, Nous Research, and Pygmalion AI for their significant contributions to data collection and model training. We also extend our special thanks to Xiangang Li, Baochang Ma, and Hao Wan from 01.AI company for their generous provision of resources. We also thank Jianxiong Li and Peng Li at Tsinghua University for their insightful discussions that have enriched our work.
-- We acknowledge and thank the developers behind these projects: [Mistral](https://mistral.ai/), [Chain-of-Thought Hub](https://github.com/FranxYao/chain-of-thought-hub), [Llama 2](https://ai.meta.com/llama/), [Self-Instruct](https://arxiv.org/abs/2212.10560), [FastChat (Vicuna)](https://github.com/lm-sys/FastChat), [Alpaca](https://github.com/tatsu-lab/stanford_alpaca.git), and [StarCoder](https://github.com/bigcode-project/starcoder). Their work has been instrumental in driving our research forward.
+ - [Mistral](https://mistral.ai/)
+ - [Chain-of-Thought Hub](https://github.com/FranxYao/chain-of-thought-hub)
+ - [Llama 2](https://ai.meta.com/llama/)
+ - [Self-Instruct](https://arxiv.org/abs/2212.10560)
+ - [FastChat (Vicuna)](https://github.com/lm-sys/FastChat)
+ - [Alpaca](https://github.com/tatsu-lab/stanford_alpaca.git)
+ - [StarCoder](https://github.com/bigcode-project/starcoder)
