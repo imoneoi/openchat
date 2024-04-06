@@ -1,9 +1,8 @@
-import torch
 import numpy as np
-from torch.utils.data import IterableDataset, get_worker_info
-
-import pyarrow.parquet as pq
 import orjson
+import pyarrow.parquet as pq
+import torch
+from torch.utils.data import IterableDataset, get_worker_info
 
 from ochat.training_deepspeed.multipack_sampler import MultipackDistributedSampler
 

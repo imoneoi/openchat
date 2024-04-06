@@ -1,5 +1,5 @@
-import numpy as np
 import numba
+import numpy as np
 
 
 @numba.njit
@@ -95,7 +95,7 @@ def allocate(lengths: np.ndarray, numseqs: np.ndarray, lengths_cumsum: np.ndarra
 class MultipackDistributedSampler:
     """Unpadded data loading using Multipack.
        Approximate (at most ~1.22x) the optimal solution of the identical-machines scheduling problem, which is NP-hard."""
-    
+
     def __init__(
         self,
         lengths: np.ndarray,
@@ -139,7 +139,7 @@ class MultipackDistributedSampler:
                                                              rank=self.rank,
                                                              c=self.batch_max_length,
                                                              n=self.num_replicas)
-        
+
         curseqs = [np.sum(numseqs[batch]) for batch in batches]
         batches = [indices[batch]         for batch in batches]
 
@@ -149,7 +149,7 @@ class MultipackDistributedSampler:
             self.eff_total_slots += total_slots
 
         return batches, totseqs, curseqs
-    
+
     def iter(self, epoch):
         all_batches, all_totseqs, all_curseqs = self.generate_batches(epoch, set_stats=True)
 

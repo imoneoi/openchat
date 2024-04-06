@@ -1,20 +1,19 @@
-from typing import Optional
 import argparse
-import os
 import asyncio
+import os
 from glob import glob
+from typing import Optional
 
-import orjson
 import openai
-from tqdm import tqdm
+import orjson
 from openai.error import RateLimitError, ServiceUnavailableError
-from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
+from tqdm import tqdm
+from transformers.utils.hub import cached_file
 from vllm import LLM, SamplingParams
 
-from transformers.utils.hub import cached_file
-
-from ochat.evaluation.match_answer import MATCH_ANSWER_FUNCTION
 from ochat.config import MODEL_CONFIG_MAP
+from ochat.evaluation.match_answer import MATCH_ANSWER_FUNCTION
 
 
 def _strip_first_space(s: str):
@@ -52,7 +51,7 @@ async def chat_completion_thread(model, progress_bar, queue):
                 e = e._exception
 
             print(type(e), str(e))
-        
+
         # Progress
         progress_bar.update()
 
