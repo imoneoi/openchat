@@ -27,17 +27,19 @@ def _v3_2_role_prefix(from_role, condition):
 
 
 MODEL_CONFIG_MAP = {
-    # OpenChat V3.6 (MoE)
+    # OpenChat V3.6 (llama 3)
     "openchat_3.6": ModelConfig(
         # Model
         model_max_context=8192,
         model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
-        model_create_for_training=lambda: None,  # NOTE(one): MoE trainer decoupled from the codebase
+        model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
 
         # Conversation Template
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=_v3_2_role_prefix,
-                                      eot="</s>",
+                                      eot="<|eot_id|>",
                                       inference_condition="GPT4 Correct")
     ),
 
