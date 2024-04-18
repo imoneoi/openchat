@@ -31,7 +31,7 @@ MODEL_CONFIG_MAP = {
     "openchat_3.6": ModelConfig(
         # Model
         model_max_context=8192,
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=True),  # Llama 3 only has fast tokenizer
         model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
                                           low_cpu_mem_usage=True,
                                           torch_dtype=torch.bfloat16),
@@ -39,6 +39,8 @@ MODEL_CONFIG_MAP = {
         # Conversation Template
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=_v3_2_role_prefix,
+                                      bos="<|begin_of_text|>",  # Llama 3 tokenizer needs manually specifing tokenizer
+                                      add_space_before_msg=True,  # and manually adding space
                                       eot="<|eot_id|>",
                                       inference_condition="GPT4 Correct")
     ),

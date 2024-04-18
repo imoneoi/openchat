@@ -21,10 +21,12 @@ class ConversationTemplate(BaseModel):
     tokenizer: Callable
 
     # Prompt
+    bos: Optional[str] = None
     role_prefix: Callable
     eot: str
 
     inference_condition: Optional[str] = None
+    add_space_before_msg: bool = False
 
     # Private
     bos_tokens_: List[int]
@@ -33,17 +35,24 @@ class ConversationTemplate(BaseModel):
     def __init__(self, **data):
         tokenizer = data["tokenizer"]
         eot = data["eot"]
-        bos_tokens_ = tokenizer("").input_ids
+        bos_tokens_ = tokenizer(data.get("bos", "")).input_ids
         eot_tokens_ = tokenizer(eot, add_special_tokens=False).input_ids
 
         super().__init__(**data, bos_tokens_=bos_tokens_, eot_tokens_=eot_tokens_)
 
     def _tokenize(self, strings: Iterable[str], ignore_special: bool = True) -> List[List[int]]:
+        if self.tokenizer.is_fast:
+            # Support for fast tokenizer
+            # https://github.com/huggingface/tokenizers/pull/1419
+            self.tokenizer._tokenizer.encode_special_tokens = ignore_special
+            return self.tokenizer(strings, return_attention_mask=False, add_special_tokens=False).input_ids
+
         return self.tokenizer(strings, split_special_tokens=ignore_special, return_attention_mask=False, add_special_tokens=False).input_ids
 
     def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_weight: bool = False):
         # Pre-tokenize all conversations
         default_condition = self.inference_condition if inference else ""
+        message_prefix = " " if self.add_space_before_msg else ""
 
         sys_mappings = set()
         role_mappings = set()
@@ -52,7 +61,7 @@ class ConversationTemplate(BaseModel):
             sys_mappings.add(conv.system)
             for msg in conv.items:
                 role_mappings.add((msg.role, conv.condition or default_condition))
-                all_text.append(msg.content)
+                all_text.append(message_prefix + msg.content)
 
         sys_mappings = list(sys_mappings)
         role_mappings = list(role_mappings)
