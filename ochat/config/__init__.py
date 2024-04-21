@@ -49,8 +49,9 @@ MODEL_CONFIG_MAP = {
                                                           role_end_token="<|end_header_id|>"),
                                       bos="<|begin_of_text|>",  # Llama 3 tokenizer needs manually specifing tokenizer
                                       eot="<|eot_id|>",
-                                      inference_condition="GPT4",
-                                      message_prefix="\n\n")
+                                      inference_condition="GPT4 Correct",
+                                      message_prefix="\n\n"),
+        hf_chat_template="{% set loop_messages = messages %}{% for message in loop_messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = '<|start_header_id|>GPT4 Correct ' + message['role'].title() + '<|end_header_id|>\n\n' + message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>GPT4 Correct Assistant<|end_header_id|>\n\n' }}{% endif %}",
     ),
 
     # OpenChat V3.2
@@ -83,7 +84,8 @@ MODEL_CONFIG_MAP = {
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=_v3_2_role_prefix,
                                       eot="<|end_of_turn|>",
-                                      inference_condition="GPT4 Correct")
+                                      inference_condition="GPT4 Correct"),
+        hf_chat_template="{{ bos_token }}{% for message in messages %}{{ 'GPT4 Correct ' + message['role'].title() + ': ' + message['content'] + '<|end_of_turn|>'}}{% endfor %}{% if add_generation_prompt %}{{ 'GPT4 Correct Assistant:' }}{% endif %}"
     ),
 
     "openchat_v3.2_gemma_new": ModelConfig(
@@ -100,7 +102,8 @@ MODEL_CONFIG_MAP = {
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=_v3_2_role_prefix,
                                       eot="<end_of_turn>",
-                                      inference_condition="GPT4 Correct")
+                                      inference_condition="GPT4 Correct"),
+        hf_chat_template="{{ bos_token }}{% if messages[0]['role'] == 'system' %}{{ raise_exception('System role not supported') }}{% endif %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if (message['role'] == 'assistant') %}{% set role = 'model' %}{% else %}{% set role = message['role'] %}{% endif %}{{ '<start_of_turn>' + role + '\n' + message['content'] | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}"
     ),
 
     ### Other models

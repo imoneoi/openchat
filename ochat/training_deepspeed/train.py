@@ -31,6 +31,7 @@ def parse_args():
     parser.add_argument("--data_prefix", type=str, required=True)
     parser.add_argument("--save_path",  type=str, required=True)
     parser.add_argument("--save_every", type=int, default=None)
+    parser.add_argument("--save_hf_chat_template", bool, default=False) # False until fully tested
 
     # Hyperparameters
     parser.add_argument("--batch_max_len",      type=int, default=81920)
@@ -136,7 +137,11 @@ def create_lr_scheduler(args, train_total_steps):
 
 
 def save_tokenizer(args, save_path):
-    MODEL_CONFIG_MAP[args.model_type].model_tokenizer_create(args.model_path).save_pretrained(save_path)
+    model_config = MODEL_CONFIG_MAP[args.model_type]
+    tokenizer = model_config.model_tokenizer_create(args.model_path)
+    if args.save_hf_chat_template and model_config.hf_chat_template:
+        tokenizer.chat_template = model_config.hf_chat_template
+    tokenizer.save_pretrained(save_path)
 
 
 def save_openchat_metadata(args, epoch, save_path):

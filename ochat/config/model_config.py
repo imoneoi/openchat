@@ -14,3 +14,4 @@ class ModelConfig(BaseModel):
 
     # conversation template
     conversation_template: Callable
+    hf_chat_template: str = None
