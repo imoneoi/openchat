@@ -15,6 +15,11 @@ _V3_2_PREFIXES = {
     "assistant": "Assistant:"
 }
 
+_V3_6_PREFIXES = {
+    "user": "User",
+    "assistant": "Assistant"
+}
+
 
 _GEMMA_IT_PREFIXES = {
     "user": "user",
@@ -25,6 +30,8 @@ _GEMMA_IT_PREFIXES = {
 def _v3_2_role_prefix(from_role, condition):
     return f"{condition} {_V3_2_PREFIXES[from_role]}".strip()
 
+def _v3_6_role_prefix(from_role, condition, role_start_token="", role_end_token=""):
+    return f"{role_start_token}{condition} {_V3_6_PREFIXES[from_role]}{role_end_token}".strip()
 
 MODEL_CONFIG_MAP = {
     # OpenChat V3.6 (llama 3)
@@ -35,14 +42,15 @@ MODEL_CONFIG_MAP = {
         model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
                                           low_cpu_mem_usage=True,
                                           torch_dtype=torch.bfloat16),
-
         # Conversation Template
         conversation_template=partial(ConversationTemplate,
-                                      role_prefix=_v3_2_role_prefix,
+                                      role_prefix=partial(_v3_6_role_prefix,
+                                                          role_start_token="<|start_header_id|>",
+                                                          role_end_token="<|end_header_id|>"),
                                       bos="<|begin_of_text|>",  # Llama 3 tokenizer needs manually specifing tokenizer
-                                      add_space_before_msg=True,  # and manually adding space
                                       eot="<|eot_id|>",
-                                      inference_condition="GPT4 Correct")
+                                      inference_condition="GPT4",
+                                      message_prefix="\n\n")
     ),
 
     # OpenChat V3.2

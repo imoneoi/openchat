@@ -23,22 +23,23 @@ class ConversationTemplate(BaseModel):
     # Prompt
     bos: Optional[str] = None
     role_prefix: Callable
+    message_prefix: str = ""
     eot: str
 
     inference_condition: Optional[str] = None
-    add_space_before_msg: bool = False
 
     # Private
     bos_tokens_: List[int]
     eot_tokens_: List[int]
+    message_prefix_tokens_: List[int]
 
     def __init__(self, **data):
         tokenizer = data["tokenizer"]
         eot = data["eot"]
         bos_tokens_ = tokenizer(data.get("bos", "")).input_ids
         eot_tokens_ = tokenizer(eot, add_special_tokens=False).input_ids
-
-        super().__init__(**data, bos_tokens_=bos_tokens_, eot_tokens_=eot_tokens_)
+        message_prefix_tokens_ = tokenizer(data.get("message_prefix", ""), add_special_tokens=False).input_ids
+        super().__init__(**data, bos_tokens_=bos_tokens_, eot_tokens_=eot_tokens_, message_prefix_tokens_=message_prefix_tokens_)
 
     def _tokenize(self, strings: Iterable[str], ignore_special: bool = True) -> List[List[int]]:
         if self.tokenizer.is_fast:
@@ -52,7 +53,6 @@ class ConversationTemplate(BaseModel):
     def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_weight: bool = False):
         # Pre-tokenize all conversations
         default_condition = self.inference_condition if inference else ""
-        message_prefix = " " if self.add_space_before_msg else ""
 
         sys_mappings = set()
         role_mappings = set()
@@ -61,7 +61,7 @@ class ConversationTemplate(BaseModel):
             sys_mappings.add(conv.system)
             for msg in conv.items:
                 role_mappings.add((msg.role, conv.condition or default_condition))
-                all_text.append(message_prefix + msg.content)
+                all_text.append(msg.content)
 
         sys_mappings = list(sys_mappings)
         role_mappings = list(role_mappings)
@@ -95,11 +95,15 @@ class ConversationTemplate(BaseModel):
             # Messages
             last_idx = len(conv.items) - 1
             for idx, msg in enumerate(conv.items):
-                # Prefix
+                # Role Prefix
                 role = role_mappings[(msg.role, conv.condition or default_condition)]
                 tokens.extend(role)
                 weights.extend([0.] * len(role))
 
+                # Message Prefix
+                tokens.extend(self.message_prefix_tokens_)
+                weights.extend([0.] * len(self.message_prefix_tokens_))
+                
                 # Message
                 text = all_text[all_text_idx]
                 all_text_idx += 1
