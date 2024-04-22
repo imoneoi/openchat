@@ -17,7 +17,8 @@ _V3_2_PREFIXES = {
 
 _V3_6_PREFIXES = {
     "user": "User",
-    "assistant": "Assistant"
+    "assistant": "Assistant",
+    "system": "System"
 }
 
 
@@ -31,7 +32,7 @@ def _v3_2_role_prefix(from_role, condition):
     return f"{condition} {_V3_2_PREFIXES[from_role]}".strip()
 
 def _v3_6_role_prefix(from_role, condition, role_start_token="", role_end_token=""):
-    return f"{role_start_token}{condition} {_V3_6_PREFIXES[from_role]}{role_end_token}".strip()
+    return role_start_token + f"{condition} {_V3_6_PREFIXES[from_role]}".strip() + role_end_token
 
 MODEL_CONFIG_MAP = {
     # OpenChat V3.6 (llama 3)
@@ -49,6 +50,7 @@ MODEL_CONFIG_MAP = {
                                                           role_end_token="<|end_header_id|>"),
                                       bos="<|begin_of_text|>",  # Llama 3 tokenizer needs manually specifing tokenizer
                                       eot="<|eot_id|>",
+                                      system_as_role=True,
                                       inference_condition="GPT4 Correct",
                                       message_prefix="\n\n"),
         hf_chat_template="{% set loop_messages = messages %}{% for message in loop_messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = '<|start_header_id|>GPT4 Correct ' + message['role'].title() + '<|end_header_id|>\n\n' + message['content'] | trim + '<|eot_id|>' %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>GPT4 Correct Assistant<|end_header_id|>\n\n' }}{% endif %}",

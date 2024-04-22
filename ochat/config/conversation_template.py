@@ -24,6 +24,7 @@ class ConversationTemplate(BaseModel):
     bos: Optional[str] = None
     role_prefix: Callable
     message_prefix: str = ""
+    system_as_role: bool = False
     eot: str
 
     inference_condition: Optional[str] = None
@@ -67,7 +68,10 @@ class ConversationTemplate(BaseModel):
         role_mappings = list(role_mappings)
 
         # Tokenize
-        sys_mappings = dict(zip(sys_mappings, self._tokenize(sys_mappings)))
+        if self.system_as_role:
+            sys_mappings = dict(zip(sys_mappings, self._tokenize([self.role_prefix(sys) for sys in sys_mappings], ignore_special=False)))
+        else:
+            sys_mappings = dict(zip(sys_mappings, self._tokenize(sys_mappings)))
         role_mappings = dict(zip(role_mappings, self._tokenize([self.role_prefix(*args) for args in role_mappings], ignore_special=False)))
         all_text = self._tokenize(all_text)
 
