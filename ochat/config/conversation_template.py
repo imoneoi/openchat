@@ -33,6 +33,7 @@ class ConversationTemplate(BaseModel):
     bos_tokens_: List[int]
     eot_tokens_: List[int]
     message_prefix_tokens_: List[int]
+    system_role_tokens_: Optional[List[int]] = []
 
     def __init__(self, **data):
         tokenizer = data["tokenizer"]
@@ -63,15 +64,14 @@ class ConversationTemplate(BaseModel):
             for msg in conv.items:
                 role_mappings.add((msg.role, conv.condition or default_condition))
                 all_text.append(msg.content)
-
+        
+        if self.system_as_role:
+            self.system_role_tokens_ = self.tokenizer(self.role_prefix("system", ""), add_special_tokens=False).input_ids + self.message_prefix_tokens_
+        
         sys_mappings = list(sys_mappings)
         role_mappings = list(role_mappings)
 
-        # Tokenize
-        if self.system_as_role:
-            sys_mappings = dict(zip(sys_mappings, self._tokenize([self.role_prefix(sys) for sys in sys_mappings], ignore_special=False)))
-        else:
-            sys_mappings = dict(zip(sys_mappings, self._tokenize(sys_mappings)))
+        sys_mappings = dict(zip(sys_mappings, self._tokenize(sys_mappings)))
         role_mappings = dict(zip(role_mappings, self._tokenize([self.role_prefix(*args) for args in role_mappings], ignore_special=False)))
         all_text = self._tokenize(all_text)
 
@@ -89,6 +89,9 @@ class ConversationTemplate(BaseModel):
 
             # System
             if conv.system:
+                tokens.extend(self.system_role_tokens_)
+                weights.extend([0.] * len(self.system_role_tokens_)) 
+                
                 system = sys_mappings[conv.system]
                 tokens.extend(system)
                 weights.extend([0.] * len(system))
