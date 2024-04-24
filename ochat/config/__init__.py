@@ -39,8 +39,7 @@ MODEL_CONFIG_MAP = {
         # Conversation Template
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=_v3_2_role_prefix,
-                                      bos="<|begin_of_text|>",  # Llama 3 tokenizer needs manually specifing tokenizer
-                                      add_space_before_msg=True,  # and manually adding space
+                                      add_space_before_msg=True,  # Llama 3 tokenizer needs manually adding space
                                       eot="<|eot_id|>",
                                       inference_condition="GPT4 Correct")
     ),
@@ -66,7 +65,7 @@ MODEL_CONFIG_MAP = {
 
         # Model
         model_max_context=8192,
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=True),
         model_create_for_training=partial(ochat.models.MistralForCausalLM.from_pretrained,
                                           low_cpu_mem_usage=True,
                                           torch_dtype=torch.bfloat16),
@@ -136,6 +135,20 @@ MODEL_CONFIG_MAP = {
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=lambda from_role, condition: f"<start_of_turn>{_GEMMA_IT_PREFIXES[from_role]}\n",
                                       eot="<end_of_turn>",
+                                      inference_condition="")
+    ),
+    "llama3_instruct": ModelConfig(
+        # Model
+        model_max_context=8192,
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=True),  # Llama 3 only has fast tokenizer
+        model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
+                                          low_cpu_mem_usage=True,
+                                          torch_dtype=torch.bfloat16),
+
+        # Conversation Template
+        conversation_template=partial(ConversationTemplate,
+                                      role_prefix=lambda from_role, condition: f"<|start_header_id|>{from_role}<|end_header_id|>\n\n",
+                                      eot="<|eot_id|>",
                                       inference_condition="")
     ),
 }

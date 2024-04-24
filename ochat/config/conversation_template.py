@@ -21,7 +21,6 @@ class ConversationTemplate(BaseModel):
     tokenizer: Callable
 
     # Prompt
-    bos: Optional[str] = None
     role_prefix: Callable
     eot: str
 
@@ -35,7 +34,7 @@ class ConversationTemplate(BaseModel):
     def __init__(self, **data):
         tokenizer = data["tokenizer"]
         eot = data["eot"]
-        bos_tokens_ = tokenizer(data.get("bos", "")).input_ids
+        bos_tokens_ = tokenizer("").input_ids
         eot_tokens_ = tokenizer(eot, add_special_tokens=False).input_ids
 
         super().__init__(**data, bos_tokens_=bos_tokens_, eot_tokens_=eot_tokens_)

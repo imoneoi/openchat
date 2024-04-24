@@ -26,14 +26,14 @@ dependencies = [
     "torch", 
     "ray", 
     "sentencepiece", 
-    "transformers>=4.38.2", 
+    "transformers>=4.40.0", 
     "accelerate", 
     "protobuf",
     "fastapi", 
     "pydantic", 
     "shortuuid", 
     "uvicorn", 
-    "vllm>=0.3.3",
+    "vllm>=0.4.0",
     "pytest"
 ]
 
