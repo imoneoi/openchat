@@ -58,9 +58,15 @@ class ConversationTemplate(BaseModel):
         all_text = []
         for conv in conversations:
             sys_mappings.add(conv.system)
-            for msg in conv.items:
+
+            last_idx = len(conv.items) - 1
+            for idx, msg in enumerate(conv.items):
                 role_mappings.add((msg.role, conv.condition or default_condition))
-                all_text.append(message_prefix + msg.content)
+
+                if inference and idx == last_idx and not msg.content:
+                    all_text.append("")  # Do not prepend any prefix to the beginning of generation
+                else:
+                    all_text.append(message_prefix + msg.content)
 
         sys_mappings = list(sys_mappings)
         role_mappings = list(role_mappings)
