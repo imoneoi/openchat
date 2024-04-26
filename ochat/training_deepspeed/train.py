@@ -12,6 +12,8 @@ import tqdm
 import wandb
 import numpy as np
 
+from huggingface_hub import HfApi
+
 from ochat.config import MODEL_CONFIG_MAP
 from ochat.training_deepspeed.openchat_dataset import OpenchatDataset
 
@@ -32,7 +34,13 @@ def parse_args():
     parser.add_argument("--save_path",  type=str, required=True)
     parser.add_argument("--save_every", type=int, default=None)
     parser.add_argument("--save_hf_chat_template", bool, default=False) # False until fully tested
-
+    parser.add_argument("--push_to_hub_prefix", type=str, default=False, 
+                        help="Specify repository prefix for pushing to HuggingFace Hub. "
+                             "For example, 'openchat/openchat-3.6' will create repositories "
+                             "like 'openchat/openchat-3.6-ep0', 'openchat/openchat-3.6-ep1', ..."
+                                "If not specified, will not push to Hub.")
+    parser.add_argument("--hub_exist_ok", action="store_true", help="Overwrite existing Hub repositories.")
+    
     # Hyperparameters
     parser.add_argument("--batch_max_len",      type=int, default=81920)
     parser.add_argument("--epochs",             type=int,   default=5)
@@ -47,6 +55,9 @@ def parse_args():
     parser.add_argument("--beta1",              type=float, default=0.9)
     parser.add_argument("--beta2",              type=float, default=0.95)
     parser.add_argument("--eps",                type=float, default=1e-5)
+    
+    parser.add_argument("--wandb_entity",       type=str, default=None)
+    parser.add_argument("--wandb_project",      type=str, default=None)
 
     # DeepSpeed parameters
     parser = deepspeed.add_config_arguments(parser)
@@ -142,6 +153,7 @@ def save_tokenizer(args, save_path):
     if args.save_hf_chat_template and model_config.hf_chat_template:
         tokenizer.chat_template = model_config.hf_chat_template
     tokenizer.save_pretrained(save_path)
+    
 
 
 def save_openchat_metadata(args, epoch, save_path):
@@ -198,6 +210,26 @@ def train():
 
     # Args
     args       = parse_args()
+    
+    # Checking HuggingFace Access and Setting up checkpoint Repositories
+    if args.push_to_hub:
+        os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1" # Enable HF Transfer for faster upload
+        hf_api = HfApi()
+        token_permission = hf_api.get_token_permission()
+        if token_permission != "write":
+            raise RuntimeError("HuggingFace token does not have write permission.")
+        
+        # Create Checkpoint Repositories
+        repo_names = [f"{args.push_to_hub_prefix}-ep{epoch}" for epoch in range(args.epochs)]
+        for repo_name in repo_names:
+            hf_api.create_repo(repo_name, private=True, repo_type="model", exist_ok=args.hub_exist_ok)
+        
+        upload_queue = []
+        last_future = None
+        
+        
+        
+        
 
     # Dataset
     train_dataset, train_loader = create_dataset_and_dataloader(args, 0)
@@ -224,7 +256,7 @@ def train():
     if RANK == 0:
         progress_bar = tqdm.tqdm(total=train_total_steps)
 
-        wandb.init(project=os.path.basename(args.model_path), config=args)
+        wandb.init(project=args.wandb_project or os.path.basename(args.model_path), entity=args.wandb_entity, config=args)
 
     # Training Loop
     step = 0
@@ -287,6 +319,31 @@ def train():
 
                 # Write metadata
                 save_openchat_metadata(args, epoch, save_path)
+                
+                # Push to Hub
+                if args.push_to_hub:
+                    upload_args = {
+                        "repo_id": repo_names[epoch],
+                        "folder_path": save_path,
+                        "repo_type": "model",
+                        "run_as_future": True
+                    }
+                    if last_future is None or last_future.done():
+                        last_future = hf_api.upload_folder(**upload_args)
+                    else:
+                        upload_queue.append(upload_args)
+            
+    # Upload remaining checkpoints
+    if  upload_queue and args.push_to_hub and RANK == 0:
+        if not last_future.done():
+            last_future.result()
+        for upload_args in upload_queue:
+            last_future = hf_api.upload_folder(**upload_args)
+            last_future.result()
+        
+    
+                
+                                         
 
 
 if __name__ == "__main__":
