@@ -23,9 +23,10 @@ class ConversationTemplate(BaseModel):
     # Prompt
     bos: Optional[str] = None
     role_prefix: Callable
-    message_prefix: str = ""
-    system_as_role: bool = False
+    message_prefix: Optional[str] = ""
+    system_as_role: Optional[bool] = False
     eot: str
+    strip_message: Optional[bool] = False
 
     inference_condition: Optional[str] = None
 
@@ -63,7 +64,7 @@ class ConversationTemplate(BaseModel):
             sys_mappings.add(conv.system)
             for msg in conv.items:
                 role_mappings.add((msg.role, conv.condition or default_condition))
-                all_text.append(msg.content)
+                all_text.append(msg.content.strip() if self.strip_message else msg.content)
         
         if self.system_as_role:
             self.system_role_tokens_ = self.tokenizer(self.role_prefix("system", ""), add_special_tokens=False).input_ids + self.message_prefix_tokens_
