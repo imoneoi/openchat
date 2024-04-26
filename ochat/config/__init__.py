@@ -51,10 +51,10 @@ MODEL_CONFIG_MAP = {
                                       bos="<|begin_of_text|>",  # Llama 3 tokenizer needs manually specifing tokenizer
                                       eot="<|eot_id|>",
                                       system_as_role=True,
-                                      strip_message=True,
+                                      strip_message=False,
                                       inference_condition="GPT4 Correct",
-                                      message_prefix="\n\n"),
-        hf_chat_template="{% set loop_messages = messages %}{% for message in loop_messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = '<|start_header_id|>GPT4 Correct ' + message['role'].title() + '<|end_header_id|>\n\n' + message['content'] | trim + '<|eot_id|>' %}{% elif message['role'] == 'system' %}{% set content = '<|start_header_id|>System<|end_header_id|>\n\n' + message['content'] | trim + '<|eot_id|>' %}{% endif %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>GPT4 Correct Assistant<|end_header_id|>\n\n' }}{% endif %}",
+                                      message_prefix=""),
+        hf_chat_template="{% set loop_messages = messages %}{% for message in loop_messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = '<|start_header_id|>GPT4 Correct ' + message['role'].title() + '<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% elif message['role'] == 'system' %}{% set content = '<|start_header_id|>System<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% endif %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>GPT4 Correct Assistant<|end_header_id|>' }}{% endif %}",
     ),
 
     # OpenChat V3.2
