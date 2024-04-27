@@ -15,12 +15,6 @@ _V3_2_PREFIXES = {
     "assistant": "Assistant:"
 }
 
-_V3_6_PREFIXES = {
-    "user": "User",
-    "assistant": "Assistant",
-    "system": "System"
-}
-
 
 _GEMMA_IT_PREFIXES = {
     "user": "user",
@@ -31,8 +25,10 @@ _GEMMA_IT_PREFIXES = {
 def _v3_2_role_prefix(from_role, condition):
     return f"{condition} {_V3_2_PREFIXES[from_role]}".strip()
 
-def _v3_6_role_prefix(from_role, condition, role_start_token="", role_end_token=""):
-    return role_start_token + f"{condition} {_V3_6_PREFIXES[from_role]}".strip() + role_end_token
+
+def _v3_6_role_prefix(from_role, condition, role_start_token, role_end_token):
+    return role_start_token + f"{condition} {from_role.title()}".strip() + role_end_token
+
 
 MODEL_CONFIG_MAP = {
     # OpenChat V3.6 (llama 3)
@@ -48,12 +44,9 @@ MODEL_CONFIG_MAP = {
                                       role_prefix=partial(_v3_6_role_prefix,
                                                           role_start_token="<|start_header_id|>",
                                                           role_end_token="<|end_header_id|>"),
-                                      bos="<|begin_of_text|>",  # Llama 3 tokenizer needs manually specifing tokenizer
                                       eot="<|eot_id|>",
                                       system_as_role=True,
-                                      strip_message=False,
-                                      inference_condition="GPT4 Correct",
-                                      message_prefix=""),
+                                      inference_condition="GPT4 Correct"),
         hf_chat_template="{% set loop_messages = messages %}{% for message in loop_messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = '<|start_header_id|>GPT4 Correct ' + message['role'].title() + '<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% elif message['role'] == 'system' %}{% set content = '<|start_header_id|>System<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% endif %}{% if loop.index0 == 0 %}{% set content = bos_token + content %}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>GPT4 Correct Assistant<|end_header_id|>' }}{% endif %}",
     ),
 

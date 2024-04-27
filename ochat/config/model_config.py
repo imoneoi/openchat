@@ -1,4 +1,4 @@
-from typing import Callable, Iterable
+from typing import Optional, Callable, Iterable
 
 from pydantic import BaseModel, ConfigDict
 
@@ -14,6 +14,6 @@ class ModelConfig(BaseModel):
 
     # conversation template
     conversation_template: Callable
-    hf_chat_template: str = None
+    hf_chat_template: Optional[str] = None
 
-    model_config = ConfigDict(protected_namespaces=()) # Disables warnings for the model_ namespace used abvoe
+    model_config = ConfigDict(protected_namespaces=())  # Disables warnings for the model_ namespace used above
