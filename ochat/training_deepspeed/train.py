@@ -32,7 +32,6 @@ def parse_args():
     parser.add_argument("--data_prefix", type=str, required=True)
     parser.add_argument("--save_path",  type=str, required=True)
     parser.add_argument("--save_every", type=int, default=None)
-    parser.add_argument("--save_hf_chat_template", action="store_true")
     parser.add_argument("--push_to_hub", type=str, default=None, 
                         help="Specify repository prefix for pushing to HuggingFace Hub. "
                              "For example, 'openchat/openchat-3.6' will create repositories "
@@ -149,8 +148,7 @@ def create_lr_scheduler(args, train_total_steps):
 def save_tokenizer(args, save_path):
     model_config = MODEL_CONFIG_MAP[args.model_type]
     tokenizer = model_config.model_tokenizer_create(args.model_path)
-    if args.save_hf_chat_template and model_config.hf_chat_template:
-        tokenizer.chat_template = model_config.hf_chat_template
+    tokenizer.chat_template = model_config.hf_chat_template
     tokenizer.save_pretrained(save_path)
 
 

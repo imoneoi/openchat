@@ -43,9 +43,12 @@ class ConversationTemplate(BaseModel):
             # Support for fast tokenizer
             # https://github.com/huggingface/tokenizers/pull/1419
             self.tokenizer._tokenizer.encode_special_tokens = ignore_special
-            return self.tokenizer(strings, return_attention_mask=False, add_special_tokens=False).input_ids
+            result = self.tokenizer(strings, return_attention_mask=False, add_special_tokens=False).input_ids
+            self.tokenizer._tokenizer.encode_special_tokens = False
+        else:
+            result = self.tokenizer(strings, split_special_tokens=ignore_special, return_attention_mask=False, add_special_tokens=False).input_ids
 
-        return self.tokenizer(strings, split_special_tokens=ignore_special, return_attention_mask=False, add_special_tokens=False).input_ids
+        return result
 
     def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_weight: bool = False):
         # Pre-tokenize all conversations
