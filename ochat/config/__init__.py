@@ -8,14 +8,6 @@ from ochat.config.conversation_template import Message, Conversation, Conversati
 import ochat.models
 
 
-_V3_2_PREFIXES = {
-    # OpenAI mapping
-
-    "user": "User:",
-    "assistant": "Assistant:"
-}
-
-
 _GEMMA_IT_PREFIXES = {
     "user": "user",
     "assistant": "model"
@@ -23,7 +15,11 @@ _GEMMA_IT_PREFIXES = {
 
 
 def _v3_2_role_prefix(from_role, condition):
-    return f"{condition} {_V3_2_PREFIXES[from_role]}".strip()
+    return f"{condition} {from_role.title()}:".strip()
+
+
+def _v3_6_role_prefix(from_role, condition, role_start_token, role_end_token):
+    return role_start_token + f"{condition} {from_role.title()}".strip() + role_end_token
 
 
 MODEL_CONFIG_MAP = {
@@ -35,13 +31,15 @@ MODEL_CONFIG_MAP = {
         model_create_for_training=partial(ochat.models.LlamaForCausalLM.from_pretrained,
                                           low_cpu_mem_usage=True,
                                           torch_dtype=torch.bfloat16),
-
         # Conversation Template
         conversation_template=partial(ConversationTemplate,
-                                      role_prefix=_v3_2_role_prefix,
-                                      add_space_before_msg=True,  # Llama 3 tokenizer needs manually adding space
+                                      role_prefix=partial(_v3_6_role_prefix,
+                                                          role_start_token="<|start_header_id|>",
+                                                          role_end_token="<|end_header_id|>"),
                                       eot="<|eot_id|>",
-                                      inference_condition="GPT4 Correct")
+                                      system_as_role=True,
+                                      inference_condition="GPT4 Correct"),
+        hf_chat_template="{{ bos_token }}{% for message in messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = '<|start_header_id|>GPT4 Correct ' + message['role'].title() + '<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% elif message['role'] == 'system' %}{% set content = '<|start_header_id|>System<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% else %}{{ raise_exception('Only user, assistant and system roles are supported!') }}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>GPT4 Correct Assistant<|end_header_id|>' }}{% endif %}",
     ),
 
     # OpenChat V3.2
@@ -74,15 +72,15 @@ MODEL_CONFIG_MAP = {
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=_v3_2_role_prefix,
                                       eot="<|end_of_turn|>",
-                                      inference_condition="GPT4 Correct")
-    ),
+                                      inference_condition="GPT4 Correct"),
+        hf_chat_template="{{ bos_token }}{% for message in messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = 'GPT4 Correct ' + message['role'].title() + ': ' + message['content'] + '<|end_of_turn|>' %}{% elif message['role'] == 'system' %}{% set content = message['content'] + '<|end_of_turn|>' %}{% else %}{{ raise_exception('Only user, assistant and system roles are supported!') }}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ 'GPT4 Correct Assistant:' }}{% endif %}",    ),
 
     "openchat_v3.2_gemma_new": ModelConfig(
         serving_aliases=("openchat_3.5_gemma_new", ),
 
         # Model
         model_max_context=8192,
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=True),
         model_create_for_training=partial(ochat.models.GemmaForCausalLM.from_pretrained,
                                           low_cpu_mem_usage=True,
                                           torch_dtype=torch.bfloat16),
@@ -91,7 +89,8 @@ MODEL_CONFIG_MAP = {
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=_v3_2_role_prefix,
                                       eot="<end_of_turn>",
-                                      inference_condition="GPT4 Correct")
+                                      inference_condition="GPT4 Correct"),
+        hf_chat_template="{{ bos_token }}{% for message in messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = 'GPT4 Correct ' + message['role'].title() + ': ' + message['content'] + '<end_of_turn>' %}{% elif message['role'] == 'system' %}{% set content = message['content'] + '<end_of_turn>' %}{% else %}{{ raise_exception('Only user, assistant and system roles are supported!') }}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ 'GPT4 Correct Assistant:' }}{% endif %}",
     ),
 
     ### Other models

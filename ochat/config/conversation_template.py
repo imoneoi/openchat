@@ -1,4 +1,4 @@
-from typing import Optional, Callable, Iterable, List, Dict
+from typing import Optional, Callable, Iterable, List
 
 from pydantic import BaseModel
 
@@ -22,10 +22,10 @@ class ConversationTemplate(BaseModel):
 
     # Prompt
     role_prefix: Callable
+    system_as_role: Optional[bool] = False
     eot: str
 
     inference_condition: Optional[str] = None
-    add_space_before_msg: bool = False
 
     # Private
     bos_tokens_: List[int]
@@ -36,7 +36,6 @@ class ConversationTemplate(BaseModel):
         eot = data["eot"]
         bos_tokens_ = tokenizer("").input_ids
         eot_tokens_ = tokenizer(eot, add_special_tokens=False).input_ids
-
         super().__init__(**data, bos_tokens_=bos_tokens_, eot_tokens_=eot_tokens_)
 
     def _tokenize(self, strings: Iterable[str], ignore_special: bool = True) -> List[List[int]]:
@@ -44,14 +43,16 @@ class ConversationTemplate(BaseModel):
             # Support for fast tokenizer
             # https://github.com/huggingface/tokenizers/pull/1419
             self.tokenizer._tokenizer.encode_special_tokens = ignore_special
-            return self.tokenizer(strings, return_attention_mask=False, add_special_tokens=False).input_ids
+            result = self.tokenizer(strings, return_attention_mask=False, add_special_tokens=False).input_ids
+            self.tokenizer._tokenizer.encode_special_tokens = False
+        else:
+            result = self.tokenizer(strings, split_special_tokens=ignore_special, return_attention_mask=False, add_special_tokens=False).input_ids
 
-        return self.tokenizer(strings, split_special_tokens=ignore_special, return_attention_mask=False, add_special_tokens=False).input_ids
+        return result
 
     def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_weight: bool = False):
         # Pre-tokenize all conversations
         default_condition = self.inference_condition if inference else ""
-        message_prefix = " " if self.add_space_before_msg else ""
 
         sys_mappings = set()
         role_mappings = set()
@@ -60,12 +61,15 @@ class ConversationTemplate(BaseModel):
             sys_mappings.add(conv.system)
             for msg in conv.items:
                 role_mappings.add((msg.role, conv.condition or default_condition))
-                all_text.append(message_prefix + msg.content)
+                all_text.append(msg.content)
 
+        system_role_tokens = []
+        if self.system_as_role:
+            system_role_tokens = self._tokenize(self.role_prefix("system", ""), ignore_special=False)
+        
         sys_mappings = list(sys_mappings)
         role_mappings = list(role_mappings)
 
-        # Tokenize
         sys_mappings = dict(zip(sys_mappings, self._tokenize(sys_mappings)))
         role_mappings = dict(zip(role_mappings, self._tokenize([self.role_prefix(*args) for args in role_mappings], ignore_special=False)))
         all_text = self._tokenize(all_text)
@@ -84,6 +88,9 @@ class ConversationTemplate(BaseModel):
 
             # System
             if conv.system:
+                tokens.extend(system_role_tokens)
+                weights.extend([0.] * len(system_role_tokens)) 
+                
                 system = sys_mappings[conv.system]
                 tokens.extend(system)
                 weights.extend([0.] * len(system))
@@ -94,11 +101,11 @@ class ConversationTemplate(BaseModel):
             # Messages
             last_idx = len(conv.items) - 1
             for idx, msg in enumerate(conv.items):
-                # Prefix
+                # Role Prefix
                 role = role_mappings[(msg.role, conv.condition or default_condition)]
                 tokens.extend(role)
                 weights.extend([0.] * len(role))
-
+                
                 # Message
                 text = all_text[all_text_idx]
                 all_text_idx += 1
