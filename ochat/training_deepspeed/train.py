@@ -160,7 +160,8 @@ def calculate_auto_lr(lr, batch_max_len, model_type, train_dataset):
     elif "gemma" in model_type.lower():
         base_lr /= 5.5  # NOTE(one): Maybe MLP and Attn layers are using different lr?
     elif "openchat_3.6" in model_type.lower():  # Llama 3 estimated hyperparams
-        base_lr /= 1.5
+        # NOTE(one): Estimated divisor: 1.5 * sqrt(25000 H100s / 2000 H100s)
+        base_lr /= 5.3
 
     loss_weights = np.concatenate(train_dataset.dataset["nz_shifted_loss_weights"])
     supervised_ratio = np.sum(loss_weights != 0) / len(loss_weights)
