@@ -16,7 +16,7 @@ dependencies = [
     "beautifulsoup4", 
     "markdownify", 
     "pylatexenc",
-    "openai<1",
+    "openai>=1",
     "tenacity", 
     "tiktoken", 
     "tqdm", 

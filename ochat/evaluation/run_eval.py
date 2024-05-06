@@ -7,7 +7,7 @@ from glob import glob
 import orjson
 import openai
 from tqdm import tqdm
-from openai.error import RateLimitError, ServiceUnavailableError
+from openai import RateLimitError, InternalServerError, APIConnectionError
 from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_exception_type
 from vllm import LLM, SamplingParams
 
@@ -23,12 +23,14 @@ def _strip_first_space(s: str):
     return s
 
 
-@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(20), retry=retry_if_exception_type((RateLimitError, ServiceUnavailableError, )))
-async def _chat_completion_with_backoff(**kwargs):
-    return await openai.ChatCompletion.acreate(**kwargs)
+@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(20), retry=retry_if_exception_type((RateLimitError, InternalServerError, APIConnectionError, )))
+async def _chat_completion_with_backoff(client, **kwargs):
+    return await client.chat.completions.create(**kwargs)
 
 
 async def chat_completion_thread(model, progress_bar, queue):
+    client = openai.AsyncOpenAI()
+
     while True:
         # Fetch task
         try:
@@ -39,12 +41,13 @@ async def chat_completion_thread(model, progress_bar, queue):
         # Completion
         try:
             response = await _chat_completion_with_backoff(
+                client,
                 model=model,
                 messages=[{"role": "user", "content": task["question"]}],
 
                 temperature=0
             )
-            task["response"] = response["choices"][0]["message"]["content"]  # type: ignore
+            task["response"] = response.choices[0].message.content  # type: ignore
         except Exception as e:
             if hasattr(e, "last_attempt"):
                 e = e.last_attempt
@@ -237,11 +240,11 @@ async def main():
     parser.add_argument("--system-msg", type=str, default="")
     parser.add_argument("--model-type", type=str, default=None)
 
-    parser.add_argument("--data_path", type=str, default="ochat/evaluation/eval_data")
-    parser.add_argument("--eval_sets", type=str, nargs="+", default=[])
+    parser.add_argument("--data-path", type=str, default="ochat/evaluation/eval_data")
+    parser.add_argument("--eval-sets", type=str, nargs="+", default=[])
 
-    parser.add_argument("--continue_from", type=str, default=None)
-    parser.add_argument("--output_file",   type=str, default=None)
+    parser.add_argument("--continue-from", type=str, default=None)
+    parser.add_argument("--output-file",   type=str, default=None)
     parser.add_argument("--parallel",      type=int, default=16)
     parser.add_argument("--tensor-parallel-size", type=int, default=1)
 
