@@ -13,8 +13,8 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
-    "beautifulsoup4", 
-    "markdownify", 
+    "colorama",
+    "sympy",
     "pylatexenc",
     "openai>=1",
     "tenacity", 
