@@ -22,10 +22,10 @@ class ConversationTemplate(BaseModel):
 
     # Prompt
     role_prefix: Callable
-    system_as_role: Optional[bool] = False
     eot: str
 
     inference_condition: Optional[str] = None
+    add_space_before_msg: bool = False
 
     # Private
     bos_tokens_: List[int]
@@ -53,20 +53,23 @@ class ConversationTemplate(BaseModel):
     def tokenize_conversations(self, conversations: Iterable[Conversation], inference: bool = False, seq_level_weight: bool = False):
         # Pre-tokenize all conversations
         default_condition = self.inference_condition if inference else ""
+        message_prefix = " " if self.add_space_before_msg else ""
 
         sys_mappings = set()
         role_mappings = set()
         all_text = []
         for conv in conversations:
             sys_mappings.add(conv.system)
-            for msg in conv.items:
-                role_mappings.add((msg.role, conv.condition or default_condition))
-                all_text.append(msg.content)
 
-        system_role_tokens = []
-        if self.system_as_role:
-            system_role_tokens = self._tokenize(self.role_prefix("system", ""), ignore_special=False)
-        
+            last_idx = len(conv.items) - 1
+            for idx, msg in enumerate(conv.items):
+                role_mappings.add((msg.role, conv.condition or default_condition))
+
+                if inference and idx == last_idx and not msg.content:
+                    all_text.append("")  # Do not prepend any prefix to the beginning of generation
+                else:
+                    all_text.append(message_prefix + msg.content)
+
         sys_mappings = list(sys_mappings)
         role_mappings = list(role_mappings)
 
@@ -88,9 +91,6 @@ class ConversationTemplate(BaseModel):
 
             # System
             if conv.system:
-                tokens.extend(system_role_tokens)
-                weights.extend([0.] * len(system_role_tokens)) 
-                
                 system = sys_mappings[conv.system]
                 tokens.extend(system)
                 weights.extend([0.] * len(system))
@@ -105,7 +105,7 @@ class ConversationTemplate(BaseModel):
                 role = role_mappings[(msg.role, conv.condition or default_condition)]
                 tokens.extend(role)
                 weights.extend([0.] * len(role))
-                
+
                 # Message
                 text = all_text[all_text_idx]
                 all_text_idx += 1

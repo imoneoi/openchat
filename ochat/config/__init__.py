@@ -18,10 +18,6 @@ def _v3_2_role_prefix(from_role, condition):
     return f"{condition} {from_role.title()}:".strip()
 
 
-def _v3_6_role_prefix(from_role, condition, role_start_token, role_end_token):
-    return role_start_token + f"{condition} {from_role.title()}".strip() + role_end_token
-
-
 MODEL_CONFIG_MAP = {
     # OpenChat V3.6 (llama 3)
     "openchat_3.6": ModelConfig(
@@ -33,13 +29,11 @@ MODEL_CONFIG_MAP = {
                                           torch_dtype=torch.bfloat16),
         # Conversation Template
         conversation_template=partial(ConversationTemplate,
-                                      role_prefix=partial(_v3_6_role_prefix,
-                                                          role_start_token="<|start_header_id|>",
-                                                          role_end_token="<|end_header_id|>"),
+                                      role_prefix=_v3_2_role_prefix,
+                                      add_space_before_msg=True,  # Llama 3 tokenizer needs manually adding space
                                       eot="<|eot_id|>",
-                                      system_as_role=True,
                                       inference_condition="GPT4 Correct"),
-        hf_chat_template="{{ bos_token }}{% for message in messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = '<|start_header_id|>GPT4 Correct ' + message['role'].title() + '<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% elif message['role'] == 'system' %}{% set content = '<|start_header_id|>System<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% else %}{{ raise_exception('Only user, assistant and system roles are supported!') }}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>GPT4 Correct Assistant<|end_header_id|>' }}{% endif %}",
+        hf_chat_template="{{ bos_token }}{% for message in messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = 'GPT4 Correct ' + message['role'].title() + ': ' + message['content'] + '<|eot_id|>' %}{% elif message['role'] == 'system' %}{% set content = message['content'] + '<|eot_id|>' %}{% else %}{{ raise_exception('Only user, assistant and system roles are supported!') }}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ 'GPT4 Correct Assistant:' }}{% endif %}",
     ),
 
     # OpenChat V3.2
