@@ -35,11 +35,11 @@ MODEL_CONFIG_MAP = {
         conversation_template=partial(ConversationTemplate,
                                       role_prefix=partial(_v3_6_role_prefix,
                                                           role_start_token="<|start_header_id|>",
-                                                          role_end_token="<|end_header_id|>"),
+                                                          role_end_token="<|end_header_id|>\n\n"),
                                       eot="<|eot_id|>",
                                       system_as_role=True,
                                       inference_condition="GPT4 Correct"),
-        hf_chat_template="{{ bos_token }}{% for message in messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = '<|start_header_id|>GPT4 Correct ' + message['role'].title() + '<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% elif message['role'] == 'system' %}{% set content = '<|start_header_id|>System<|end_header_id|>' + message['content'] + '<|eot_id|>' %}{% else %}{{ raise_exception('Only user, assistant and system roles are supported!') }}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>GPT4 Correct Assistant<|end_header_id|>' }}{% endif %}",
+        hf_chat_template="{{ bos_token }}{% for message in messages %}{% if message['role'] in ['user', 'assistant'] %}{% set content = '<|start_header_id|>GPT4 Correct ' + message['role'].title() + '<|end_header_id|>\n\n' + message['content'] | trim + '<|eot_id|>' %}{% elif message['role'] == 'system' %}{% set content = '<|start_header_id|>System<|end_header_id|>\n\n' + message['content'] | trim + '<|eot_id|>' %}{% else %}{{ raise_exception('Only user, assistant and system roles are supported!') }}{% endif %}{{ content }}{% endfor %}{% if add_generation_prompt %}{{ '<|start_header_id|>GPT4 Correct Assistant<|end_header_id|>\n\n' }}{% endif %}",
     ),
 
     # OpenChat V3.2
@@ -94,13 +94,11 @@ MODEL_CONFIG_MAP = {
     ),
 
     ### Other models
-    "chatml_mistral": ModelConfig(
+    "chatml_8192": ModelConfig(
         # Model
         model_max_context=8192,
-        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=False),
-        model_create_for_training=partial(ochat.models.MistralForCausalLM.from_pretrained,
-                                          low_cpu_mem_usage=True,
-                                          torch_dtype=torch.bfloat16),
+        model_tokenizer_create=partial(transformers.AutoTokenizer.from_pretrained, use_fast=True),
+        model_create_for_training=lambda x: None,
 
         # Conversation Template
         conversation_template=partial(ConversationTemplate,
