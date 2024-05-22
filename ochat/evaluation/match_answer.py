@@ -26,7 +26,7 @@ def zs_bbh_mc_orca_truthfulqa_orca_match_answer(task_data, response):
     return False, ""
 
 
-def zs_math_match_answer(task_data, response):
+def zs_math_match_answer(task_data, response, max_length=256):
     def _last_boxed_only_string(string):
         idx = string.rfind("\\boxed")
         if idx < 0:
@@ -83,7 +83,25 @@ def zs_math_match_answer(task_data, response):
         response = ans_boxed
 
     # Grade
+    response = response[:max_length]  # To avoid sympy taking too long
     return is_matched, grade_answer(response, ground_truth_answer)
+
+
+def zs_gpqa_match_answer(task_data, response):
+    # Expected to see answer field, otherwise return C.
+    ans = response.split("The correct answer is")
+
+    if len(ans) == 1:
+        return False, "C"
+
+    ans = ans[1]
+
+    letter_set = {"A", "B", "C", "D"} 
+    for c in ans:
+        if c in letter_set:
+            return True, c
+
+    return False, "C"
 
 
 def fs_cothub_bbh_match_answer(task_data, response):
@@ -189,6 +207,7 @@ MATCH_ANSWER_FUNCTION = {
     "zs/bbh_mc_orca": zs_bbh_mc_orca_truthfulqa_orca_match_answer,
     "zs/truthfulqa_orca": zs_bbh_mc_orca_truthfulqa_orca_match_answer,
     "zs/math": zs_math_match_answer,
+    "zs/gpqa": zs_gpqa_match_answer,
 
     "fs_cothub/bbh": fs_cothub_bbh_match_answer,
     "fs_cothub/gsm8k": fs_cothub_gsm8k_match_answer,

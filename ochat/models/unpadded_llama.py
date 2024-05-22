@@ -23,6 +23,7 @@ from typing import Optional, Tuple
 
 import torch
 import torch.utils.checkpoint
+import torch.nn.functional as F
 from torch import nn
 
 from transformers.activations import ACT2FN
@@ -38,17 +39,13 @@ except ImportError:
     print ("FlashAttention not found. Install it if you need to train models.")
 
 
-logger = logging.get_logger(__name__)
+@torch.jit.script
+def lm_head_with_loss(embed_weights: torch.Tensor, hidden_states: torch.Tensor, nz_shifted_label_ids: torch.Tensor, nz_shifted_loss_weights: torch.Tensor):
+    logits = F.linear(hidden_states, embed_weights)
 
-
-@torch.jit.script  # type: ignore
-def weighted_token_accuracy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
-    return (weights * (torch.argmax(logits, dim=-1) == labels)).sum()
-
-
-@torch.jit.script  # type: ignore
-def weighted_cross_entropy(logits: torch.Tensor, labels: torch.Tensor, weights: torch.Tensor):
-    return (weights * torch.nn.functional.cross_entropy(logits, labels, reduction="none")).sum()
+    loss = (nz_shifted_loss_weights * torch.nn.functional.cross_entropy(logits, nz_shifted_label_ids, reduction="none")).sum()
+    token_accuracy = (nz_shifted_loss_weights * (torch.argmax(logits.detach(), dim=-1) == nz_shifted_label_ids)).sum()
+    return loss, token_accuracy
 
 
 def rotate_half(x: torch.Tensor):
@@ -374,67 +371,16 @@ class LlamaForCausalLM(UnpaddedLlamaPreTrainedModel):
             cu_seqlens=cu_seqlens,
             max_seqlen=max_seqlen
         )
-        logits = self.lm_head(hidden_states)
 
-        loss = None
-        if nz_shifted_label_ids is not None:
-            assert nz_shifted_loss_weights is not None
-
-            loss = weighted_cross_entropy(logits, nz_shifted_label_ids, nz_shifted_loss_weights), \
-                   weighted_token_accuracy(logits.detach(), nz_shifted_label_ids, nz_shifted_loss_weights)
-
-        return CausalLMOutputWithPast(
-            loss=loss,  # type: ignore
-            logits=logits
+        # Loss
+        # Fused LMHead with loss
+        loss = lm_head_with_loss(
+            self.lm_head.weight,
+            hidden_states,
+            nz_shifted_label_ids,
+            nz_shifted_loss_weights
         )
 
-
-class PaddedLlamaForCausalLM(LlamaForCausalLM):
-    """Compat layer for padded inputs"""
-
-    def forward(
-        self,
-        input_ids: torch.Tensor,
-        attention_mask: torch.Tensor,
-        position_ids: Optional[torch.Tensor] = None,
-        # unused
-        return_dict: bool = True,
-        output_attentions: bool = False,
-        output_hidden_states: bool = False
-    ):
-        batch_size, seq_len = input_ids.shape
-        if position_ids is None:
-            position_ids = attention_mask.long().cumsum(-1) - 1
-            position_ids.masked_fill_(attention_mask == 0, 0)
-
-        # get indices
-        seqlens_in_batch = attention_mask.sum(dim=-1, dtype=torch.int32)
-        indices = torch.nonzero(attention_mask.flatten(), as_tuple=False).flatten()
-        max_seqlen_in_batch = int(seqlens_in_batch.max().item())
-        cu_seqlens = torch.nn.functional.pad(torch.cumsum(seqlens_in_batch, dim=0, dtype=torch.int32), (1, 0))
-
-        # Unpad inputs
-        nz_input_ids    = torch.take_along_dim(input_ids,    indices)
-        nz_position_ids = torch.take_along_dim(position_ids, indices)
-
-        # Unpadded forward
-        logits = super().forward(
-            nz_input_ids=nz_input_ids,
-            nz_position_ids=nz_position_ids,
-            cu_seqlens=cu_seqlens,
-            max_seqlen=max_seqlen_in_batch
-        ).logits
-
-        # Pad logits
-        logits = pad_input(logits, indices, batch_size, seq_len)
-
-        return CausalLMOutputWithPast(logits=logits)  # type: ignore
-
-    def prepare_inputs_for_generation(self,
-                                      input_ids: torch.Tensor,
-                                      **kwargs):
-        return {
-            "input_ids": input_ids,
-            "attention_mask": kwargs.get("attention_mask"),
-            "position_ids": kwargs.get("position_ids")
-        }
+        return CausalLMOutputWithPast(
+            loss=loss  # type: ignore
+        )

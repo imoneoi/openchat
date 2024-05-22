@@ -14,6 +14,7 @@ import numpy as np
 
 from ochat.config import MODEL_CONFIG_MAP
 from ochat.training_deepspeed.openchat_dataset import OpenchatDataset
+from ochat.training_deepspeed.hf_hub import hub_upload_check, hub_upload_model_async
 
 try:
     import deepspeed
@@ -31,6 +32,12 @@ def parse_args():
     parser.add_argument("--data_prefix", type=str, required=True)
     parser.add_argument("--save_path",  type=str, required=True)
     parser.add_argument("--save_every", type=int, default=None)
+    parser.add_argument("--push_to_hub", type=str, default=None, 
+                        help="Specify repository prefix for pushing to HuggingFace Hub. "
+                             "For example, 'openchat/openchat-3.6' will create repositories "
+                             "like 'openchat/openchat-3.6-ep0', 'openchat/openchat-3.6-ep1', ..."
+                                "If not specified, will not push to Hub.")
+    parser.add_argument("--push_to_hub_delete_local", action="store_true")
 
     # Hyperparameters
     parser.add_argument("--batch_max_len",      type=int, default=81920)
@@ -46,6 +53,9 @@ def parse_args():
     parser.add_argument("--beta1",              type=float, default=0.9)
     parser.add_argument("--beta2",              type=float, default=0.95)
     parser.add_argument("--eps",                type=float, default=1e-5)
+    
+    parser.add_argument("--wandb_entity",       type=str, default=None)
+    parser.add_argument("--wandb_project",      type=str, default=None)
 
     # DeepSpeed parameters
     parser = deepspeed.add_config_arguments(parser)
@@ -136,7 +146,10 @@ def create_lr_scheduler(args, train_total_steps):
 
 
 def save_tokenizer(args, save_path):
-    MODEL_CONFIG_MAP[args.model_type].model_tokenizer_create(args.model_path).save_pretrained(save_path)
+    model_config = MODEL_CONFIG_MAP[args.model_type]
+    tokenizer = model_config.model_tokenizer_create(args.model_path)
+    tokenizer.chat_template = model_config.hf_chat_template
+    tokenizer.save_pretrained(save_path)
 
 
 def save_openchat_metadata(args, epoch, save_path):
@@ -159,6 +172,9 @@ def calculate_auto_lr(lr, batch_max_len, model_type, train_dataset):
         base_lr /= 6.0
     elif "gemma" in model_type.lower():
         base_lr /= 5.5  # NOTE(one): Maybe MLP and Attn layers are using different lr?
+    elif "openchat_3.6" in model_type.lower():  # Llama 3 estimated hyperparams
+        # NOTE(one): Estimated divisor: 1.5 * sqrt(25000 H100s / 2000 H100s)
+        base_lr /= 5.3
 
     loss_weights = np.concatenate(train_dataset.dataset["nz_shifted_loss_weights"])
     supervised_ratio = np.sum(loss_weights != 0) / len(loss_weights)
@@ -192,6 +208,8 @@ def train():
     # Args
     args       = parse_args()
 
+    hub_upload_check(args.push_to_hub)
+
     # Dataset
     train_dataset, train_loader = create_dataset_and_dataloader(args, 0)
 
@@ -217,7 +235,7 @@ def train():
     if RANK == 0:
         progress_bar = tqdm.tqdm(total=train_total_steps)
 
-        wandb.init(project=os.path.basename(args.model_path), config=args)
+        wandb.init(project=args.wandb_project or os.path.basename(args.model_path), entity=args.wandb_entity, config=args)
 
     # Training Loop
     step = 0
@@ -280,6 +298,14 @@ def train():
 
                 # Write metadata
                 save_openchat_metadata(args, epoch, save_path)
+
+                # Upload to hub
+                hub_upload_model_async(
+                    args.push_to_hub,
+                    args.push_to_hub_delete_local,
+                    save_path,
+                    epoch
+                )
 
 
 if __name__ == "__main__":
