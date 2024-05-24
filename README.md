@@ -9,16 +9,7 @@
   <a href="https://huggingface.co/openchat">🤗Huggingface</a> |
   <a href="https://arxiv.org/pdf/2309.11235.pdf">📃Paper</a> |
   <a href="https://discord.gg/pQjnXvNKHY">💭Discord</a> 
-  <br><br>
-  <strong>🏆 The Overall Best Performing Open Source 7B Model 🏆</strong>
-  <br>
-  <strong>🤖 Outperforms ChatGPT (March) and Grok-1 🤖</strong>
-  <br>
 </p>
-
-<div align="center">
-  <img src="https://raw.githubusercontent.com/imoneoi/openchat/master/assets/openchat-bench-0106.png" style="width: 95%;">
-</div>
 
 - OpenChat is an innovative library of **open-source language models**, fine-tuned with [**C-RLFT**](https://arxiv.org/pdf/2309.11235.pdf) - a strategy inspired by offline reinforcement learning.
 - Our models learn from mixed-quality data without preference labels, delivering exceptional performance on par with `ChatGPT`, even with a `7B` model which can be run on a **consumer GPU (e.g. RTX 3090)**.
@@ -27,6 +18,8 @@
 [![DOI](https://zenodo.org/badge/645397533.svg)](https://zenodo.org/badge/latestdoi/645397533)
 
 # ✨ News
+
+ - [2024/05/22] We released the Llama-3 based version [OpenChat 3.6 20240522](https://huggingface.co/openchat/openchat-3.6-8b-20240522), outperforming official Llama 3 8B Instruct and open-source finetunes/merges.
 
 - [2024/01/06] We released the second update, [OpenChat 3.5 0106](openchat/openchat-3.5-0106), further improved coding and overall performance 🏆.
 
@@ -50,13 +43,31 @@
 - [2023/07/01] We released the [OpenChat V1 model series](#legacy-models).
 </details>
 
-# 🏷️ Benchmarks
+# 🏷️ Benchmarks - OpenChat 3.6
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/imoneoi/openchat/master/assets/benchmarks-openchat-3.6-20240522.svg" style="width: 95%;">
+</div>
+
+
+<details>
+  <summary>Reproducing benchmarks</summary>
+
+Note: Please run the following commands at the base directory of this repository.
+
+```bash
+python -m ochat.evaluation.run_eval --condition "GPT4 Correct" --model openchat/openchat-3.6-8b-20240522 --eval_sets fs_cothub/mmlu fs_cothub/gsm8k fs_cothub/math
+python -m ochat.evaluation.run_eval --condition "GPT4" --model openchat/openchat-3.6-8b-20240522 --eval_sets zs/gpqa
+```
+
+HumanEval is run using the official [EvalPlus repository](https://github.com/evalplus/evalplus).
+</details>
+
+# 🏷️ Benchmarks - OpenChat 3.5
 
 | Model                 | # Params | Average  | MT-Bench     | HumanEval       | BBH MC   | AGIEval  | TruthfulQA    | MMLU         | GSM8K        | BBH CoT     |
 |-----------------------|----------|----------|--------------|-----------------|----------|----------|---------------|--------------|--------------|-------------|
 | **OpenChat-3.5-0106** | **7B**   | **64.5** | 7.8          | **71.3**        | **51.5** | **49.1** | 61.0          | 65.8         | **77.4**     | 62.2        |
-| OpenChat-3.5-1210     | **7B**   | 63.8     | 7.76         | 68.9            | 49.5     | 48.0     | **61.8**      | 65.3         | 77.3         | 61.8        |
-| OpenChat-3.5          | **7B**   | 61.6     | 7.81         | 55.5            | 47.6     | 47.4     | 59.1          | 64.3         | 77.3         | 63.5        |
 | ChatGPT (March)*      | ???B     | 61.5     | **7.94**     | 48.1            | 47.6     | 47.1     | 57.7          | **67.3**     | 74.9         | **70.1**    |
 |                       |          |          |              |                 |          |          |               |              |              |             |
 | OpenHermes 2.5        | 7B       | 59.3     | 7.54         | 48.2            | 49.4     | 46.5     | 57.5          | 63.8         | 73.5         | 59.9        |
@@ -126,8 +137,6 @@ python gen_judgment.py --model-list openchat-3.5-0106 --parallel 8 --mode single
 |                       | License     | # Param | Average  | MMLU   | HumanEval | MATH     | GSM8k    |
 |-----------------------|-------------|---------|----------|--------|-----------|----------|----------|
 | **OpenChat-3.5-0106** | Apache-2.0  | **7B**  | **61.0** | 65.8   | **71.3**  | **29.3** | **77.4** |
-| OpenChat-3.5-1210     | Apache-2.0  | **7B**  | 60.1     | 65.3   | 68.9      | 28.9     | 77.3     |
-| OpenChat-3.5          | Apache-2.0  | **7B**  | 56.4     | 64.3   | 55.5      | 28.6     | 77.3     |
 | Grok-0                | Proprietary | 33B     | 44.5     | 65.7   | 39.7      | 15.7     | 56.8     |
 | Grok-1                | Proprietary | ???B    | 55.8     | **73** | 63.2      | 23.9     | 62.9     |
 
