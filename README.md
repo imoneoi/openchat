@@ -273,15 +273,14 @@ The OpenChat training system utilizes padding-free training and the [Multipack S
 
 ## Choose a base model
 
-OpenChat supports Llama 2 and Mistral models. Please first choose a base model to fit your needs. Each base model has a corresponding weight repo, model type, and recommended batch size as listed below, they should be filled into `BASE_REPO`, `MODEL_TYPE`, and `BATCH_SIZE` in the following instructions.
+OpenChat supports Llama 3 and Mistral models. Please first choose a base model to fit your needs. Each base model has a corresponding weight repo, model type, and recommended batch size as listed below, they should be filled into `BASE_REPO`, `MODEL_TYPE`, and `BATCH_SIZE` in the following instructions.
 
-| Base Model | Size | Weights (with EOT token)          | Model Type              | Recommended Batch Size per GPU (8xA100 80GB) |
-|------------|------|-----------------------------------|-------------------------|--------------------------------------|
-| Mistral    | 7B   | `imone/Mistral_7B_with_EOT_token` | `openchat_v3.2_mistral` | 77824                                |
-| Llama 2    | 7B   | `imone/LLaMA2_7B_with_EOT_token`  | `openchat_v3.2`         | 77824                                |
-| Llama 2    | 13B  | `imone/Llama2_13B_with_EOT_token` | `openchat_v3.2`         | 36864                                |
+| Base Model | Size | Weights (with EOT token)                   | Model Type              | Recommended Batch Size per GPU (8xA100 80GB) |
+|------------|------|--------------------------------------------|-------------------------|----------------------------------------------|
+| Llama 3    | 8B   | `imone/Llama-3-8B-fixed-special-embedding` | `openchat_3.6`          | 40960                                        |
+| Mistral    | 7B   | `imone/Mistral_7B_with_EOT_token`          | `openchat_v3.2_mistral` | 77824                                        |
 
-Note: The OpenChat conversation template requires an `<|end_of_turn|>` special token. The base model specified must include this token. Our provided weights are the original base weights with this token added. If you want to add them manually, use the `convert_llama_weights_to_hf_add_tokens.py` or `mistral_add_tokens.py` in the `scripts` directory.
+Note: The OpenChat conversation template requires `<|eot_id|>, <|start_header_id|>, <|end_header_id|>` (Llama 3) `<|end_of_turn|>` (Mistral) special tokens. The base model specified must include these tokens with initialized embeddings. Our provided weights are the original base weights with this token added and embeddings initialized. If you want to add them manually, use the `init_special_embedding_llama3.py` or `mistral_add_tokens.py` in the `scripts` directory.
 
 ## Installing DeepSpeed and Flash Attention
 
@@ -390,25 +389,7 @@ OpenChat may sometimes generate harmful, hate speech, biased responses, or answe
 
 # License
 
-Our OpenChat 3.5 `code` and `models` are distributed under the **Apache License 2.0**.
-
-# <a id="models"></a> Models
-
-| Model        | Size | Context | Weights                                                     | Serving                                                                                                     |
-|--------------|------|---------|-------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.5 0106 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat-3.5-0106) | `python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-0106 --engine-use-ray --worker-use-ray` |
-| OpenChat 3.5 1210 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat-3.5-1210) | `python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-1210 --engine-use-ray --worker-use-ray` |
-| OpenChat 3.5 | 7B   | 8192    | [Huggingface](https://huggingface.co/openchat/openchat_3.5) | `python -m ochat.serving.openai_api_server --model openchat/openchat_3.5 --engine-use-ray --worker-use-ray` |
-
-## <a id="legacy-models"></a> Legacy Models
-
-The following models are older versions of OpenChat and have inferior performance compared to the latest version. They will be deprecated in the next release. Please note that OpenChat V1 and V2 series are now deprecated, [please install 3.1.x for using V1 and V2 models](https://github.com/imoneoi/openchat/tree/83a683c775c77867cc45937fafdf48e8dcb68daa)
-
-To run the models on multiple GPUs with smaller VRAM, you can enable tensor parallelization, for example, using the `--tensor-parallel-size 2` flag.
-
-| Model        | Size | Context | Weights                                                      | Serving                                                                                                      |
-|--------------|------|---------|--------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| OpenChat 3.2 SUPER | 13B  | 4096    | [Huggingface](https://huggingface.co/openchat/openchat_v3.2_super) | `python -m ochat.serving.openai_api_server --model openchat/openchat_v3.2_super --engine-use-ray --worker-use-ray` |
+Code is distributed under the **Apache License 2.0**.
 
 # Citation
 
@@ -428,7 +409,6 @@ To run the models on multiple GPUs with smaller VRAM, you can enable tensor para
 - [Alpay Ariyak](https://github.com/alpayariyak) [aariyak at wpi dot edu]
 
 **Main Contributors:**
-- [Sijie Cheng](https://adacheng.github.io/) [csj23 at mails dot tsinghua dot edu dot cn]
 - [Xianyuan Zhan](https://scholar.google.com.hk/citations?user=pDMnGloAAAAJ) (Tsinghua University)
 - Qiying Yu (Tsinghua University)
 - Changling Liu (GPT Desk Pte. Ltd.)
