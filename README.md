@@ -49,7 +49,6 @@
   <img src="https://raw.githubusercontent.com/imoneoi/openchat/master/assets/benchmarks-openchat-3.6-20240522.svg" style="width: 95%;">
 </div>
 
-
 <details>
   <summary>Reproducing benchmarks</summary>
 
@@ -76,6 +75,14 @@ HumanEval is run using the official [EvalPlus repository](https://github.com/eva
 | Mistral               | 7B       | -        | 6.84         | 30.5            | 39.0     | 38.0     | -             | 60.1         | 52.2         | -           |
 | Open-source SOTA**    | 13B-70B  | 61.4     | 7.71         | 73.2            | 49.7     | 41.7     | 62.3          | 63.7         | 82.3         | 41.4        |
 |                       |          |          | WizardLM 70B | WizardCoder 34B | Orca 13B | Orca 13B | Platypus2 70B | WizardLM 70B | MetaMath 70B | Flan-T5 11B |
+
+🔥 OpenChat-3.5-0106 (7B) now outperforms Grok-0 (33B) on **all 4 benchmarks** and Grok-1 (314B) on average and **3/4 benchmarks**.
+
+|                       | License     | # Param | Average  | MMLU   | HumanEval | MATH     | GSM8k    |
+|-----------------------|-------------|---------|----------|--------|-----------|----------|----------|
+| **OpenChat-3.5-0106** | Apache-2.0  | **7B**  | **61.0** | 65.8   | **71.3**  | **29.3** | **77.4** |
+| Grok-0                | Proprietary | 33B     | 44.5     | 65.7   | 39.7      | 15.7     | 56.8     |
+| Grok-1                | Proprietary | 314B    | 55.8     | **73** | 63.2      | 23.9     | 62.9     |
 
 <details>
   <summary>Evaluation details</summary>
@@ -130,19 +137,9 @@ python gen_judgment.py --model-list openchat-3.5-0106 --parallel 8 --mode single
 
 </details>
 
-## 🎇 Comparison with [X.AI Grok](https://x.ai/)
-
-🔥 OpenChat-3.5-0106 (7B) now outperforms Grok-0 (33B) on **all 4 benchmarks** and Grok-1 (???B) on average and **3/4 benchmarks**.
-
-|                       | License     | # Param | Average  | MMLU   | HumanEval | MATH     | GSM8k    |
-|-----------------------|-------------|---------|----------|--------|-----------|----------|----------|
-| **OpenChat-3.5-0106** | Apache-2.0  | **7B**  | **61.0** | 65.8   | **71.3**  | **29.3** | **77.4** |
-| Grok-0                | Proprietary | 33B     | 44.5     | 65.7   | 39.7      | 15.7     | 56.8     |
-| Grok-1                | Proprietary | ???B    | 55.8     | **73** | 63.2      | 23.9     | 62.9     |
-
 # ⬇️ Installation
 > [!NOTE]
-> Need [`pytorch`](https://pytorch.org/get-started/locally/#start-locally) to run OpenChat
+> Need [`pytorch`](https://pytorch.org/get-started/locally/#start-locally) and [CUDA](https://developer.nvidia.com/cuda-toolkit-archive) to run OpenChat
 
 ## pip
 
@@ -199,22 +196,29 @@ pip3 install -e .  # Editable mode, you can make changes in this cloned repo
 
 📎 Note: For 20 series or older GPUs that do not support `bfloat16`, add `--dtype float16` to the server args.
 
+### List of currently supported models
+
+| MODEL_TYPE   | MODEL_REPO                                                                                    | License    |
+|--------------|-----------------------------------------------------------------------------------------------|------------|
+| openchat_3.6 | [openchat/openchat-3.6-8b-20240522](https://huggingface.co/openchat/openchat-3.6-8b-20240522) | Llama 3    |
+| openchat_3.5 | [openchat/openchat-3.5-0106](https://huggingface.co/openchat/openchat-3.5-0106)               | Apache 2.0 |
+
 ### For a single GPU (e.g. RTX 3090, 4090)
 
 ```bash
-python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-0106
+python -m ochat.serving.openai_api_server --model MODEL_REPO
 ```
 
 ### For multiple GPUs (tensor parallel)
 
 ```bash
 # N is the number of tensor parallel GPUs
-python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-0106 --engine-use-ray --worker-use-ray --tensor-parallel-size N
+python -m ochat.serving.openai_api_server --model MODEL_REPO --engine-use-ray --worker-use-ray --tensor-parallel-size N
 ```
 
 use `-h` to see more settings
 ```bash
-python -m ochat.serving.openai_api_server --model openchat/openchat-3.5-0106 -h
+python -m ochat.serving.openai_api_server --model MODEL_REPO -h
 ```
 
 <details>
@@ -234,7 +238,7 @@ Once started, the server listens at `localhost:18888` for requests and is compat
 curl http://localhost:18888/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openchat_3.5",
+    "model": "MODEL_TYPE",
     "messages": [{"role": "user", "content": "You are a large language model named OpenChat. Write a poem to describe yourself"}]
   }'
 ```
@@ -245,7 +249,7 @@ curl http://localhost:18888/v1/chat/completions \
 curl http://localhost:18888/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "openchat_3.5",
+    "model": "MODEL_TYPE",
     "condition": "Math Correct",
     "messages": [{"role": "user", "content": "10.3 − 7988.8133 = "}]
   }'
