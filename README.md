@@ -387,18 +387,15 @@ You can find checkpoints of all epochs in `PATH_TO_SAVE_MODEL`. Then you may eva
 
 # Limitations
 
-## Foundation Model Limitations
-Despite its advanced capabilities, OpenChat is still bound by the limitations inherent in its foundation models. These limitations may impact the model's performance in areas such as:
+**Foundation Model Limitations**: Despite its advanced capabilities, OpenChat is still bound by the limitations inherent in its foundation models. These limitations may impact the model's performance in areas such as:
 
  - Complex reasoning
  - Mathematical and arithmetic tasks
  - Programming and coding challenges
 
-## Hallucination of Non-existent Information
-OpenChat may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained the model.
+**Hallucination of Non-existent Information:** OpenChat may sometimes generate information that does not exist or is not accurate, also known as "hallucination". Users should be aware of this possibility and verify any critical information obtained the model.
 
-## Safety
-OpenChat may sometimes generate harmful, hate speech, biased responses, or answer unsafe questions. It's crucial to apply additional AI safety measures in use cases that require safe and moderated responses.
+**Safety:** OpenChat may sometimes generate harmful, hate speech, biased responses, or answer unsafe questions. It's crucial to apply additional AI safety measures in use cases that require safe and moderated responses.
 
 # License
 
