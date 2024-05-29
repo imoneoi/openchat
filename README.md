@@ -359,6 +359,7 @@ python -m ochat.data.generate_dataset --model-type MODEL_TYPE --model-path BASE_
 You can now launch the OpenChat trainer using the command below.
 - 13B model requires eight `A/H100s` with 80GB VRAM
 - 7B model can be trained with four `A/H100s` with 80GB VRAM or eight `A/H100s` with 40GB VRAM.
+- [NEW] With Deepspeed ZeRO-3, 7B model can be trained with eight `A10G` with 24GB VRAM.
 
 For hyperparameters, we recommend first setting the batch size to the recommended batch size. If OOM occurs, try setting it to the exact maximum that VRAM can hold and as a multiple of `2048`.
 Other hyperparameters have been carefully selected as the default. Furthermore, the learning rate is automatically determined based on the [inverse square-root rule](https://arxiv.org/abs/2006.09092).
@@ -379,6 +380,26 @@ deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train \
           --save_every 1 \
           --deepspeed \
           --deepspeed_config ochat/training_deepspeed/deepspeed_config.json
+```
+
+</details>
+
+<details>
+
+<summary>Training Commands with Deepspeed ZeRO-3 (click to expand)</summary>
+
+```bash
+NUM_GPUS=8
+
+deepspeed --num_gpus=$NUM_GPUS --module ochat.training_deepspeed.train_zero3 \
+          --model_path BASE_REPO \
+          --data_prefix PRETOKENIZED_DATA_OUTPUT_PATH \
+          --save_path PATH_TO_SAVE_MODEL \
+          --batch_max_len BATCH_SIZE \
+          --epochs 5 \
+          --save_every 1 \
+          --deepspeed \
+          --deepspeed_config ochat/training_deepspeed/deepspeed_config_zero3.json
 ```
 
 </details>
