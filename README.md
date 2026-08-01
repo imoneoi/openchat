@@ -5,7 +5,6 @@
 </div>
 
 <p align="center">
-  <a href="https://openchat.team">💻Online Demo</a> |
   <a href="https://huggingface.co/openchat">🤗Huggingface</a> |
   <a href="https://arxiv.org/pdf/2309.11235.pdf">📃Paper</a> |
   <a href="https://discord.gg/pQjnXvNKHY">💭Discord</a> 
